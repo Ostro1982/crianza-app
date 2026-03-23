@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "56532389351",
+    "project_id": "crianza-d65d3",
+    "storage_bucket": "crianza-d65d3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:56532389351:android:c5bd6465b65702737bc142",
+        "android_client_info": {
+          "package_name": "com.tudominio.crianza"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHO92khzMhekfp3rnd0aBZoT3n90oVVHI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

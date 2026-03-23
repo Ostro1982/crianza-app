@@ -51,69 +51,77 @@ class SyncManager(
     )
 
     @Suppress("UNCHECKED_CAST")
-    private fun Map<String, Any>.toEvento(): Evento? = try {
-        Evento(
-            id = this["id"] as? String ?: return null,
-            titulo = this["titulo"] as? String ?: "",
-            descripcion = this["descripcion"] as? String ?: "",
-            fecha = this["fecha"] as? String ?: "",
-            horaInicio = (this["horaInicio"] as? String)?.ifEmpty { null },
-            horaFin = (this["horaFin"] as? String)?.ifEmpty { null },
-            color = (this["color"] as? Long)?.toInt() ?: 0,
-            fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
-            ubicacion = this["ubicacion"] as? String ?: "",
-            origenEmail = this["origenEmail"] as? Boolean ?: false,
-            asistenciaPadre1 = this["asistenciaPadre1"] as? String ?: "",
-            asistenciaPadre2 = this["asistenciaPadre2"] as? String ?: ""
-        )
-    } catch (e: Exception) { null }
+    private fun Map<String, Any>.toEvento(): Evento? {
+        return try {
+            Evento(
+                id = this["id"] as? String ?: return null,
+                titulo = this["titulo"] as? String ?: "",
+                descripcion = this["descripcion"] as? String ?: "",
+                fecha = this["fecha"] as? String ?: "",
+                horaInicio = (this["horaInicio"] as? String)?.ifEmpty { null },
+                horaFin = (this["horaFin"] as? String)?.ifEmpty { null },
+                color = (this["color"] as? Long)?.toInt() ?: 0,
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
+                ubicacion = this["ubicacion"] as? String ?: "",
+                origenEmail = this["origenEmail"] as? Boolean ?: false,
+                asistenciaPadre1 = this["asistenciaPadre1"] as? String ?: "",
+                asistenciaPadre2 = this["asistenciaPadre2"] as? String ?: ""
+            )
+        } catch (e: Exception) { null }
+    }
 
     @Suppress("UNCHECKED_CAST")
-    private fun Map<String, Any>.toGasto(): Gasto? = try {
-        Gasto(
-            id = this["id"] as? String ?: return null,
-            descripcion = this["descripcion"] as? String ?: "",
-            monto = this["monto"] as? Double ?: 0.0,
-            fecha = this["fecha"] as? String ?: "",
-            idPagador = this["idPagador"] as? String ?: "",
-            nombrePagador = this["nombrePagador"] as? String ?: "",
-            idsHijos = (this["idsHijos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            nombresHijos = this["nombresHijos"] as? String ?: "",
-            dividirAutomatico = this["dividirAutomatico"] as? Boolean ?: true,
-            fechaCompleta = this["fechaCompleta"] as? Long ?: 0L
-        )
-    } catch (e: Exception) { null }
+    private fun Map<String, Any>.toGasto(): Gasto? {
+        return try {
+            Gasto(
+                id = this["id"] as? String ?: return null,
+                descripcion = this["descripcion"] as? String ?: "",
+                monto = this["monto"] as? Double ?: 0.0,
+                fecha = this["fecha"] as? String ?: "",
+                idPagador = this["idPagador"] as? String ?: "",
+                nombrePagador = this["nombrePagador"] as? String ?: "",
+                idsHijos = (this["idsHijos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                nombresHijos = this["nombresHijos"] as? String ?: "",
+                dividirAutomatico = this["dividirAutomatico"] as? Boolean ?: true,
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L
+            )
+        } catch (e: Exception) { null }
+    }
 
     @Suppress("UNCHECKED_CAST")
-    private fun Map<String, Any>.toItemCompra(): ItemCompra? = try {
-        ItemCompra(
-            id = this["id"] as? String ?: return null,
-            descripcion = this["descripcion"] as? String ?: "",
-            cantidad = this["cantidad"] as? String ?: "1",
-            unidad = this["unidad"] as? String ?: "",
-            categoria = this["categoria"] as? String ?: "",
-            subcategoria = this["subcategoria"] as? String ?: "",
-            precio = this["precio"] as? Double ?: 0.0,
-            comprado = this["comprado"] as? Boolean ?: false,
-            agregadoPor = this["agregadoPor"] as? String ?: "",
-            idPagador = this["idPagador"] as? String ?: "",
-            fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
-            esPrivado = this["esPrivado"] as? Boolean ?: false,
-            idPropietario = this["idPropietario"] as? String ?: ""
-        )
-    } catch (e: Exception) { null }
+    private fun Map<String, Any>.toItemCompra(): ItemCompra? {
+        return try {
+            ItemCompra(
+                id = this["id"] as? String ?: return null,
+                descripcion = this["descripcion"] as? String ?: "",
+                cantidad = this["cantidad"] as? String ?: "1",
+                unidad = this["unidad"] as? String ?: "",
+                categoria = this["categoria"] as? String ?: "",
+                subcategoria = this["subcategoria"] as? String ?: "",
+                precio = this["precio"] as? Double ?: 0.0,
+                comprado = this["comprado"] as? Boolean ?: false,
+                agregadoPor = this["agregadoPor"] as? String ?: "",
+                idPagador = this["idPagador"] as? String ?: "",
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
+                esPrivado = this["esPrivado"] as? Boolean ?: false,
+                idPropietario = this["idPropietario"] as? String ?: ""
+            )
+        } catch (e: Exception) { null }
+    }
 
     @Suppress("UNCHECKED_CAST")
-    private fun Map<String, Any>.toMensaje(): Mensaje? = try {
-        Mensaje(
-            id = this["id"] as? String ?: return null,
-            idEmisor = this["idEmisor"] as? String ?: "",
-            nombreEmisor = this["nombreEmisor"] as? String ?: "",
-            texto = this["texto"] as? String ?: "",
-            fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
-            leido = this["leido"] as? Boolean ?: false
-        )
-    } catch (e: Exception) { null }
+    private fun Map<String, Any>.toMensaje(): Mensaje? {
+        return try {
+            Mensaje(
+                id = this["id"] as? String ?: return null,
+                idEmisor = this["idEmisor"] as? String ?: "",
+                nombreEmisor = this["nombreEmisor"] as? String ?: "",
+                texto = this["texto"] as? String ?: "",
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
+                leido = this["leido"] as? Boolean ?: false
+            )
+        } catch (e: Exception) { null }
+    }
 
     // ── Escrituras (Room + Firestore) ─────────────────────────────────────────
 
