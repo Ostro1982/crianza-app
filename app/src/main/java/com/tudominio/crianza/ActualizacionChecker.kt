@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit
 object ActualizacionChecker {
 
     // ── Configurar con tu usuario y repo de GitHub ─────────────────────────────
-    private const val GITHUB_OWNER = "TU_USUARIO"   // ← reemplazar con tu usuario de GitHub
-    private const val GITHUB_REPO  = "crianza-app"  // ← reemplazar con el nombre de tu repo
+    private const val GITHUB_OWNER = "Ostro1982"
+    private const val GITHUB_REPO  = "crianza-app"
     // ───────────────────────────────────────────────────────────────────────────
 
     private const val API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
