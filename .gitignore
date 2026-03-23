@@ -1,0 +1,16 @@
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# App build outputs (subimos el APK manualmente a releases)
+app/build/
+
+# Gradle wrapper jar
+gradle/wrapper/gradle-wrapper.jar

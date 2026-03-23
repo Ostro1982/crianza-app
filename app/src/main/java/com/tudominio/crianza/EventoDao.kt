@@ -1,0 +1,28 @@
+package com.tudominio.crianza
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import androidx.room.Update
+import androidx.room.Delete
+
+@Dao
+interface EventoDao {
+    @Insert
+    suspend fun insertarEvento(evento: Evento)
+
+    @Update
+    suspend fun actualizarEvento(evento: Evento)
+
+    @Delete
+    suspend fun eliminarEvento(evento: Evento)
+
+    @Query("SELECT * FROM eventos ORDER BY fecha, horaInicio")
+    suspend fun obtenerTodosLosEventos(): List<Evento>
+
+    @Query("SELECT * FROM eventos WHERE fecha = :fecha ORDER BY horaInicio")
+    suspend fun obtenerEventosPorFecha(fecha: String): List<Evento>
+
+    @Query("SELECT COUNT(*) FROM eventos WHERE titulo = :titulo AND fecha = :fecha")
+    suspend fun contarDuplicado(titulo: String, fecha: String): Int
+}

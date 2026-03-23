@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(**)",
+      "Edit(**)",
+      "Bash(git status)",
+      "Bash(git diff *)"
+    ]
+  }
+}
+```
+
+Esto le da a Claude acceso de lectura y edición a todos los archivos de la carpeta sin preguntar, pero todavía pedirá confirmación para comandos potencialmente peligrosos. 
+
+---
+
+## Opción 3: Modo sin restricciones — "YOLO mode" ⚠️
+
+El flag `--dangerously-skip-permissions` aprueba automáticamente todo: comandos de terminal, ediciones de archivos, peticiones de red. Sin diálogos de confirmación. Sin pausa. 
+
+Para activarlo, iniciás Claude Code así:
+```
+claude --dangerously-skip-permissions
