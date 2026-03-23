@@ -2,13 +2,14 @@ package com.tudominio.crianza
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import androidx.room.Delete
 
 @Dao
 interface GastoDao {
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarGasto(gasto: Gasto)
 
     @Update
@@ -28,4 +29,7 @@ interface GastoDao {
 
     @Query("SELECT COUNT(*) FROM gastos WHERE descripcion = :desc AND monto = :monto AND fecha = :fecha")
     suspend fun contarDuplicado(desc: String, monto: Double, fecha: String): Int
+
+    @Query("DELETE FROM gastos WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }

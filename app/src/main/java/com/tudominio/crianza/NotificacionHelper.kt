@@ -87,6 +87,9 @@ object NotificacionHelper {
     fun notificarGasto(context: Context, descripcion: String, monto: Double) =
         notificar(context, "💳 Nuevo gasto registrado", "$descripcion — $${"%.2f".format(monto)}")
 
+    fun notificarCompensacion(context: Context, monto: Double) =
+        notificar(context, "⚖️ Nueva compensación", "Se ha registrado una compensación de $${"%.2f".format(monto)}")
+
     fun notificarItemCompra(context: Context, descripcion: String) =
         notificar(context, "🛒 Nuevo ítem en compras", descripcion)
 

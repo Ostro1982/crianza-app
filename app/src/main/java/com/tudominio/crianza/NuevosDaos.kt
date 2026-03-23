@@ -27,6 +27,9 @@ interface ItemCompraDao {
 
     @Query("SELECT COUNT(*) FROM items_compra WHERE descripcion = :desc AND comprado = 0 AND esPrivado = 0")
     suspend fun contarDuplicadoCompartido(desc: String): Int
+
+    @Query("DELETE FROM items_compra WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }
 
 @Dao
@@ -72,4 +75,7 @@ interface MensajeDao {
 
     @Delete
     suspend fun eliminar(mensaje: Mensaje)
+
+    @Query("DELETE FROM mensajes WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }

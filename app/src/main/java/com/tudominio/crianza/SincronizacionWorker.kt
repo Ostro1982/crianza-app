@@ -57,8 +57,9 @@ class SincronizacionWorker(
                                     comando.datos["descripcion"] ?: "Gasto",
                                     comando.datos["monto"]?.toDoubleOrNull() ?: 0.0)
                             "compensacion" -> if (config.notifCompensaciones)
-                                NotificacionHelper.notificarCompensacion(ctx,
-                                    comando.datos["monto"]?.toDoubleOrNull() ?: 0.0)
+                                NotificacionHelper.notificar(ctx,
+                                    "⚖️ Nueva compensación",
+                                    "Monto: ${"%.2f".format(comando.datos["monto"]?.toDoubleOrNull() ?: 0.0)}")
                             "compra" -> if (config.notifCompras)
                                 NotificacionHelper.notificarItemCompra(ctx,
                                     comando.datos["descripcion"] ?: "Nuevo ítem")

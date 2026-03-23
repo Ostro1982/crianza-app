@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
 fun NavegacionApp() {
     val context = LocalContext.current
     val db = remember { AppDatabase.getInstance(context) }
+    val syncManager = remember { SyncManager(context, db) }
 
     val scope = rememberCoroutineScope()
 
@@ -169,6 +171,14 @@ fun NavegacionApp() {
 
             // Navegar según estado guardado
             pantallaActual = if (padres.isNotEmpty()) "principal" else "seleccionModo"
+
+            // Iniciar sincronización Firestore (después de setear pantalla)
+            syncManager.iniciarListeners(
+                onEventosActualizados  = { scope.launch { eventos     = db.eventoDao().obtenerTodosLosEventos() } },
+                onGastosActualizados   = { scope.launch { gastos      = db.gastoDao().obtenerTodosLosGastos() } },
+                onItemsActualizados    = { scope.launch { itemsCompra = db.itemCompraDao().obtenerTodos() } },
+                onMensajesActualizados = { scope.launch { mensajes    = db.mensajeDao().obtenerTodos() } }
+            )
 
             // Chequear actualizaciones en background
             scope.launch {
@@ -267,7 +277,8 @@ fun NavegacionApp() {
             onConfiguracion = { pantallaActual = "configuracion" },
             onAtras = { pantallaActual = "registroFamilia" },
             onEditarFamilia = { pantallaActual = "registroFamilia" },
-            onGoogle = { pantallaActual = "google" }
+            onGoogle = { pantallaActual = "google" },
+            onVincular = { pantallaActual = "vincular" }
         )
         "tiempo" -> PantallaTiempo(
             hijos = hijos,
@@ -327,7 +338,7 @@ fun NavegacionApp() {
             padres = padres,
             onAgregarEvento = { nuevoEvento ->
                 scope.launch {
-                    db.eventoDao().insertarEvento(nuevoEvento)
+                    syncManager.insertarEvento(nuevoEvento)
                     eventos = db.eventoDao().obtenerTodosLosEventos()
                 }
             },
@@ -335,14 +346,14 @@ fun NavegacionApp() {
                 scope.launch {
                     val evento = eventos.find { it.id == id }
                     if (evento != null) {
-                        db.eventoDao().eliminarEvento(evento)
+                        syncManager.eliminarEvento(evento)
                         eventos = db.eventoDao().obtenerTodosLosEventos()
                     }
                 }
             },
             onEditarEvento = { eventoEditado ->
                 scope.launch {
-                    db.eventoDao().actualizarEvento(eventoEditado)
+                    syncManager.actualizarEvento(eventoEditado)
                     eventos = db.eventoDao().obtenerTodosLosEventos()
                 }
             },
@@ -356,7 +367,7 @@ fun NavegacionApp() {
             padres = padres,
             onAgregarGasto = { nuevoGasto ->
                 scope.launch {
-                    db.gastoDao().insertarGasto(nuevoGasto)
+                    syncManager.insertarGasto(nuevoGasto)
                     gastos = db.gastoDao().obtenerTodosLosGastos()
                 }
             },
@@ -364,14 +375,14 @@ fun NavegacionApp() {
                 scope.launch {
                     val gasto = gastos.find { it.id == id }
                     if (gasto != null) {
-                        db.gastoDao().eliminarGasto(gasto)
+                        syncManager.eliminarGasto(gasto)
                         gastos = db.gastoDao().obtenerTodosLosGastos()
                     }
                 }
             },
             onEditarGasto = { gastoEditado ->
                 scope.launch {
-                    db.gastoDao().actualizarGasto(gastoEditado)
+                    syncManager.actualizarGasto(gastoEditado)
                     gastos = db.gastoDao().obtenerTodosLosGastos()
                 }
             },
@@ -420,9 +431,9 @@ fun NavegacionApp() {
             padres = padres,
             idPadreActual = idPadreActual,
             categoriasPersonalizadas = categoriasCompra,
-            onAgregar = { item -> scope.launch { db.itemCompraDao().insertar(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
-            onActualizar = { item -> scope.launch { db.itemCompraDao().actualizar(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
-            onEliminar = { item -> scope.launch { db.itemCompraDao().eliminar(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
+            onAgregar = { item -> scope.launch { syncManager.insertarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
+            onActualizar = { item -> scope.launch { syncManager.actualizarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
+            onEliminar = { item -> scope.launch { syncManager.eliminarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
             onEliminarComprados = { scope.launch { db.itemCompraDao().eliminarComprados(); itemsCompra = db.itemCompraDao().obtenerTodos() } },
             onAgregarCategoria = { cat -> scope.launch { db.categoriaCompraDao().insertar(cat); categoriasCompra = db.categoriaCompraDao().obtenerTodas() } },
             onAtras = { pantallaActual = "principal" }
@@ -438,7 +449,7 @@ fun NavegacionApp() {
             mensajes = mensajes,
             padres = padres,
             configuracion = configuracionIntegracion,
-            onEnviar = { msg -> scope.launch { db.mensajeDao().insertar(msg); mensajes = db.mensajeDao().obtenerTodos() } },
+            onEnviar = { msg -> scope.launch { syncManager.insertarMensaje(msg); mensajes = db.mensajeDao().obtenerTodos() } },
             onAtras = { pantallaActual = "principal" }
         )
         "configuracion" -> PantallaConfiguracion(
@@ -468,6 +479,10 @@ fun NavegacionApp() {
                     filtrosEmail = db.filtroEmailDao().obtenerTodos()
                 }
             },
+            onAtras = { pantallaActual = "principal" }
+        )
+        "vincular" -> PantallaVincular(
+            onVinculado = { pantallaActual = "principal" },
             onAtras = { pantallaActual = "principal" }
         )
         "google" -> PantallaGoogle(
@@ -698,7 +713,8 @@ fun PantallaPrincipal(
     onConfiguracion: () -> Unit,
     onAtras: () -> Unit,
     onEditarFamilia: () -> Unit,
-    onGoogle: () -> Unit = {}
+    onGoogle: () -> Unit = {},
+    onVincular: () -> Unit = {}
 ) {
     val menuItems = listOf(
         ItemMenuPrincipal("Tiempo",       "Registros diarios",   Icons.Default.AccessTime,           0, onTiempo),
@@ -709,6 +725,7 @@ fun PantallaPrincipal(
         ItemMenuPrincipal("Mensajes",     "Comunicación",        Icons.Default.Chat,                 5, onMensajes),
         ItemMenuPrincipal("Recuerdos",    "Momentos especiales", Icons.Default.MenuBook,             6, onRecuerdos),
         ItemMenuPrincipal("Documentos",   "Bóveda privada",      Icons.Default.Lock,                 7, onDocumentos),
+        ItemMenuPrincipal("Sincronizar",  "Vincular dispositivos", Icons.Default.Sync,               8, onVincular),
     )
 
     // ── Estado dinámico del dashboard ──────────────────────────────────────────

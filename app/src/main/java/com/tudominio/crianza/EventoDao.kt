@@ -2,13 +2,14 @@ package com.tudominio.crianza
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import androidx.room.Delete
 
 @Dao
 interface EventoDao {
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarEvento(evento: Evento)
 
     @Update
@@ -25,4 +26,7 @@ interface EventoDao {
 
     @Query("SELECT COUNT(*) FROM eventos WHERE titulo = :titulo AND fecha = :fecha")
     suspend fun contarDuplicado(titulo: String, fecha: String): Int
+
+    @Query("DELETE FROM eventos WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }
