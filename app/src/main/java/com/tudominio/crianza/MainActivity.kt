@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -415,6 +416,9 @@ fun NavegacionApp() {
             onEditarCompensacion = { compEditada ->
                 scope.launch {
                     db.compensacionDao().actualizarCompensacion(compEditada)
+                    if (compEditada.confirmada) {
+                        db.compensacionDao().eliminarCompensacion(compEditada)
+                    }
                     compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
                 }
             },
@@ -729,7 +733,6 @@ fun PantallaPrincipal(
         ItemMenuPrincipal("Mensajes",     "Comunicación",        Icons.Default.Chat,                 5, onMensajes),
         ItemMenuPrincipal("Recuerdos",    "Momentos especiales", Icons.Default.MenuBook,             6, onRecuerdos),
         ItemMenuPrincipal("Documentos",   "Bóveda privada",      Icons.Default.Lock,                 7, onDocumentos),
-        ItemMenuPrincipal("Sincronizar",  "Vincular dispositivos", Icons.Default.Sync,               8, onVincular),
     )
 
     // ── Estado dinámico del dashboard ──────────────────────────────────────────
@@ -790,55 +793,36 @@ fun PantallaPrincipal(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ── Header glass ──────────────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(HeaderCardGrad)
-                    .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ── Selector "Soy yo" compacto ────────────────────────────────────
+            if (padres.size >= 2) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        "Crianza Compartida",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        "Soy yo:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.6f)
                     )
-                    if (hijos.isNotEmpty()) {
-                        Text(
-                            hijos.joinToString("  •  ") { it.nombre },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
+                    padres.forEach { padre ->
+                        FilterChip(
+                            selected = idPadreActual == padre.id,
+                            onClick = { onCambiarPadreActual(padre.id) },
+                            label = { Text(padre.nombre, fontWeight = if (idPadreActual == padre.id) FontWeight.Bold else FontWeight.Normal) },
+                            leadingIcon = if (idPadreActual == padre.id) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color.White.copy(alpha = 0.35f),
+                                selectedLabelColor = Color.White,
+                                selectedLeadingIconColor = Color.White,
+                                containerColor = Color.White.copy(alpha = 0.12f),
+                                labelColor = Color.White.copy(alpha = 0.75f)
+                            )
                         )
-                    }
-                    if (padres.size >= 2) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "Soy yo:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            padres.forEach { padre ->
-                                FilterChip(
-                                    selected = idPadreActual == padre.id,
-                                    onClick = { onCambiarPadreActual(padre.id) },
-                                    label = { Text(padre.nombre, fontWeight = if (idPadreActual == padre.id) FontWeight.Bold else FontWeight.Normal) },
-                                    leadingIcon = if (idPadreActual == padre.id) {
-                                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = Color.White.copy(alpha = 0.35f),
-                                        selectedLabelColor = Color.White,
-                                        selectedLeadingIconColor = Color.White,
-                                        containerColor = Color.White.copy(alpha = 0.15f),
-                                        labelColor = Color.White.copy(alpha = 0.85f)
-                                    )
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -881,14 +865,57 @@ fun PantallaPrincipal(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Botón de cuenta Google
-                OutlinedButton(
-                    onClick = onGoogle,
+                // ── Sección inferior ──────────────────────────────────────────
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("👤  Cuenta Google / Invitar co-padre", color = Color.White)
+                    // Botón Cuenta / Co-padre
+                    OutlinedButton(
+                        onClick = onGoogle,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp)
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Column {
+                            Text("Cuenta", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Co-padre", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.6f))
+                        }
+                    }
+                    // Divisor vertical
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(52.dp)
+                            .align(Alignment.CenterVertically)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    )
+                    // Botón Vincular
+                    OutlinedButton(
+                        onClick = onVincular,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp)
+                    ) {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Column {
+                            Text("Vincular", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Dispositivos", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.6f))
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -961,7 +988,7 @@ fun ClimaCard() {
                 .clip(RoundedCornerShape(16.dp))
                 .background(GlassWhite)
                 .clickable { windyUrl()?.let { uriHandler.openUri(it) } }
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 20.dp, vertical = 18.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -969,26 +996,26 @@ fun ClimaCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Mañana", style = MaterialTheme.typography.labelSmall,
+                    Text("Mañana", style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.7f))
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(data.mananaIcono, fontSize = 20.sp)
-                        Text("${data.mananaTemp}°", style = MaterialTheme.typography.titleLarge,
+                        Text(data.mananaIcono, fontSize = 26.sp)
+                        Text("${data.mananaTemp}°", style = MaterialTheme.typography.headlineSmall,
                             color = Color.White, fontWeight = FontWeight.Bold)
                     }
                     Text("7 am", style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.5f))
                 }
-                Box(modifier = Modifier.height(36.dp).width(1.dp)
+                Box(modifier = Modifier.height(48.dp).width(1.dp)
                     .background(Color.White.copy(alpha = 0.3f)))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Tarde", style = MaterialTheme.typography.labelSmall,
+                    Text("Tarde", style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.7f))
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(data.tardeIcono, fontSize = 20.sp)
-                        Text("${data.tardeTemp}°", style = MaterialTheme.typography.titleLarge,
+                        Text(data.tardeIcono, fontSize = 26.sp)
+                        Text("${data.tardeTemp}°", style = MaterialTheme.typography.headlineSmall,
                             color = Color.White, fontWeight = FontWeight.Bold)
                     }
                     Text("4 pm", style = MaterialTheme.typography.labelSmall,
@@ -1019,9 +1046,9 @@ fun WidgetHoy(
             .clip(RoundedCornerShape(16.dp))
             .background(gradienteVerde)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1029,7 +1056,7 @@ fun WidgetHoy(
             ) {
                 Text(
                     "Hoy",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -1097,9 +1124,9 @@ fun WidgetComprasPendientes(
             .clip(RoundedCornerShape(16.dp))
             .background(gradienteRosa)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1107,7 +1134,7 @@ fun WidgetComprasPendientes(
             ) {
                 Text(
                     "Compras pendientes",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -1174,9 +1201,9 @@ fun WidgetAccionPrioritaria(
             .clip(RoundedCornerShape(16.dp))
             .background(gradienteRojo)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1184,7 +1211,7 @@ fun WidgetAccionPrioritaria(
             ) {
                 Text(
                     "Acción prioritaria",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )

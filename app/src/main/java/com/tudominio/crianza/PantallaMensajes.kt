@@ -44,8 +44,9 @@ fun PantallaMensajes(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(BgGrad5).imePadding()) {
+    Box(Modifier.fillMaxSize().background(BgGrad5)) {
     Scaffold(
+        modifier = Modifier.imePadding(),
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
@@ -86,6 +87,7 @@ fun PantallaMensajes(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(GlassWhiteHeavy)
+                        .navigationBarsPadding()
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
