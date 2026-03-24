@@ -4,6 +4,7 @@ package com.tudominio.crianza
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.draw.clip
 import com.tudominio.crianza.ui.theme.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,7 +44,7 @@ fun PantallaMensajes(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(BgGrad5)) {
+    Box(Modifier.fillMaxSize().background(BgGrad5).imePadding()) {
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {

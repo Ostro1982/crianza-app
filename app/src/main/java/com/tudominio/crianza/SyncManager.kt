@@ -9,6 +9,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class SyncManager(
     private val context: Context,
@@ -174,6 +176,32 @@ class SyncManager(
         db.mensajeDao().insertar(mensaje)
         col("mensajes").document(mensaje.id).set(mensaje.toMap())
     }
+
+    // ── Usuarios Google ───────────────────────────────────────────────────────
+
+    fun registrarUsuarioGoogle(usuario: UsuarioGoogle) {
+        fs.collection("usuarios").document(usuario.id).set(mapOf(
+            "email" to usuario.email,
+            "nombre" to usuario.nombre,
+            "fotoUrl" to (usuario.fotoUrl ?: ""),
+            "familyId" to familyId
+        ))
+    }
+
+    suspend fun buscarUsuarioPorEmail(email: String): Pair<String, String>? =
+        suspendCoroutine { cont ->
+            fs.collection("usuarios").whereEqualTo("email", email).get()
+                .addOnSuccessListener { snap ->
+                    if (snap.isEmpty) cont.resume(null)
+                    else {
+                        val doc = snap.documents.first()
+                        val nombre = doc.getString("nombre") ?: email
+                        val fid = doc.getString("familyId")
+                        cont.resume(if (fid != null) Pair(nombre, fid) else null)
+                    }
+                }
+                .addOnFailureListener { cont.resume(null) }
+        }
 
     // ── Listeners en tiempo real ──────────────────────────────────────────────
 

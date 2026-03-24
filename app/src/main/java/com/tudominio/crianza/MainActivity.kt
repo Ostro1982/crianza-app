@@ -483,12 +483,16 @@ fun NavegacionApp() {
         )
         "vincular" -> PantallaVincular(
             onVinculado = { pantallaActual = "principal" },
-            onAtras = { pantallaActual = "principal" }
+            onAtras = { pantallaActual = "principal" },
+            onBuscarEmail = { email -> syncManager.buscarUsuarioPorEmail(email) }
         )
         "google" -> PantallaGoogle(
             usuarioActual = usuarioGoogle,
             codigoFamiliar = codigoFamiliar,
-            onIniciarSesion = { user -> usuarioGoogle = user },
+            onIniciarSesion = { user ->
+                usuarioGoogle = user
+                syncManager.registrarUsuarioGoogle(user)
+            },
             onCerrarSesion = { usuarioGoogle = null },
             onAtras = { pantallaActual = "principal" }
         )

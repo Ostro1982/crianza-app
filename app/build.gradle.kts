@@ -13,8 +13,8 @@ android {
         applicationId = "com.tudominio.crianza"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -90,6 +90,9 @@ dependencies {
     // JavaMail para Android (IMAP)
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
+
+    // Coil — carga de imágenes (fotos en recuerdos)
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     // Google Sign-In (Credential Manager — sin Firebase)
     implementation("androidx.credentials:credentials:1.3.0")

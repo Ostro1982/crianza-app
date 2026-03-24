@@ -19,7 +19,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
  * 4. Copiar el "Client ID" y reemplazar el valor de GOOGLE_WEB_CLIENT_ID abajo.
  * 5. También crear credencial tipo "Android" con tu SHA-1 (ver: Build > Generate Signed Bundle > SHA-1)
  */
-const val GOOGLE_WEB_CLIENT_ID = "TU_CLIENT_ID.apps.googleusercontent.com"
+const val GOOGLE_WEB_CLIENT_ID = "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com"
 
 data class UsuarioGoogle(
     val id: String,
@@ -74,10 +74,10 @@ class GoogleAuthHelper(private val context: Context) {
     companion object {
         fun compartirApp(context: Context, codigofamiliar: String) {
             val texto = """
-¡Te invito a usar Crianza Compartida! 📱
+¡Te invito a usar Crianza! 📱
 
 Es una app para coordinar la crianza de los hijos entre padres.
-Podés descargarla en Google Play buscando "Crianza Compartida".
+Descargala acá: https://github.com/Ostro1982/crianza-app/releases/latest
 
 Código de familia para conectarnos: $codigofamiliar
             """.trimIndent()

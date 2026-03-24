@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.Edit
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Sync
@@ -31,7 +33,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
 import com.tudominio.crianza.ui.theme.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -779,23 +783,36 @@ fun PantallaRecuerdos(
                         modifier = Modifier.fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp)).background(GlassWhite)
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Image, contentDescription = null, tint = Color.White.copy(alpha = 0.8f))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(recuerdo.titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                        Column {
+                            if (!recuerdo.imagenUri.isNullOrEmpty()) {
+                                AsyncImage(
+                                    model = recuerdo.imagenUri!!.let { if (it.startsWith("/")) java.io.File(it) else it },
+                                    contentDescription = "Foto del recuerdo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp)
+                                        .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                                )
                             }
-                            Text(recuerdo.fecha, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
-                            if (recuerdo.descripcion.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(recuerdo.descripcion, color = Color.White.copy(alpha = 0.85f))
-                            }
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                IconButton(onClick = { recuerdoEditando = recuerdo }) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Image, contentDescription = null, tint = Color.White.copy(alpha = 0.8f))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(recuerdo.titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
-                                IconButton(onClick = { onEliminarRecuerdo(recuerdo.id) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFF87171))
+                                Text(recuerdo.fecha, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                if (recuerdo.descripcion.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(recuerdo.descripcion, color = Color.White.copy(alpha = 0.85f))
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                    IconButton(onClick = { recuerdoEditando = recuerdo }) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
+                                    }
+                                    IconButton(onClick = { onEliminarRecuerdo(recuerdo.id) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFF87171))
+                                    }
                                 }
                             }
                         }
@@ -824,6 +841,25 @@ fun DialogoRecuerdo(recuerdo: Recuerdo?, onDismiss: () -> Unit, onGuardar: (Recu
     var titulo by remember { mutableStateOf(recuerdo?.titulo ?: "") }
     var fecha by remember { mutableStateOf(recuerdo?.fecha ?: obtenerFechaActual()) }
     var desc by remember { mutableStateOf(recuerdo?.descripcion ?: "") }
+    var imagenUri by remember { mutableStateOf(recuerdo?.imagenUri) }
+    val context = LocalContext.current
+
+    val fotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val dir = java.io.File(context.filesDir, "recuerdos").also { it.mkdirs() }
+            val file = java.io.File(dir, "${UUID.randomUUID()}.jpg")
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+                imagenUri = file.absolutePath
+            } catch (_: Exception) {
+                imagenUri = uri.toString()
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -838,12 +874,36 @@ fun DialogoRecuerdo(recuerdo: Recuerdo?, onDismiss: () -> Unit, onGuardar: (Recu
                     label = { Text("Descripción detallada") },
                     modifier = Modifier.height(100.dp)
                 )
-                Text("Nota: La carga de fotos reales requiere permisos adicionales.", fontSize = 12.sp, color = Color.Gray)
+                if (!imagenUri.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = imagenUri!!.let { if (it.startsWith("/")) java.io.File(it) else it },
+                        contentDescription = "Foto seleccionada",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        fotoPicker.launch(
+                            androidx.activity.result.PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (imagenUri.isNullOrEmpty()) "Agregar foto" else "Cambiar foto")
+                }
             }
         },
         confirmButton = {
-            Button(onClick = { 
-                onGuardar(Recuerdo(id = recuerdo?.id ?: UUID.randomUUID().toString(), titulo = titulo, fecha = fecha, descripcion = desc))
+            Button(onClick = {
+                onGuardar(Recuerdo(id = recuerdo?.id ?: UUID.randomUUID().toString(), titulo = titulo, fecha = fecha, descripcion = desc, imagenUri = imagenUri))
             }, enabled = titulo.isNotBlank()) {
                 Text("Guardar")
             }

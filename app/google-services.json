@@ -12,7 +12,20 @@
           "package_name": "com.tudominio.crianza"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "56532389351-5btjm5n06uble9cf424ik965ct1ejh8m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tudominio.crianza",
+            "certificate_hash": "ec96fa0c3804dc9b32091841bb05166b5ab2cc5a"
+          }
+        },
+        {
+          "client_id": "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCHO92khzMhekfp3rnd0aBZoT3n90oVVHI"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
