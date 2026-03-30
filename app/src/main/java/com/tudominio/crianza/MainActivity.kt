@@ -175,11 +175,16 @@ fun NavegacionApp() {
 
             // Iniciar sincronización Firestore (después de setear pantalla)
             syncManager.iniciarListeners(
-                onEventosActualizados  = { scope.launch { eventos     = db.eventoDao().obtenerTodosLosEventos() } },
-                onGastosActualizados   = { scope.launch { gastos      = db.gastoDao().obtenerTodosLosGastos() } },
-                onItemsActualizados    = { scope.launch { itemsCompra = db.itemCompraDao().obtenerTodos() } },
-                onMensajesActualizados = { scope.launch { mensajes    = db.mensajeDao().obtenerTodos() } }
+                onEventosActualizados        = { scope.launch { eventos         = db.eventoDao().obtenerTodosLosEventos() } },
+                onGastosActualizados         = { scope.launch { gastos          = db.gastoDao().obtenerTodosLosGastos() } },
+                onItemsActualizados          = { scope.launch { itemsCompra     = db.itemCompraDao().obtenerTodos() } },
+                onMensajesActualizados       = { scope.launch { mensajes        = db.mensajeDao().obtenerTodos() } },
+                onRegistrosActualizados      = { scope.launch { registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros() } },
+                onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones() } }
             )
+
+            // Subir datos locales a Firestore si es la primera vez
+            scope.launch { syncManager.subirDatosLocalesIfNeeded() }
 
             // Chequear actualizaciones en background
             scope.launch {
@@ -229,9 +234,9 @@ fun NavegacionApp() {
                     db.familiaDao().eliminarTodosLosPadres()
                     db.familiaDao().eliminarTodosLosHijos()
 
-                    val nuevosPadres = adultosForm.mapIndexed { index, form ->
+                    val nuevosPadres = adultosForm.map { form ->
                         Padre(
-                            id = "padre$index",
+                            id = java.util.UUID.randomUUID().toString(),
                             nombre = form.nombre,
                             telefono = form.telefono,
                             email = form.email,
@@ -241,9 +246,9 @@ fun NavegacionApp() {
                     }
                     nuevosPadres.forEach { db.familiaDao().insertarPadre(it) }
 
-                    val nuevosHijos = hijosForm.mapIndexed { index, form ->
+                    val nuevosHijos = hijosForm.map { form ->
                         Hijo(
-                            id = "hijo$index",
+                            id = java.util.UUID.randomUUID().toString(),
                             nombre = form.nombre,
                             fechaNacimiento = form.fechaNacimiento
                         )
@@ -287,13 +292,13 @@ fun NavegacionApp() {
             registros = registrosTiempo,
             onAgregarRegistro = { nuevoRegistro ->
                 scope.launch {
-                    db.registroTiempoDao().insertarRegistro(nuevoRegistro)
+                    syncManager.insertarRegistro(nuevoRegistro)
                     registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
                 }
             },
             onAgregarMultiplesRegistros = { nuevosRegistros ->
                 scope.launch {
-                    db.registroTiempoDao().insertarRegistros(nuevosRegistros)
+                    nuevosRegistros.forEach { syncManager.insertarRegistro(it) }
                     registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
                 }
             },
@@ -301,14 +306,14 @@ fun NavegacionApp() {
                 scope.launch {
                     val registro = registrosTiempo.find { it.id == id }
                     if (registro != null) {
-                        db.registroTiempoDao().eliminarRegistro(registro)
+                        syncManager.eliminarRegistro(registro)
                         registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
                     }
                 }
             },
             onEditarRegistro = { registroEditado ->
                 scope.launch {
-                    db.registroTiempoDao().actualizarRegistro(registroEditado)
+                    syncManager.actualizarRegistro(registroEditado)
                     registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
                 }
             },
@@ -400,7 +405,7 @@ fun NavegacionApp() {
             itemsCompra = itemsCompra,
             onRegistrarCompensacion = { nuevaCompensacion ->
                 scope.launch {
-                    db.compensacionDao().insertarCompensacion(nuevaCompensacion)
+                    syncManager.insertarCompensacion(nuevaCompensacion)
                     compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
                 }
             },
@@ -408,16 +413,17 @@ fun NavegacionApp() {
                 scope.launch {
                     val comp = compensaciones.find { it.id == id }
                     if (comp != null) {
-                        db.compensacionDao().eliminarCompensacion(comp)
+                        syncManager.eliminarCompensacion(comp)
                         compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
                     }
                 }
             },
             onEditarCompensacion = { compEditada ->
                 scope.launch {
-                    db.compensacionDao().actualizarCompensacion(compEditada)
                     if (compEditada.confirmada) {
-                        db.compensacionDao().eliminarCompensacion(compEditada)
+                        syncManager.eliminarCompensacion(compEditada)
+                    } else {
+                        syncManager.actualizarCompensacion(compEditada)
                     }
                     compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
                 }

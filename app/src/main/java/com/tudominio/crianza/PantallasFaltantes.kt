@@ -611,40 +611,89 @@ fun PantallaGastos(
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues).padding(16.dp)) {
-            // Estado de deudas
-            if (padres.size >= 2) {
-                val totalPadre1 = gastos.filter { it.idPagador == padres[0].id }.sumOf { it.monto }
-                val totalPadre2 = gastos.filter { it.idPagador == padres[1].id }.sumOf { it.monto }
-                val deuda = (totalPadre1 - totalPadre2) / 2.0
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        .clip(RoundedCornerShape(12.dp)).background(GlassWhiteHeavy)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Estado de Cuentas", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(4.dp))
+            // Resumen mensual
+            val cal = Calendar.getInstance()
+            val mesActual = cal.get(Calendar.MONTH)
+            val anioActual = cal.get(Calendar.YEAR)
+            val nombresMeses = arrayOf(
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            )
+            val gastosMes = gastos.filter { g ->
+                val f = parseFecha(g.fecha)
+                esMismoMes(f, cal.time)
+            }
+            val totalMes = gastosMes.sumOf { it.monto }
+
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    .clip(RoundedCornerShape(16.dp)).background(GlassWhiteHeavy)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "${nombresMeses[mesActual]} $anioActual",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Total del mes: $${"%.2f".format(totalMes)}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    if (padres.size >= 2) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Divider(color = Color.White.copy(alpha = 0.15f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val totalP1Mes = gastosMes.filter { it.idPagador == padres[0].id }.sumOf { it.monto }
+                        val totalP2Mes = gastosMes.filter { it.idPagador == padres[1].id }.sumOf { it.monto }
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text(padres[0].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                Text("$${"%.2f".format(totalP1Mes)}", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(padres[1].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                Text("$${"%.2f".format(totalP2Mes)}", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Divider(color = Color.White.copy(alpha = 0.15f))
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Balance: quién le debe a quién
+                        val deudaMes = (totalP1Mes - totalP2Mes) / 2.0
                         val deudaTexto = when {
-                            deuda > 0 -> "${padres[1].nombre} debe a ${padres[0].nombre}: $${"%.2f".format(deuda)}"
-                            deuda < 0 -> "${padres[0].nombre} debe a ${padres[1].nombre}: $${"%.2f".format(-deuda)}"
-                            else -> "Cuentas equilibradas ✓"
+                            deudaMes > 0.01 -> "${padres[1].nombre} debe a ${padres[0].nombre}: $${"%.2f".format(deudaMes)}"
+                            deudaMes < -0.01 -> "${padres[0].nombre} debe a ${padres[1].nombre}: $${"%.2f".format(-deudaMes)}"
+                            else -> "Cuentas equilibradas"
                         }
                         Text(deudaTexto, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
 
+            // Total general
             val total = gastos.sumOf { it.monto }
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                    .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
-            ) {
-                Text(
-                    "Total: $${"%.2f".format(total)}",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
+            if (gastos.size != gastosMes.size) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                        .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
+                ) {
+                    Text(
+                        "Total general: $${"%.2f".format(total)}",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {

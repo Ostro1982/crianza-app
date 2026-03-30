@@ -813,13 +813,25 @@ private fun HistorialCard(
     onEliminar: () -> Unit,
     onEditar: (Compensacion) -> Unit
 ) {
-    val accentColor = if (comp.confirmada) Mint else Amber
+    // Indicador visual si lleva más de 3 días pendiente
+    val diasPendiente = if (!comp.confirmada) {
+        val ahora = System.currentTimeMillis()
+        val diffMs = ahora - comp.fechaCompleta
+        (diffMs / (1000L * 60 * 60 * 24)).toInt()
+    } else 0
+    val pendienteLarga = !comp.confirmada && diasPendiente >= 3
+    val WarningAmber = Color(0xFFFF9800)
+    val accentColor = when {
+        comp.confirmada -> Mint
+        pendienteLarga -> WarningAmber
+        else -> Amber
+    }
     Row(
         Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(20.dp))
-            .background(Glass10)
+            .background(if (pendienteLarga) Glass20 else Glass10)
     ) {
         // Acento lateral
         Box(Modifier.width(4.dp).fillMaxHeight().background(accentColor))
@@ -831,7 +843,11 @@ private fun HistorialCard(
                         Modifier.clip(RoundedCornerShape(50.dp)).background(accentColor.copy(.18f)).padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            if (comp.confirmada) "✓ Confirmada" else "⏳ Pendiente",
+                            when {
+                                comp.confirmada -> "Confirmada"
+                                pendienteLarga -> "Pendiente ($diasPendiente d)"
+                                else -> "Pendiente"
+                            },
                             color = accentColor,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold
