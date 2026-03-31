@@ -83,6 +83,20 @@ class WhatsAppListenerService : NotificationListenerService() {
         }
     }
 
+    /**
+     * Palabras clave que activan comandos sin necesidad del prefijo /.
+     * Se mapean al comando /equivalente para reutilizar parsearComando().
+     */
+    private val ALIAS_COMANDOS = mapOf(
+        "gasto" to "/gasto",
+        "gasté" to "/gasto",
+        "gaste" to "/gasto",
+        "compra" to "/compra",
+        "comprar" to "/compra",
+        "calendario" to "/evento",
+        "pendiente" to "/pendiente"
+    )
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName
         if (pkg != WHATSAPP_PKG && pkg != WHATSAPP_BUSINESS_PKG) return
@@ -91,34 +105,46 @@ class WhatsAppListenerService : NotificationListenerService() {
         val texto = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim() ?: return
         val titulo = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: return
 
-        // ── Path 1: comandos explícitos (comportamiento original) ──────────────
-        if (texto.startsWith("/")) {
-            Log.d("WhatsApp", "Comando de $titulo: $texto")
-            scope.launch {
-                try {
-                    val db = AppDatabase.getInstance(applicationContext)
-                    val config = db.configuracionIntegracionDao().obtener() ?: return@launch
-                    if (!config.habilitarWhatsApp) return@launch
-                    val padres = db.familiaDao().obtenerTodosLosPadres()
-                    val hijos = db.familiaDao().obtenerTodosLosHijos()
-                    if (padres.isEmpty()) return@launch
-
-                    val idPadre = identificarPadre(titulo, padres, config)
-                    val mensajeFictico = TelegramService.MensajeParsado(
-                        chatId = "", updateId = 0L, texto = texto, idPadre = idPadre
-                    )
-                    val comando = TelegramService(config).parsearComando(mensajeFictico) ?: return@launch
-                    val respuesta = ProcesadorComandos.procesar(comando, padres, hijos, db, config)
-                    Log.d("WhatsApp", "Respuesta: $respuesta")
-
-                    val telefono = if (idPadre == "padre1") config.whatsappTelefonoPadre1 else config.whatsappTelefonoPadre2
-                    if (telefono.isNotEmpty()) enviarMensaje(applicationContext, telefono, respuesta)
-                } catch (e: Exception) {
-                    Log.e("WhatsApp", "Error procesando comando", e)
-                }
-            }
-            return
+        // ── Normalizar: detectar comandos con o sin / ─────────────────────────
+        val textoComando = if (texto.startsWith("/")) {
+            texto
+        } else {
+            val primeraPalabra = texto.split("\\s+".toRegex()).firstOrNull()?.lowercase() ?: return
+            val prefijo = ALIAS_COMANDOS[primeraPalabra] ?: return
+            // Reemplazar la primera palabra por el comando con /
+            prefijo + texto.substring(primeraPalabra.length)
         }
+
+        Log.d("WhatsApp", "Comando de $titulo: $textoComando")
+        scope.launch {
+            try {
+                val db = AppDatabase.getInstance(applicationContext)
+                val config = db.configuracionIntegracionDao().obtener() ?: return@launch
+                if (!config.habilitarWhatsApp) return@launch
+                val padres = db.familiaDao().obtenerTodosLosPadres()
+                val hijos = db.familiaDao().obtenerTodosLosHijos()
+                if (padres.isEmpty()) return@launch
+
+                val idPadre = identificarPadre(titulo, padres, config)
+                val syncManager = SyncManager(applicationContext, db)
+                val mensajeFictico = TelegramService.MensajeParsado(
+                    chatId = "", updateId = 0L, texto = textoComando, idPadre = idPadre
+                )
+                val comando = TelegramService(config).parsearComando(mensajeFictico) ?: return@launch
+                val respuesta = ProcesadorComandos.procesar(comando, padres, hijos, db, config, syncManager)
+                Log.d("WhatsApp", "Respuesta: $respuesta")
+
+                // Notificación local con el resultado
+                NotificacionHelper.notificarComandoWhatsApp(applicationContext, respuesta)
+            } catch (e: Exception) {
+                Log.e("WhatsApp", "Error procesando comando", e)
+            }
+        }
+
+        // Si el texto original no era un comando, continuar con detección de grupos
+        if (texto.startsWith("/") || ALIAS_COMANDOS.containsKey(
+                texto.split("\\s+".toRegex()).firstOrNull()?.lowercase() ?: ""
+            )) return
 
         // ── Path 2: grupos escolares — detección automática de eventos ─────────
         scope.launch {

@@ -13,7 +13,8 @@ object ProcesadorComandos {
         padres: List<Padre>,
         hijos: List<Hijo>,
         db: AppDatabase,
-        config: ConfiguracionIntegracion
+        config: ConfiguracionIntegracion,
+        syncManager: SyncManager? = null
     ): String {
         if (padres.isEmpty()) return "❌ No hay padres configurados"
         val padre = when (comando.mensajeOrigen.idPadre) {
@@ -29,17 +30,17 @@ object ProcesadorComandos {
                 if (db.gastoDao().contarDuplicado(desc, monto, fecha) > 0) {
                     return "⚠️ Gasto ya registrado hoy: $desc"
                 }
-                db.gastoDao().insertarGasto(
-                    Gasto(
-                        id = UUID.randomUUID().toString(),
-                        descripcion = desc,
-                        monto = monto,
-                        fecha = fecha,
-                        idPagador = padre.id,
-                        nombrePagador = padre.nombre,
-                        fechaCompleta = System.currentTimeMillis()
-                    )
+                val gasto = Gasto(
+                    id = UUID.randomUUID().toString(),
+                    descripcion = desc,
+                    monto = monto,
+                    fecha = fecha,
+                    idPagador = padre.id,
+                    nombrePagador = padre.nombre,
+                    fechaCompleta = System.currentTimeMillis()
                 )
+                if (syncManager != null) syncManager.insertarGasto(gasto)
+                else db.gastoDao().insertarGasto(gasto)
                 "✅ Gasto: $desc — $${"%.2f".format(monto)} (${padre.nombre})"
             }
 
@@ -72,14 +73,14 @@ object ProcesadorComandos {
                 if (db.eventoDao().contarDuplicado(titulo, fecha) > 0) {
                     return "⚠️ Evento ya existe: $titulo ($fecha)"
                 }
-                db.eventoDao().insertarEvento(
-                    Evento(
-                        id = UUID.randomUUID().toString(),
-                        titulo = titulo,
-                        fecha = fecha,
-                        fechaCompleta = System.currentTimeMillis()
-                    )
+                val evento = Evento(
+                    id = UUID.randomUUID().toString(),
+                    titulo = titulo,
+                    fecha = fecha,
+                    fechaCompleta = System.currentTimeMillis()
                 )
+                if (syncManager != null) syncManager.insertarEvento(evento)
+                else db.eventoDao().insertarEvento(evento)
                 "✅ Evento: $titulo ($fecha)"
             }
 
@@ -89,16 +90,28 @@ object ProcesadorComandos {
                 if (db.itemCompraDao().contarDuplicadoCompartido(desc) > 0) {
                     return "⚠️ Ya está en lista: $desc"
                 }
-                db.itemCompraDao().insertar(
-                    ItemCompra(
-                        id = UUID.randomUUID().toString(),
-                        descripcion = desc,
-                        categoria = cat,
-                        agregadoPor = padre.nombre,
-                        fechaCompleta = System.currentTimeMillis()
-                    )
+                val item = ItemCompra(
+                    id = UUID.randomUUID().toString(),
+                    descripcion = desc,
+                    categoria = cat,
+                    agregadoPor = padre.nombre,
+                    fechaCompleta = System.currentTimeMillis()
                 )
+                if (syncManager != null) syncManager.insertarItem(item)
+                else db.itemCompraDao().insertar(item)
                 "✅ Lista: $desc${if (cat.isNotEmpty()) " [$cat]" else ""}"
+            }
+
+            "pendiente" -> {
+                val titulo = comando.datos["titulo"] ?: return "❌ Falta descripción"
+                val pendiente = Pendiente(
+                    id = UUID.randomUUID().toString(),
+                    titulo = titulo,
+                    asignadoA = padre.nombre
+                )
+                if (syncManager != null) syncManager.insertarPendiente(pendiente)
+                else db.pendienteDao().insertar(pendiente)
+                "✅ Pendiente: $titulo"
             }
 
             "lista" -> {

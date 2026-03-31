@@ -93,6 +93,9 @@ object NotificacionHelper {
     fun notificarItemCompra(context: Context, descripcion: String) =
         notificar(context, "🛒 Nuevo ítem en compras", descripcion)
 
+    fun notificarComandoWhatsApp(context: Context, respuesta: String) =
+        notificar(context, "📱 Crianza via WhatsApp", respuesta)
+
     fun notificarActualizacion(context: Context, tagName: String) =
         notificar(context, "🔄 Actualización disponible", "Nueva versión $tagName lista para instalar")
 }

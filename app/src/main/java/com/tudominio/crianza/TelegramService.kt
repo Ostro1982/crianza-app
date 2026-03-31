@@ -116,6 +116,11 @@ class TelegramService(private val config: ConfiguracionIntegracion) {
                 val cat = partesCat.getOrNull(1)?.trim() ?: ""
                 ComandoParsado("compra", mapOf("descripcion" to desc, "categoria" to cat), mensaje)
             }
+            "/pendiente" -> {
+                if (partes.size < 2) return null
+                val titulo = partes.drop(1).joinToString(" ")
+                ComandoParsado("pendiente", mapOf("titulo" to titulo), mensaje)
+            }
             "/lista" -> ComandoParsado("lista", emptyMap(), mensaje)
             "/aceptar" -> {
                 val idEvento = partes.getOrNull(1)
