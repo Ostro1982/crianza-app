@@ -9,6 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.core.content.ContextCompat
@@ -37,8 +40,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -49,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tudominio.crianza.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -730,10 +736,14 @@ fun PantallaPrincipal(
     onGoogle: () -> Unit = {},
     onVincular: () -> Unit = {}
 ) {
-    val menuItems = listOf(
+    // Primarios: las 3 funciones principales, se muestran en fila de 3 mas grandes
+    val menuItemsPrimarios = listOf(
         ItemMenuPrincipal("Tiempo",       "Registros diarios",   Icons.Default.AccessTime,           0, onTiempo),
         ItemMenuPrincipal("Calendario",   "Eventos y citas",     Icons.Default.CalendarMonth,        1, onCalendario),
         ItemMenuPrincipal("Gastos",       "Control de pagos",    Icons.Default.AccountBalanceWallet, 2, onGastos),
+    )
+    // Secundarios: las demas, en grid de 2 columnas
+    val menuItemsSecundarios = listOf(
         ItemMenuPrincipal("Compensación", "Balance y deudas",    Icons.Default.Balance,              3, onCompensacion),
         ItemMenuPrincipal("Compras",      "Lista compartida",    Icons.Default.ShoppingCart,         4, onListaCompras),
         ItemMenuPrincipal("Mensajes",     "Comunicación",        Icons.Default.Chat,                 5, onMensajes),
@@ -855,15 +865,33 @@ fun PantallaPrincipal(
                 )
             }
 
-            // ── Grid de funciones ─────────────────────────────────────────────
+            // ── Grid de funciones con animación de entrada ─────────────────
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                menuItems.chunked(2).forEach { fila ->
+                // Fila primaria: 3 funciones principales, mas grandes
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    menuItemsPrimarios.forEachIndexed { index, item ->
+                        TarjetaMenuPrincipalAnimada(
+                            item = item,
+                            modifier = Modifier.weight(1f),
+                            delayMs = index * 60,
+                            esPrimaria = true
+                        )
+                    }
+                }
+
+                // Filas secundarias: grid 2 columnas, mas compactas
+                menuItemsSecundarios.chunked(2).forEachIndexed { filaIdx, fila ->
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        fila.forEach { item ->
-                            TarjetaMenuPrincipal(item = item, modifier = Modifier.weight(1f))
+                        fila.forEachIndexed { colIdx, item ->
+                            TarjetaMenuPrincipalAnimada(
+                                item = item,
+                                modifier = Modifier.weight(1f),
+                                delayMs = (3 + filaIdx * 2 + colIdx) * 60,
+                                esPrimaria = false
+                            )
                         }
                         if (fila.size == 1) Spacer(modifier = Modifier.weight(1f))
                     }
@@ -991,7 +1019,7 @@ fun ClimaCard() {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .background(GlassWhite)
                 .clickable { windyUrl()?.let { uriHandler.openUri(it) } }
                 .padding(horizontal = 20.dp, vertical = 18.dp)
@@ -1049,11 +1077,22 @@ fun WidgetHoy(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(gradienteVerde)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
+        // Glassmorphic overlay
+        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
+        // Decorative circle
+        Box(
+            Modifier
+                .size(80.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 20.dp, y = (-20).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.06f))
+        )
+        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1062,7 +1101,7 @@ fun WidgetHoy(
             ) {
                 Text(
                     "Hoy",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -1114,6 +1153,7 @@ fun WidgetHoy(
                 }
             }
         }
+    } // inner padding Box
     }
 }
 
@@ -1127,12 +1167,25 @@ fun WidgetComprasPendientes(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(gradienteRosa)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Glassmorphic overlay
+        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
+        // Decorative circle
+        Box(
+            Modifier
+                .size(80.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 20.dp, y = (-20).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.06f))
+        )
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1140,7 +1193,7 @@ fun WidgetComprasPendientes(
             ) {
                 Text(
                     "Compras pendientes",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -1149,16 +1202,17 @@ fun WidgetComprasPendientes(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (items.isNotEmpty()) {
-                        Surface(
-                            color = Color.White.copy(alpha = 0.25f),
-                            shape = RoundedCornerShape(12.dp)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50.dp))
+                                .background(Color.White.copy(alpha = 0.2f))
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 "${items.size}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                color = Color.White
                             )
                         }
                     }
@@ -1169,21 +1223,21 @@ fun WidgetComprasPendientes(
                 Text(
                     "Todo al día ✓",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             } else {
                 items.take(3).forEach { item ->
                     Text(
                         "• ${item.descripcion}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.9f)
+                        color = Color.White.copy(alpha = 0.85f)
                     )
                 }
                 if (items.size > 3) {
                     Text(
                         "+${items.size - 3} más",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = Color.White.copy(alpha = 0.55f)
                     )
                 }
             }
@@ -1204,12 +1258,25 @@ fun WidgetAccionPrioritaria(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(gradienteRojo)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Glassmorphic overlay
+        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
+        // Decorative circle
+        Box(
+            Modifier
+                .size(70.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 15.dp, y = (-15).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.06f))
+        )
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1217,7 +1284,7 @@ fun WidgetAccionPrioritaria(
             ) {
                 Text(
                     "Acción prioritaria",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -1227,14 +1294,14 @@ fun WidgetAccionPrioritaria(
                 Text(
                     "$compensacionesPendientes compensación${if (compensacionesPendientes > 1) "es" else ""} sin confirmar",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
             if (mensajesNoLeidos > 0) {
                 Text(
                     "$mensajesNoLeidos mensaje${if (mensajesNoLeidos > 1) "s" else ""} sin leer",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
             }
         }
@@ -1242,49 +1309,131 @@ fun WidgetAccionPrioritaria(
 }
 
 @Composable
-fun TarjetaMenuPrincipal(item: ItemMenuPrincipal, modifier: Modifier = Modifier) {
+fun TarjetaMenuPrincipalAnimada(
+    item: ItemMenuPrincipal,
+    modifier: Modifier = Modifier,
+    delayMs: Int = 0,
+    esPrimaria: Boolean = false
+) {
     val gradients = listOf(
         CardGrad0, CardGrad1, CardGrad2, CardGrad3,
         CardGrad4, CardGrad5, CardGrad6, CardGrad7
     )
     val gradient = gradients[item.colorIndex % gradients.size]
 
+    // Animacion de entrada
+    val animAlpha = remember { Animatable(0f) }
+    val animOffset = remember { Animatable(30f) }
+    val animScale = remember { Animatable(0.88f) }
+
+    LaunchedEffect(Unit) {
+        delay(delayMs.toLong())
+        launch {
+            animAlpha.animateTo(1f, tween(400, easing = FastOutSlowInEasing))
+        }
+        launch {
+            animOffset.animateTo(0f, tween(500, easing = FastOutSlowInEasing))
+        }
+        launch {
+            animScale.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
+        }
+    }
+
+    val cornerRadius = if (esPrimaria) 22.dp else 24.dp
+    val iconSize = if (esPrimaria) 32.dp else 40.dp
+
     Box(
         modifier = modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(24.dp))
+            .then(if (esPrimaria) Modifier.height(130.dp) else Modifier.aspectRatio(1f))
+            .graphicsLayer {
+                alpha = animAlpha.value
+                translationY = animOffset.value * density
+                scaleX = animScale.value
+                scaleY = animScale.value
+            }
+            .clip(RoundedCornerShape(cornerRadius))
             .background(gradient)
             .clickable(onClick = item.onClick)
     ) {
+        // Circulo decorativo grande
+        Box(
+            Modifier
+                .size(if (esPrimaria) 80.dp else 90.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 20.dp, y = (-20).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.07f))
+        )
+        // Segundo circulo decorativo mas chico
+        Box(
+            Modifier
+                .size(if (esPrimaria) 40.dp else 50.dp)
+                .align(Alignment.BottomStart)
+                .offset(x = (-12).dp, y = 12.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.05f))
+        )
+        // Glassmorphic overlay sutil
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.04f))
+        )
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
+                .padding(horizontal = if (esPrimaria) 10.dp else 16.dp, vertical = if (esPrimaria) 16.dp else 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = item.titulo,
-                tint = Color.White,
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(14.dp))
+            // Icono con fondo glassmorphic
+            Box(
+                modifier = Modifier
+                    .size(if (esPrimaria) 48.dp else 56.dp)
+                    .clip(RoundedCornerShape(if (esPrimaria) 14.dp else 16.dp))
+                    .background(Color.White.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = item.titulo,
+                    tint = Color.White,
+                    modifier = Modifier.size(iconSize)
+                )
+            }
+            Spacer(modifier = Modifier.height(if (esPrimaria) 10.dp else 14.dp))
             Text(
                 item.titulo,
-                style = MaterialTheme.typography.titleMedium,
+                style = if (esPrimaria) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = TextAlign.Center
             )
-            Text(
-                item.subtitulo,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.75f),
-                textAlign = TextAlign.Center
-            )
+            if (!esPrimaria) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    item.subtitulo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    item.subtitulo,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
+}
+
+// Mantener para compatibilidad si se usa en previews
+@Composable
+fun TarjetaMenuPrincipal(item: ItemMenuPrincipal, modifier: Modifier = Modifier) {
+    TarjetaMenuPrincipalAnimada(item = item, modifier = modifier)
 }
 
 @Preview(showBackground = true)

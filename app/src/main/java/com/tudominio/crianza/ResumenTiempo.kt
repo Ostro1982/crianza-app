@@ -4,6 +4,7 @@ package com.tudominio.crianza
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +16,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tudominio.crianza.ui.theme.*
 import kotlin.math.abs
 import java.util.*
@@ -144,31 +149,127 @@ fun PantallaResumenTiempo(
             val horasPorPadre = calcularHorasPorPadre(registrosFiltrados)
             val totalHoras = horasPorPadre.values.sum()
 
+            // ── Hero: Total de horas ──────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(GlassWhite)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF064E3B), Color(0xFF065F46), Color(0xFF047857))))
+                    .padding(horizontal = 24.dp, vertical = 28.dp)
             ) {
+                // Circulo decorativo grande
+                Box(
+                    Modifier.size(140.dp)
+                        .align(Alignment.TopEnd)
+                        .offset(x = 40.dp, y = (-40).dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(0.06f))
+                )
+                // Circulo decorativo chico
+                Box(
+                    Modifier.size(70.dp)
+                        .align(Alignment.BottomStart)
+                        .offset(x = (-20).dp, y = 20.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(0.04f))
+                )
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Distribución de tiempo",
-                        style = MaterialTheme.typography.titleLarge,
+                        "HORAS TOTALES",
+                        color = Color.White.copy(.55f),
+                        style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 2.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // Numero grande y prominente
+                    val horasEnteras = totalHoras.toInt()
+                    val minutosSobrantes = ((totalHoras - horasEnteras) * 60).toInt()
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "$horasEnteras",
+                            style = MaterialTheme.typography.displayLarge.copy(fontSize = 64.sp),
+                            fontWeight = FontWeight.Black,
+                            color = Color.White,
+                            letterSpacing = (-3).sp
+                        )
+                        if (minutosSobrantes > 0) {
+                            Text(
+                                "h ${minutosSobrantes}m",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White.copy(.65f),
+                                modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
+                            )
+                        } else {
+                            Text(
+                                "h",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White.copy(.65f),
+                                modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(50.dp))
+                            .background(Color.White.copy(.1f))
+                            .padding(horizontal = 14.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            "horas registradas",
+                            color = Color.White.copy(.6f),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Distribucion visual ────────────────────────────────────────
+            val Lavender = Color(0xFFA78BFA)
+            val PinkBar  = Color(0xFFF472B6)
+            val Mint     = Color(0xFF34D399)
+            val AmberW   = Color(0xFFFBBF24)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        Brush.linearGradient(listOf(Color(0x40312E81), Color(0x403730A3)))
+                    )
+            ) {
+                // Glass overlay interno
+                Box(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(23.dp))
+                        .background(Color(0x1AFFFFFF))
+                ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        "Distribución de tiempo",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-
                     Text(
-                        text = "Período: ${textoPeriodo(periodoSeleccionado)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
+                        "Período: ${textoPeriodo(periodoSeleccionado)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f)
                     )
 
-                    Divider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     if (padres.size >= 2) {
                         val horasPadre1 = horasPorPadre[padres[0].id] ?: 0.0
@@ -183,98 +284,213 @@ fun PantallaResumenTiempo(
                         val horasDeuda1 = if (totalHoras > 0) (abs(diferencia1) * totalHoras / 100) else 0.0
                         val horasDeuda2 = if (totalHoras > 0) (abs(diferencia2) * totalHoras / 100) else 0.0
 
-                        Text(
-                            text = padres[0].nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Horas: %.1f".format(horasPadre1),
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Porcentaje real: $porcentajeReal1%",
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Porcentaje ideal: ${configuracion.porcentajePadre1}%",
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Diferencia: ${if (diferencia1 > 0) "+$diferencia1" else diferencia1}%",
-                            color = if (diferencia1 > 0) Color.Green else if (diferencia1 < 0) Color.Red else MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        // ── Barra de split horizontal ──────────────────────
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(0.06f))
+                        ) {
+                            Row(Modifier.fillMaxSize()) {
+                                // Lado padre 1
+                                val frac1 = (porcentajeReal1 / 100f).coerceIn(0.05f, 0.95f)
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth(frac1)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(topStart = 14.dp, bottomStart = 14.dp))
+                                        .background(Brush.horizontalGradient(listOf(Lavender.copy(.6f), Lavender)))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.align(Alignment.Center),
+                                        verticalAlignment = Alignment.Bottom,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            "$porcentajeReal1",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 18.sp,
+                                            letterSpacing = (-0.5).sp
+                                        )
+                                        Text(
+                                            "%",
+                                            color = Color.White.copy(.7f),
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(bottom = 1.dp)
+                                        )
+                                    }
+                                }
+                                // Separador
+                                Box(Modifier.width(2.dp).fillMaxHeight().background(Color.White.copy(.15f)))
+                                // Lado padre 2
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(topEnd = 14.dp, bottomEnd = 14.dp))
+                                        .background(Brush.horizontalGradient(listOf(PinkBar, PinkBar.copy(.6f))))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.align(Alignment.Center),
+                                        verticalAlignment = Alignment.Bottom,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            "$porcentajeReal2",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 18.sp,
+                                            letterSpacing = (-0.5).sp
+                                        )
+                                        Text(
+                                            "%",
+                                            color = Color.White.copy(.7f),
+                                            fontWeight = FontWeight.Medium,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(bottom = 1.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        Text(
-                            text = padres[1].nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Horas: %.1f".format(horasPadre2),
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Porcentaje real: $porcentajeReal2%",
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Porcentaje ideal: ${configuracion.porcentajePadre2}%",
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                        Text(
-                            text = "Diferencia: ${if (diferencia2 > 0) "+$diferencia2" else diferencia2}%",
-                            color = if (diferencia2 > 0) Color.Green else if (diferencia2 < 0) Color.Red else MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                        // Nombres bajo la barra con horas
+                        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(10.dp).clip(CircleShape).background(Lavender))
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(padres[0].nombre, color = Color.White.copy(.85f), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text("${String.format("%.1f", horasPadre1)} hs", color = Color.White.copy(.45f), style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(padres[1].nombre, color = Color.White.copy(.85f), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text("${String.format("%.1f", horasPadre2)} hs", color = Color.White.copy(.45f), style = MaterialTheme.typography.labelSmall)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.size(10.dp).clip(CircleShape).background(PinkBar))
+                            }
+                        }
 
-                        if (diferencia1 < 0) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Objetivo marcador
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White.copy(.06f))
+                                .padding(12.dp),
+                            Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Objetivo", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
+                                Text("${configuracion.porcentajePadre1}% / ${configuracion.porcentajePadre2}%", color = Color.White.copy(.8f), fontWeight = FontWeight.SemiBold)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Horas", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
+                                Text("${String.format("%.1f", horasPadre1)} / ${String.format("%.1f", horasPadre2)}", color = Color.White.copy(.8f), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Detalle de diferencias
+                        @Composable
+                        fun DetallePadre(nombre: String, pctReal: Int, pctObj: Int, dif: Int, color: Color) {
+                            val difColor = when {
+                                dif > 0 -> Mint
+                                dif < 0 -> Color(0xFFF87171)
+                                else -> Color.White.copy(.6f)
+                            }
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                Arrangement.SpaceBetween,
+                                Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(nombre, color = Color.White.copy(.8f), style = MaterialTheme.typography.bodyMedium)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Box(
+                                        Modifier.clip(RoundedCornerShape(50.dp))
+                                            .background(color.copy(.2f))
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("$pctReal%", color = color, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                                    }
                                     Text(
-                                        text = "Compensación sugerida:",
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    Text(
-                                        text = "${padres[0].nombre} debe %.1f horas a ${padres[1].nombre}".format(horasDeuda1)
+                                        "${if (dif > 0) "+" else ""}$dif%",
+                                        color = difColor,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelMedium
                                     )
                                 }
                             }
-                        } else if (diferencia2 < 0) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                ),
-                                modifier = Modifier.fillMaxWidth()
+                        }
+
+                        DetallePadre(padres[0].nombre, porcentajeReal1, configuracion.porcentajePadre1, diferencia1, Lavender)
+                        DetallePadre(padres[1].nombre, porcentajeReal2, configuracion.porcentajePadre2, diferencia2, PinkBar)
+
+                        // Compensacion sugerida
+                        if (diferencia1 < 0 || diferencia2 < 0) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            val (deudor, acreedor, hDeuda) = if (diferencia1 < 0)
+                                Triple(padres[0].nombre, padres[1].nombre, horasDeuda1)
+                            else
+                                Triple(padres[1].nombre, padres[0].nombre, horasDeuda2)
+
+                            Box(
+                                Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(AmberW.copy(.12f))
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    Arrangement.SpaceBetween,
+                                    Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text("Compensación sugerida", color = AmberW.copy(.7f), style = MaterialTheme.typography.labelSmall)
+                                        Text(
+                                            "$deudor debe ${String.format("%.1f", hDeuda)} hs",
+                                            color = AmberW,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text("a $acreedor", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
+                                    }
                                     Text(
-                                        text = "Compensación sugerida:",
-                                        style = MaterialTheme.typography.titleSmall
-                                    )
-                                    Text(
-                                        text = "${padres[1].nombre} debe %.1f horas a ${padres[0].nombre}".format(horasDeuda2)
+                                        "${String.format("%.0f", hDeuda)}h",
+                                        color = AmberW,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 24.sp,
+                                        letterSpacing = (-0.5).sp
                                     )
                                 }
                             }
                         }
                     }
                 }
+            } // inner glass Box
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "Detalle por hijo",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
 
             LazyColumn(
@@ -314,16 +530,60 @@ fun ResumenHijoCard(
     padres: List<Padre>,
     registros: List<RegistroTiempo>
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
+    val horasPorPadre = calcularHorasPorPadre(registros)
+    val total = horasPorPadre.values.sum()
+    val Lavender = Color(0xFFA78BFA)
+    val PinkBar  = Color(0xFFF472B6)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassWhite)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = hijo.nombre,
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
             )
-            val horasPorPadre = calcularHorasPorPadre(registros)
-            padres.forEach { padre ->
+            Spacer(modifier = Modifier.height(10.dp))
+            padres.forEachIndexed { index, padre ->
                 val horas = horasPorPadre[padre.id] ?: 0.0
-                Text(text = "${padre.nombre}: %.1f horas".format(horas))
+                val pct = if (total > 0) (horas / total * 100).toInt() else 0
+                val color = if (index == 0) Lavender else PinkBar
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    Arrangement.SpaceBetween,
+                    Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                        Spacer(Modifier.width(8.dp))
+                        Text(padre.nombre, color = Color.White.copy(.8f), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(
+                        "${String.format("%.1f", horas)}h ($pct%)",
+                        color = color,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            // Mini barra de split
+            if (padres.size >= 2 && total > 0) {
+                Spacer(Modifier.height(8.dp))
+                val h1 = horasPorPadre[padres[0].id] ?: 0.0
+                val frac = (h1 / total).toFloat().coerceIn(0.02f, 0.98f)
+                Box(
+                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50.dp)).background(Color.White.copy(.1f))
+                ) {
+                    Row(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(topStart = 50.dp, bottomStart = 50.dp)).background(Lavender))
+                        Box(Modifier.fillMaxWidth().fillMaxHeight().clip(RoundedCornerShape(topEnd = 50.dp, bottomEnd = 50.dp)).background(PinkBar))
+                    }
+                }
             }
         }
     }

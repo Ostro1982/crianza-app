@@ -2,6 +2,8 @@
 
 package com.tudominio.crianza
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -813,7 +816,7 @@ private fun HistorialCard(
     onEliminar: () -> Unit,
     onEditar: (Compensacion) -> Unit
 ) {
-    // Indicador visual si lleva más de 3 días pendiente
+    // Indicador visual si lleva mas de 3 dias pendiente
     val diasPendiente = if (!comp.confirmada) {
         val ahora = System.currentTimeMillis()
         val diffMs = ahora - comp.fechaCompleta
@@ -821,20 +824,38 @@ private fun HistorialCard(
     } else 0
     val pendienteLarga = !comp.confirmada && diasPendiente >= 3
     val WarningAmber = Color(0xFFFF9800)
-    val accentColor = when {
+
+    // Transicion de color suave segun estado
+    val targetAccent = when {
         comp.confirmada -> Mint
         pendienteLarga -> WarningAmber
         else -> Amber
     }
+    val accentColor by animateColorAsState(
+        targetValue = targetAccent,
+        animationSpec = tween(500),
+        label = "accentTransition"
+    )
+    val targetBg = when {
+        pendienteLarga -> Color(0x28FF9800)  // Amber tint para urgencia
+        comp.confirmada -> Color(0x1534D399) // Green tint sutil
+        else -> Glass10
+    }
+    val bgColor by animateColorAsState(
+        targetValue = targetBg,
+        animationSpec = tween(500),
+        label = "bgTransition"
+    )
+
     Row(
         Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(20.dp))
-            .background(if (pendienteLarga) Glass20 else Glass10)
+            .background(bgColor)
     ) {
-        // Acento lateral
-        Box(Modifier.width(4.dp).fillMaxHeight().background(accentColor))
+        // Acento lateral con grosor segun urgencia
+        Box(Modifier.width(if (pendienteLarga) 5.dp else 4.dp).fillMaxHeight().background(accentColor))
 
         Column(Modifier.weight(1f).padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp)) {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
@@ -842,16 +863,29 @@ private fun HistorialCard(
                     Box(
                         Modifier.clip(RoundedCornerShape(50.dp)).background(accentColor.copy(.18f)).padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
-                        Text(
-                            when {
-                                comp.confirmada -> "Confirmada"
-                                pendienteLarga -> "Pendiente ($diasPendiente d)"
-                                else -> "Pendiente"
-                            },
-                            color = accentColor,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (pendienteLarga) {
+                                Icon(
+                                    Icons.Outlined.Warning,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
+                            Text(
+                                when {
+                                    comp.confirmada -> "Confirmada"
+                                    pendienteLarga -> "Pendiente ($diasPendiente d)"
+                                    else -> "Pendiente"
+                                },
+                                color = accentColor,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                     Text(comp.fecha, color = Color.White.copy(.35f), style = MaterialTheme.typography.labelSmall)
                 }

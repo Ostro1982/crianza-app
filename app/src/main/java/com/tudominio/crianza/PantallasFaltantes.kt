@@ -625,58 +625,164 @@ fun PantallaGastos(
             }
             val totalMes = gastosMes.sumOf { it.monto }
 
+            // Colores semanticos para balance
+            val BalanceGreen = Color(0xFF34D399)
+            val BalanceAmber = Color(0xFFFBBF24)
+
             Box(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                    .clip(RoundedCornerShape(16.dp)).background(GlassWhiteHeavy)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "${nombresMeses[mesActual]} $anioActual",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        androidx.compose.ui.graphics.Brush.linearGradient(
+                            listOf(Color(0x40312E81), Color(0x403730A3))
+                        )
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+            ) {
+                // Efecto glassmorphic interior
+                Box(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(23.dp))
+                        .background(Color(0x1AFFFFFF))
+                        .padding(20.dp)
+                ) {
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${nombresMeses[mesActual]} $anioActual",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Box(
+                            Modifier.clip(RoundedCornerShape(50.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                "ESTE MES",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.55f),
+                                letterSpacing = 1.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "Total del mes: $${"%.2f".format(totalMes)}",
-                        style = MaterialTheme.typography.headlineSmall,
+                        "$${"%.2f".format(totalMes)}",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp),
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = (-1).sp
                     )
 
                     if (padres.size >= 2) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Divider(color = Color.White.copy(alpha = 0.15f))
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         val totalP1Mes = gastosMes.filter { it.idPagador == padres[0].id }.sumOf { it.monto }
                         val totalP2Mes = gastosMes.filter { it.idPagador == padres[1].id }.sumOf { it.monto }
 
+                        // Barra proporcional mejorada
+                        if (totalMes > 0) {
+                            val frac1 = (totalP1Mes / totalMes).toFloat().coerceIn(0.05f, 0.95f)
+                            Box(
+                                Modifier.fillMaxWidth().height(10.dp)
+                                    .clip(RoundedCornerShape(50.dp))
+                                    .background(Color.White.copy(.06f))
+                            ) {
+                                Row(Modifier.fillMaxSize()) {
+                                    Box(
+                                        Modifier.fillMaxWidth(frac1).fillMaxHeight()
+                                            .clip(RoundedCornerShape(topStart = 50.dp, bottomStart = 50.dp))
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                    listOf(Color(0xFFA78BFA).copy(.7f), Color(0xFFA78BFA))
+                                                )
+                                            )
+                                    )
+                                    Box(
+                                        Modifier.fillMaxWidth().fillMaxHeight()
+                                            .clip(RoundedCornerShape(topEnd = 50.dp, bottomEnd = 50.dp))
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                    listOf(Color(0xFFF472B6), Color(0xFFF472B6).copy(.7f))
+                                                )
+                                            )
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
-                                Text(padres[0].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
-                                Text("$${"%.2f".format(totalP1Mes)}", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFA78BFA)))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(padres[0].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Text("$${"%.2f".format(totalP1Mes)}", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(padres[1].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
-                                Text("$${"%.2f".format(totalP2Mes)}", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(padres[1].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                    Spacer(Modifier.width(8.dp))
+                                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFF472B6)))
+                                }
+                                Spacer(Modifier.height(2.dp))
+                                Text("$${"%.2f".format(totalP2Mes)}", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Divider(color = Color.White.copy(alpha = 0.15f))
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Balance: quién le debe a quién
+                        // Balance con indicador color: verde si equilibrado, ambar si imbalanced
                         val deudaMes = (totalP1Mes - totalP2Mes) / 2.0
+                        val equilibrado = kotlin.math.abs(deudaMes) < 0.01
+                        val balColor = if (equilibrado) BalanceGreen else BalanceAmber
                         val deudaTexto = when {
                             deudaMes > 0.01 -> "${padres[1].nombre} debe a ${padres[0].nombre}: $${"%.2f".format(deudaMes)}"
                             deudaMes < -0.01 -> "${padres[0].nombre} debe a ${padres[1].nombre}: $${"%.2f".format(-deudaMes)}"
                             else -> "Cuentas equilibradas"
                         }
-                        Text(deudaTexto, fontWeight = FontWeight.Bold, color = Color.White)
+                        Box(
+                            Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(balColor.copy(.15f))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                Arrangement.SpaceBetween,
+                                Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(
+                                        Modifier.size(24.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                            .background(balColor.copy(.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            if (equilibrado) "✓" else "!",
+                                            color = balColor,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    Text(deudaTexto, fontWeight = FontWeight.Bold, color = balColor, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
                     }
                 }
+                } // inner Box
             }
 
             // Total general
@@ -684,15 +790,25 @@ fun PantallaGastos(
             if (gastos.size != gastosMes.size) {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
+                        .clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.1f))
                 ) {
-                    Text(
-                        "Total general: $${"%.2f".format(total)}",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+                        Arrangement.SpaceBetween,
+                        Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Total general",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(.6f)
+                        )
+                        Text(
+                            "$${"%.2f".format(total)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

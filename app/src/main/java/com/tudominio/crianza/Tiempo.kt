@@ -168,18 +168,18 @@ fun TarjetaRegistroTiempo(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(GlassWhite)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Badge de horas
+            // Badge de horas con estilo mejorado
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(58.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(GlassWhiteHeavy),
                 contentAlignment = Alignment.Center
             ) {
@@ -190,14 +190,15 @@ fun TarjetaRegistroTiempo(
                     Icon(
                         Icons.Outlined.AccessTime,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = Color.White
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White.copy(alpha = 0.8f)
                     )
                     if (horasFmt != null) {
                         Text(
                             horasFmt,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.3).sp,
                             color = Color.White
                         )
                     }

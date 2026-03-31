@@ -2,7 +2,9 @@
 
 package com.tudominio.crianza
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,12 +27,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.tudominio.crianza.ui.theme.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.util.UUID
 
 // Categorías predeterminadas
@@ -134,26 +139,75 @@ fun PantallaListaCompras(
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-            TabRow(
-                selectedTabIndex = tabSeleccionado,
-                containerColor = GlassWhite,
-                contentColor = Color.White
+            // Chips scrollables con estado activo claro
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Tab(
-                    selected = tabSeleccionado == 0,
-                    onClick = { tabSeleccionado = 0 },
-                    text = { Text("Compartida${if (compartidos.isNotEmpty()) " (${compartidos.size})" else ""}") }
+                val tabs = listOf(
+                    Triple(0, "Compartida", compartidos.size),
+                    Triple(1, "Privada", privados.size),
+                    Triple(2, "Todas", compartidos.size + privados.size)
                 )
-                Tab(
-                    selected = tabSeleccionado == 1,
-                    onClick = { tabSeleccionado = 1 },
-                    text = { Text("Privada${if (privados.isNotEmpty()) " (${privados.size})" else ""}") }
-                )
-                Tab(
-                    selected = tabSeleccionado == 2,
-                    onClick = { tabSeleccionado = 2 },
-                    text = { Text("Todas") }
-                )
+                items(tabs) { (index, label, count) ->
+                    val isSelected = tabSeleccionado == index
+                    val bgColor by animateColorAsState(
+                        targetValue = if (isSelected) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.06f),
+                        animationSpec = tween(300),
+                        label = "chipBg"
+                    )
+                    val borderColor by animateColorAsState(
+                        targetValue = if (isSelected) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.12f),
+                        animationSpec = tween(300),
+                        label = "chipBorder"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50.dp))
+                            .background(bgColor)
+                            .then(
+                                Modifier.padding(1.dp)
+                                    .clip(RoundedCornerShape(50.dp))
+                                    .background(if (isSelected) Color.Transparent else Color.Transparent)
+                            )
+                            .clickable { tabSeleccionado = index }
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            if (isSelected) {
+                                Box(
+                                    Modifier.size(7.dp).clip(CircleShape).background(Color.White)
+                                )
+                            }
+                            Text(
+                                label,
+                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.55f),
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            if (count > 0) {
+                                Box(
+                                    Modifier
+                                        .clip(RoundedCornerShape(50.dp))
+                                        .background(if (isSelected) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f))
+                                        .padding(horizontal = 7.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        "$count",
+                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             if (itemsMostrados.isEmpty()) {
@@ -244,28 +298,36 @@ fun TarjetaItemCompra(
     onToggle: () -> Unit,
     onEliminar: () -> Unit
 ) {
+    val targetAlpha = if (item.comprado) 0.4f else 1f
+    val animBgColor by animateColorAsState(
+        targetValue = if (item.comprado) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.15f),
+        animationSpec = tween(350),
+        label = "cardBg"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (item.comprado) 0.5f else 1f)
+            .alpha(targetAlpha)
             .animateContentSize()
-            .clip(RoundedCornerShape(12.dp))
-            .background(GlassWhite)
+            .clip(RoundedCornerShape(16.dp))
+            .background(animBgColor)
     ) {
         Row(
-            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Checkbox circular custom look
             Checkbox(
                 checked = item.comprado,
                 onCheckedChange = { onToggle() },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF8B5CF6),
+                    checkedColor = Color(0xFF34D399),
                     checkmarkColor = Color.White,
-                    uncheckedColor = Color.White.copy(alpha = 0.7f)
+                    uncheckedColor = Color.White.copy(alpha = 0.45f)
                 )
             )
-            Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (item.esPrivado) Text("🔒", style = MaterialTheme.typography.bodySmall)
                     val cantidadStr = if (item.cantidad.isNotEmpty() && item.cantidad != "1")
@@ -275,28 +337,49 @@ fun TarjetaItemCompra(
                         fontWeight = if (!item.comprado) FontWeight.SemiBold else FontWeight.Normal,
                         textDecoration = if (item.comprado) TextDecoration.LineThrough else TextDecoration.None,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (item.comprado) Color.White.copy(alpha = 0.5f) else Color.White
+                        color = if (item.comprado) Color.White.copy(alpha = 0.35f) else Color.White
                     )
                 }
                 val meta = listOfNotNull(
                     item.categoria.takeIf { it.isNotEmpty() }?.let { cat ->
                         if (item.subcategoria.isNotEmpty() && item.subcategoria != item.descripcion)
-                            "$cat › ${item.subcategoria}" else cat
+                            "$cat > ${item.subcategoria}" else cat
                     },
                     if (item.precio > 0) "$${String.format("%.2f", item.precio)}" else null,
                     item.agregadoPor.takeIf { it.isNotEmpty() }?.let { "por $it" }
                 ).joinToString("  ·  ")
                 if (meta.isNotEmpty()) {
-                    Text(meta, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        meta,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = if (item.comprado) 0.2f else 0.55f),
+                        textDecoration = if (item.comprado) TextDecoration.LineThrough else TextDecoration.None
+                    )
                 }
             }
-            IconButton(onClick = onEliminar, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Eliminar",
-                    tint = Color(0xFFF87171).copy(alpha = 0.8f),
-                    modifier = Modifier.size(18.dp)
-                )
+            if (!item.comprado) {
+                IconButton(onClick = onEliminar, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Eliminar",
+                        tint = Color(0xFFF87171).copy(alpha = 0.7f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            } else {
+                // Comprado: icono de check con fondo circular
+                Box(
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF34D399).copy(.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Comprado",
+                        tint = Color(0xFF34D399).copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }

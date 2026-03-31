@@ -27,6 +27,7 @@ object FamilyIdManager {
         prefs.edit()
             .putString(KEY_FAMILY_ID, limpio)
             .putBoolean(KEY_IS_LINKED, true)
+            .putBoolean("subida_inicial_ok", false)
             .apply()
         return true
     }
@@ -34,5 +35,20 @@ object FamilyIdManager {
     fun estaVinculado(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getBoolean(KEY_IS_LINKED, false)
+    }
+
+    fun necesitaSubidaInicial(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return !prefs.getBoolean("subida_inicial_ok", false)
+    }
+
+    fun marcarSubidaInicial(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("subida_inicial_ok", true).apply()
+    }
+
+    fun resetearSubidaInicial(context: Context) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putBoolean("subida_inicial_ok", false).apply()
     }
 }

@@ -52,6 +52,22 @@ class SyncManager(
         "texto" to texto, "fechaCompleta" to fechaCompleta, "leido" to leido
     )
 
+    private fun RegistroTiempo.toMap() = mapOf(
+        "id" to id, "idHijo" to idHijo, "nombreHijo" to nombreHijo,
+        "idPadre" to idPadre, "nombrePadre" to nombrePadre,
+        "fecha" to fecha, "horaInicio" to horaInicio, "horaFin" to horaFin,
+        "fechaCompleta" to fechaCompleta, "esTodosLosHijos" to esTodosLosHijos
+    )
+
+    private fun Compensacion.toMap() = mapOf(
+        "id" to id, "fecha" to fecha,
+        "idPagador" to idPagador, "nombrePagador" to nombrePagador,
+        "idReceptor" to idReceptor, "nombreReceptor" to nombreReceptor,
+        "horasCompensadas" to horasCompensadas, "valorHora" to valorHora,
+        "montoTotal" to montoTotal, "fechaCompleta" to fechaCompleta,
+        "aceptadoPadre1" to aceptadoPadre1, "aceptadoPadre2" to aceptadoPadre2
+    )
+
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any>.toEvento(): Evento? {
         return try {
@@ -125,6 +141,44 @@ class SyncManager(
         } catch (e: Exception) { null }
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toRegistroTiempo(): RegistroTiempo? {
+        return try {
+            RegistroTiempo(
+                id = this["id"] as? String ?: return null,
+                idHijo = this["idHijo"] as? String ?: "",
+                nombreHijo = this["nombreHijo"] as? String ?: "",
+                idPadre = this["idPadre"] as? String ?: "",
+                nombrePadre = this["nombrePadre"] as? String ?: "",
+                fecha = this["fecha"] as? String ?: "",
+                horaInicio = this["horaInicio"] as? String ?: "",
+                horaFin = this["horaFin"] as? String ?: "",
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
+                esTodosLosHijos = this["esTodosLosHijos"] as? Boolean ?: false
+            )
+        } catch (e: Exception) { null }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toCompensacion(): Compensacion? {
+        return try {
+            Compensacion(
+                id = this["id"] as? String ?: return null,
+                fecha = this["fecha"] as? String ?: "",
+                idPagador = this["idPagador"] as? String ?: "",
+                nombrePagador = this["nombrePagador"] as? String ?: "",
+                idReceptor = this["idReceptor"] as? String ?: "",
+                nombreReceptor = this["nombreReceptor"] as? String ?: "",
+                horasCompensadas = this["horasCompensadas"] as? Double ?: 0.0,
+                valorHora = this["valorHora"] as? Double ?: 0.0,
+                montoTotal = this["montoTotal"] as? Double ?: 0.0,
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
+                aceptadoPadre1 = this["aceptadoPadre1"] as? Boolean ?: false,
+                aceptadoPadre2 = this["aceptadoPadre2"] as? Boolean ?: false
+            )
+        } catch (e: Exception) { null }
+    }
+
     // ── Escrituras (Room + Firestore) ─────────────────────────────────────────
 
     suspend fun insertarEvento(evento: Evento) {
@@ -177,6 +231,36 @@ class SyncManager(
         col("mensajes").document(mensaje.id).set(mensaje.toMap())
     }
 
+    suspend fun insertarRegistro(registro: RegistroTiempo) {
+        db.registroTiempoDao().insertarRegistro(registro)
+        col("registros_tiempo").document(registro.id).set(registro.toMap())
+    }
+
+    suspend fun actualizarRegistro(registro: RegistroTiempo) {
+        db.registroTiempoDao().actualizarRegistro(registro)
+        col("registros_tiempo").document(registro.id).set(registro.toMap())
+    }
+
+    suspend fun eliminarRegistro(registro: RegistroTiempo) {
+        db.registroTiempoDao().eliminarRegistro(registro)
+        col("registros_tiempo").document(registro.id).delete()
+    }
+
+    suspend fun insertarCompensacion(compensacion: Compensacion) {
+        db.compensacionDao().insertarCompensacion(compensacion)
+        col("compensaciones").document(compensacion.id).set(compensacion.toMap())
+    }
+
+    suspend fun actualizarCompensacion(compensacion: Compensacion) {
+        db.compensacionDao().actualizarCompensacion(compensacion)
+        col("compensaciones").document(compensacion.id).set(compensacion.toMap())
+    }
+
+    suspend fun eliminarCompensacion(compensacion: Compensacion) {
+        db.compensacionDao().eliminarCompensacion(compensacion)
+        col("compensaciones").document(compensacion.id).delete()
+    }
+
     // ── Usuarios Google ───────────────────────────────────────────────────────
 
     fun registrarUsuarioGoogle(usuario: UsuarioGoogle) {
@@ -203,13 +287,28 @@ class SyncManager(
                 .addOnFailureListener { cont.resume(null) }
         }
 
+    // ── Subida inicial de datos locales a Firestore ───────────────────────────
+
+    suspend fun subirDatosLocalesIfNeeded() {
+        if (!FamilyIdManager.necesitaSubidaInicial(context)) return
+        db.eventoDao().obtenerTodosLosEventos().forEach { col("eventos").document(it.id).set(it.toMap()) }
+        db.gastoDao().obtenerTodosLosGastos().forEach { col("gastos").document(it.id).set(it.toMap()) }
+        db.itemCompraDao().obtenerTodos().filter { !it.esPrivado }.forEach { col("items_compra").document(it.id).set(it.toMap()) }
+        db.mensajeDao().obtenerTodos().forEach { col("mensajes").document(it.id).set(it.toMap()) }
+        db.registroTiempoDao().obtenerTodosLosRegistros().forEach { col("registros_tiempo").document(it.id).set(it.toMap()) }
+        db.compensacionDao().obtenerTodasLasCompensaciones().forEach { col("compensaciones").document(it.id).set(it.toMap()) }
+        FamilyIdManager.marcarSubidaInicial(context)
+    }
+
     // ── Listeners en tiempo real ──────────────────────────────────────────────
 
     fun iniciarListeners(
         onEventosActualizados: () -> Unit,
         onGastosActualizados: () -> Unit,
         onItemsActualizados: () -> Unit,
-        onMensajesActualizados: () -> Unit
+        onMensajesActualizados: () -> Unit,
+        onRegistrosActualizados: () -> Unit = {},
+        onCompensacionesActualizadas: () -> Unit = {}
     ) {
         col("eventos").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
@@ -268,6 +367,36 @@ class SyncManager(
                     }
                 }
                 onMensajesActualizados()
+            }
+        }
+
+        col("registros_tiempo").addSnapshotListener { snap, err ->
+            if (err != null || snap == null) return@addSnapshotListener
+            scope.launch {
+                for (change in snap.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                            change.document.data.toRegistroTiempo()?.let { db.registroTiempoDao().insertarRegistro(it) }
+                        DocumentChange.Type.REMOVED ->
+                            db.registroTiempoDao().eliminarPorId(change.document.id)
+                    }
+                }
+                onRegistrosActualizados()
+            }
+        }
+
+        col("compensaciones").addSnapshotListener { snap, err ->
+            if (err != null || snap == null) return@addSnapshotListener
+            scope.launch {
+                for (change in snap.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                            change.document.data.toCompensacion()?.let { db.compensacionDao().insertarCompensacion(it) }
+                        DocumentChange.Type.REMOVED ->
+                            db.compensacionDao().eliminarPorId(change.document.id)
+                    }
+                }
+                onCompensacionesActualizadas()
             }
         }
 
