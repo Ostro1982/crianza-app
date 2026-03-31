@@ -98,6 +98,11 @@ fun obtenerFechaActual(): String {
     return sdf.format(Date())
 }
 
+fun obtenerHoraActual(): String {
+    val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+    return sdf.format(Date())
+}
+
 /** Normaliza "8" → "08:00", "8:30" → "08:30", "14:5" → "14:05" */
 fun normalizarHora(hora: String): String {
     val limpia = hora.trim()

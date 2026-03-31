@@ -291,6 +291,34 @@ fun NavegacionApp() {
             onDocumentos = { pantallaActual = "documentos" },
             onMensajes = { pantallaActual = "mensajes" },
             onPendientes = { pantallaActual = "pendientes" },
+            registrosTiempo = registrosTiempo,
+            onIniciarCustodia = {
+                scope.launch {
+                    val padre = padres.find { it.id == idPadreActual } ?: return@launch
+                    val hoy = obtenerFechaActual()
+                    val ahora = obtenerHoraActual()
+                    hijos.forEach { hijo ->
+                        syncManager.insertarRegistro(RegistroTiempo(
+                            idHijo = hijo.id, nombreHijo = hijo.nombre,
+                            idPadre = padre.id, nombrePadre = padre.nombre,
+                            fecha = hoy, horaInicio = ahora, horaFin = ""
+                        ))
+                    }
+                    registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                }
+            },
+            onFinalizarCustodia = {
+                scope.launch {
+                    val hoy = obtenerFechaActual()
+                    val ahora = obtenerHoraActual()
+                    registrosTiempo.filter {
+                        it.fecha == hoy && it.horaFin.isBlank() && it.idPadre == idPadreActual
+                    }.forEach { registro ->
+                        syncManager.actualizarRegistro(registro.copy(horaFin = ahora))
+                    }
+                    registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                }
+            },
             onConfiguracion = { pantallaActual = "configuracion" },
             onAtras = { pantallaActual = "registroFamilia" },
             onEditarFamilia = { pantallaActual = "registroFamilia" },
@@ -466,14 +494,19 @@ fun NavegacionApp() {
             onEliminar = { doc -> scope.launch { db.documentoDao().eliminar(doc); documentos = db.documentoDao().obtenerTodos() } },
             onAtras = { pantallaActual = "principal" }
         )
-        "mensajes" -> PantallaMensajes(
-            mensajes = mensajes,
-            padres = padres,
-            idPadreActual = idPadreActual,
-            configuracion = configuracionIntegracion,
-            onEnviar = { msg -> scope.launch { syncManager.insertarMensaje(msg); mensajes = db.mensajeDao().obtenerTodos() } },
-            onAtras = { pantallaActual = "principal" }
-        )
+        "mensajes" -> {
+            LaunchedEffect(Unit) {
+                db.mensajeDao().marcarTodosLeidos()
+            }
+            PantallaMensajes(
+                mensajes = mensajes,
+                padres = padres,
+                idPadreActual = idPadreActual,
+                configuracion = configuracionIntegracion,
+                onEnviar = { msg -> scope.launch { syncManager.insertarMensaje(msg); mensajes = db.mensajeDao().obtenerTodos() } },
+                onAtras = { pantallaActual = "principal" }
+            )
+        }
         "pendientes" -> PantallaPendientes(
             pendientes = pendientesLista,
             padres = padres,
@@ -746,6 +779,9 @@ fun PantallaPrincipal(
     onMensajes: () -> Unit,
     onConfiguracion: () -> Unit,
     onPendientes: () -> Unit = {},
+    registrosTiempo: List<RegistroTiempo> = emptyList(),
+    onIniciarCustodia: () -> Unit = {},
+    onFinalizarCustodia: () -> Unit = {},
     onAtras: () -> Unit,
     onEditarFamilia: () -> Unit,
     onGoogle: () -> Unit = {},
@@ -774,6 +810,14 @@ fun PantallaPrincipal(
     var tareasPendientes by remember { mutableStateOf<List<Pendiente>>(emptyList()) }
     var compensacionesPendientes by remember { mutableStateOf(0) }
     var mensajesNoLeidos by remember { mutableStateOf(0) }
+
+    // Custodia rápida: detectar si hay registros abiertos hoy para el padre actual
+    val hoyStr = remember { obtenerFechaActual() }
+    val registrosAbiertos = registrosTiempo.filter {
+        it.fecha == hoyStr && it.horaFin.isBlank() && it.idPadre == idPadreActual
+    }
+    val custodiaActiva = registrosAbiertos.isNotEmpty()
+    val custodiaDesde = registrosAbiertos.firstOrNull()?.horaInicio ?: ""
 
     LaunchedEffect(Unit) {
         val db = AppDatabase.getInstance(context)
@@ -865,6 +909,15 @@ fun PantallaPrincipal(
                         )
                     }
                 }
+            }
+
+            // ── Custodia rápida ───────────────────────────────────────────────
+            if (hijos.isNotEmpty() && idPadreActual.isNotEmpty()) {
+                WidgetCustodiaRapida(
+                    activa = custodiaActiva,
+                    desde = custodiaDesde,
+                    onToggle = { if (custodiaActiva) onFinalizarCustodia() else onIniciarCustodia() }
+                )
             }
 
             // ── Widget de clima ───────────────────────────────────────────────
@@ -1087,6 +1140,73 @@ fun ClimaCard() {
                 color = Color.White.copy(alpha = 0.55f),
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
+        }
+    }
+}
+
+@Composable
+fun WidgetCustodiaRapida(
+    activa: Boolean,
+    desde: String,
+    onToggle: () -> Unit
+) {
+    val gradiente = if (activa)
+        Brush.linearGradient(listOf(Color(0xFF1E3A5F), Color(0xFF3B82F6)))
+    else
+        Brush.linearGradient(listOf(Color(0xFF1F2937), Color(0xFF4B5563)))
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(gradiente)
+            .clickable(onClick = onToggle)
+    ) {
+        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
+        Box(
+            Modifier
+                .size(70.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 15.dp, y = (-15).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.06f))
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    if (activa) "Los nenes están conmigo" else "Los nenes están conmigo",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    if (activa) "Desde las $desde — tocar para finalizar"
+                    else "Tocar para iniciar registro",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.75f)
+                )
+            }
+            Surface(
+                shape = CircleShape,
+                color = if (activa) Color(0xFF22C55E) else Color.White.copy(alpha = 0.2f),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        if (activa) Icons.Default.Check else Icons.Default.AccessTime,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
     }
 }

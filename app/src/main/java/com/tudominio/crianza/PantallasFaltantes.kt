@@ -506,19 +506,19 @@ fun DialogoEvento(
                     value = titulo, onValueChange = { titulo = it },
                     label = { Text("Título") }, modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = fecha, onValueChange = { fecha = it },
-                    label = { Text("Fecha (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth()
+                CampoFecha(
+                    value = fecha, label = "Fecha",
+                    onValueChange = { fecha = it }, modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = horaInicio, onValueChange = { horaInicio = it },
-                        label = { Text("Desde") }, placeholder = { Text("9 ó 14:30") },
+                    CampoHora(
+                        value = horaInicio, label = "Desde",
+                        onValueChange = { horaInicio = it },
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
-                        value = horaFin, onValueChange = { horaFin = it },
-                        label = { Text("Hasta") }, placeholder = { Text("18") },
+                    CampoHora(
+                        value = horaFin, label = "Hasta",
+                        onValueChange = { horaFin = it },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -874,7 +874,7 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
                     label = { Text("Monto ($)") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha") }, modifier = Modifier.fillMaxWidth())
+                CampoFecha(value = fecha, label = "Fecha", onValueChange = { fecha = it }, modifier = Modifier.fillMaxWidth())
 
                 Text("¿Quién pagó?")
                 padres.forEach { padre ->
@@ -1032,7 +1032,7 @@ fun DialogoRecuerdo(recuerdo: Recuerdo?, onDismiss: () -> Unit, onGuardar: (Recu
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = titulo, onValueChange = { titulo = it }, label = { Text("Título / Anécdota") })
-                OutlinedTextField(value = fecha, onValueChange = { fecha = it }, label = { Text("Fecha") })
+                CampoFecha(value = fecha, label = "Fecha", onValueChange = { fecha = it })
                 OutlinedTextField(
                     value = desc,
                     onValueChange = { desc = it },

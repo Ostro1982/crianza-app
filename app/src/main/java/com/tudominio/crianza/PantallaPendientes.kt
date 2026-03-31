@@ -242,12 +242,11 @@ fun DialogoPendiente(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("Ej: Llevar al pediatra, trámite DNI…") }
                 )
-                OutlinedTextField(
+                CampoFecha(
                     value = fechaLimite,
+                    label = "Fecha límite (opcional)",
                     onValueChange = { fechaLimite = it },
-                    label = { Text("Fecha límite (opcional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("YYYY-MM-DD") }
+                    modifier = Modifier.fillMaxWidth()
                 )
                 if (padres.isNotEmpty()) {
                     Text("Asignar a:", style = MaterialTheme.typography.labelMedium)

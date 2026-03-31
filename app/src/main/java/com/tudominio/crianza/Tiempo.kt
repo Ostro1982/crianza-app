@@ -328,26 +328,24 @@ fun DialogoRegistroTiempo(
                     }
                 }
 
-                OutlinedTextField(
+                CampoFecha(
                     value = fecha,
+                    label = "Fecha",
                     onValueChange = { fecha = it },
-                    label = { Text("Fecha (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    CampoHora(
                         value = horaInicio,
+                        label = "Desde",
                         onValueChange = { horaInicio = it },
-                        label = { Text("Desde") },
-                        placeholder = { Text("9 ó 09:30") },
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
+                    CampoHora(
                         value = horaFin,
+                        label = "Hasta",
                         onValueChange = { horaFin = it },
-                        label = { Text("Hasta") },
-                        placeholder = { Text("15 ó 17:00") },
                         modifier = Modifier.weight(1f)
                     )
                 }
