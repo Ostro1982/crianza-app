@@ -179,6 +179,11 @@ fun NavegacionApp() {
                 SincronizacionWorker.iniciar(context)
             }
 
+            // Auto-seleccionar primer padre si no hay ninguno seleccionado
+            if (idPadreActual.isEmpty() && padres.isNotEmpty()) {
+                idPadreActual = padres.first().id
+            }
+
             // Navegar según estado guardado
             pantallaActual = if (padres.isNotEmpty()) "principal" else "seleccionModo"
 
