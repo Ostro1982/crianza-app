@@ -196,6 +196,16 @@ data class ConfiguracionIntegracion(
     val notifCompras: Boolean = true
 )
 
+@Entity(tableName = "pendientes")
+data class Pendiente(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val titulo: String,
+    val completado: Boolean = false,
+    val fechaCreacion: Long = System.currentTimeMillis(),
+    val fechaLimite: String = "", // YYYY-MM-DD opcional
+    val asignadoA: String = ""   // nombre del padre
+)
+
 @Entity(tableName = "filtros_email")
 data class FiltroEmail(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),

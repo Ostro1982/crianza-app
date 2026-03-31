@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.MenuBook
@@ -141,6 +142,7 @@ fun NavegacionApp() {
     var itemsCompra by remember { mutableStateOf(listOf<ItemCompra>()) }
     var documentos by remember { mutableStateOf(listOf<Documento>()) }
     var mensajes by remember { mutableStateOf(listOf<Mensaje>()) }
+    var pendientesLista by remember { mutableStateOf(listOf<Pendiente>()) }
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var usuarioGoogle by remember { mutableStateOf<UsuarioGoogle?>(null) }
     // Código de familia único (generado una vez, basado en IDs de padres)
@@ -170,6 +172,7 @@ fun NavegacionApp() {
             itemsCompra = db.itemCompraDao().obtenerTodos()
             documentos = db.documentoDao().obtenerTodos()
             mensajes = db.mensajeDao().obtenerTodos()
+            pendientesLista = db.pendienteDao().obtenerTodos()
             categoriasCompra = db.categoriaCompraDao().obtenerTodas()
 
             if (configuracionIntegracion.habilitarTelegram || configuracionIntegracion.habilitarEmail) {
@@ -186,7 +189,8 @@ fun NavegacionApp() {
                 onItemsActualizados          = { scope.launch { itemsCompra     = db.itemCompraDao().obtenerTodos() } },
                 onMensajesActualizados       = { scope.launch { mensajes        = db.mensajeDao().obtenerTodos() } },
                 onRegistrosActualizados      = { scope.launch { registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros() } },
-                onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones() } }
+                onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones() } },
+                onPendientesActualizados     = { scope.launch { pendientesLista = db.pendienteDao().obtenerTodos() } }
             )
 
             // Subir datos locales a Firestore si es la primera vez
@@ -286,6 +290,7 @@ fun NavegacionApp() {
             onListaCompras = { pantallaActual = "listaCompras" },
             onDocumentos = { pantallaActual = "documentos" },
             onMensajes = { pantallaActual = "mensajes" },
+            onPendientes = { pantallaActual = "pendientes" },
             onConfiguracion = { pantallaActual = "configuracion" },
             onAtras = { pantallaActual = "registroFamilia" },
             onEditarFamilia = { pantallaActual = "registroFamilia" },
@@ -466,6 +471,14 @@ fun NavegacionApp() {
             padres = padres,
             configuracion = configuracionIntegracion,
             onEnviar = { msg -> scope.launch { syncManager.insertarMensaje(msg); mensajes = db.mensajeDao().obtenerTodos() } },
+            onAtras = { pantallaActual = "principal" }
+        )
+        "pendientes" -> PantallaPendientes(
+            pendientes = pendientesLista,
+            padres = padres,
+            onAgregar = { p -> scope.launch { syncManager.insertarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos() } },
+            onActualizar = { p -> scope.launch { syncManager.actualizarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos() } },
+            onEliminar = { p -> scope.launch { syncManager.eliminarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos() } },
             onAtras = { pantallaActual = "principal" }
         )
         "configuracion" -> PantallaConfiguracion(
@@ -731,6 +744,7 @@ fun PantallaPrincipal(
     onDocumentos: () -> Unit,
     onMensajes: () -> Unit,
     onConfiguracion: () -> Unit,
+    onPendientes: () -> Unit = {},
     onAtras: () -> Unit,
     onEditarFamilia: () -> Unit,
     onGoogle: () -> Unit = {},
@@ -746,33 +760,42 @@ fun PantallaPrincipal(
     val menuItemsSecundarios = listOf(
         ItemMenuPrincipal("Compensación", "Balance y deudas",    Icons.Default.Balance,              3, onCompensacion),
         ItemMenuPrincipal("Compras",      "Lista compartida",    Icons.Default.ShoppingCart,         4, onListaCompras),
-        ItemMenuPrincipal("Mensajes",     "Comunicación",        Icons.Default.Chat,                 5, onMensajes),
-        ItemMenuPrincipal("Recuerdos",    "Momentos especiales", Icons.Default.MenuBook,             6, onRecuerdos),
-        ItemMenuPrincipal("Documentos",   "Bóveda privada",      Icons.Default.Lock,                 7, onDocumentos),
+        ItemMenuPrincipal("Pendientes",   "Tareas por hacer",    Icons.Default.CheckCircle,          5, onPendientes),
+        ItemMenuPrincipal("Mensajes",     "Comunicación",        Icons.Default.Chat,                 6, onMensajes),
+        ItemMenuPrincipal("Recuerdos",    "Momentos especiales", Icons.Default.MenuBook,             7, onRecuerdos),
+        ItemMenuPrincipal("Documentos",   "Bóveda privada",      Icons.Default.Lock,                 8, onDocumentos),
     )
 
     // ── Estado dinámico del dashboard ──────────────────────────────────────────
     val context = LocalContext.current
-    var eventosHoy by remember { mutableStateOf<List<Evento>>(emptyList()) }
-    var proximoEvento by remember { mutableStateOf<Evento?>(null) }
+    var eventosSemana by remember { mutableStateOf<Map<String, List<Evento>>>(emptyMap()) }
     var comprasPendientes by remember { mutableStateOf<List<ItemCompra>>(emptyList()) }
+    var tareasPendientes by remember { mutableStateOf<List<Pendiente>>(emptyList()) }
     var compensacionesPendientes by remember { mutableStateOf(0) }
     var mensajesNoLeidos by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
         val db = AppDatabase.getInstance(context)
         val hoy = obtenerFechaActual()
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+        val cal = java.util.Calendar.getInstance()
+        cal.time = sdf.parse(hoy)!!
+        cal.add(java.util.Calendar.DAY_OF_YEAR, 7)
+        val finSemana = sdf.format(cal.time)
 
         val todos = withContext(Dispatchers.IO) { db.eventoDao().obtenerTodosLosEventos() }
-        val deHoy = todos.filter { it.fecha == hoy }
-        eventosHoy = deHoy
-        proximoEvento = if (deHoy.isEmpty()) {
-            todos.filter { it.fecha > hoy }.minByOrNull { it.fecha + (it.horaInicio ?: "00:00") }
-        } else null
+        eventosSemana = todos
+            .filter { it.fecha in hoy..finSemana }
+            .groupBy { it.fecha }
+            .toSortedMap()
 
         comprasPendientes = withContext(Dispatchers.IO) {
             db.itemCompraDao().obtenerCompartidos()
         }.filter { !it.comprado }
+
+        tareasPendientes = withContext(Dispatchers.IO) {
+            db.pendienteDao().obtenerPendientes()
+        }
 
         compensacionesPendientes = withContext(Dispatchers.IO) {
             db.compensacionDao().obtenerTodasLasCompensaciones()
@@ -847,14 +870,15 @@ fun PantallaPrincipal(
             ClimaCard()
 
             // ── Widgets dinámicos ─────────────────────────────────────────────
-            WidgetHoy(
-                eventos = eventosHoy,
-                proximoEvento = proximoEvento,
+            WidgetEstaSemana(
+                eventosPorDia = eventosSemana,
                 onClick = onCalendario
             )
-            WidgetComprasPendientes(
-                items = comprasPendientes,
-                onClick = onListaCompras
+            WidgetPendientes(
+                compras = comprasPendientes,
+                tareas = tareasPendientes,
+                onClickCompras = onListaCompras,
+                onClickPendientes = onPendientes
             )
             if (compensacionesPendientes > 0 || mensajesNoLeidos > 0) {
                 WidgetAccionPrioritaria(
@@ -1067,12 +1091,16 @@ fun ClimaCard() {
 }
 
 @Composable
-fun WidgetHoy(
-    eventos: List<Evento>,
-    proximoEvento: Evento?,
+fun WidgetEstaSemana(
+    eventosPorDia: Map<String, List<Evento>>,
     onClick: () -> Unit
 ) {
     val gradienteVerde = Brush.linearGradient(listOf(Color(0xFF064E3B), Color(0xFF10B981)))
+    val sdfIn = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
+    val sdfOut = remember { java.text.SimpleDateFormat("EEE d", java.util.Locale("es")) }
+    val hoy = remember { obtenerFechaActual() }
+    val totalEventos = eventosPorDia.values.sumOf { it.size }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1081,9 +1109,7 @@ fun WidgetHoy(
             .background(gradienteVerde)
             .clickable(onClick = onClick)
     ) {
-        // Glassmorphic overlay
         Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
-        // Decorative circle
         Box(
             Modifier
                 .size(80.dp)
@@ -1093,76 +1119,98 @@ fun WidgetHoy(
                 .background(Color.White.copy(alpha = 0.06f))
         )
         Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Hoy",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text("›", style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.5f))
-            }
-            if (eventos.isEmpty()) {
-                Text(
-                    "Sin eventos hoy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.75f)
-                )
-                if (proximoEvento != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        "Próximo: ${proximoEvento.titulo} — ${proximoEvento.fecha}" +
-                            (proximoEvento.horaInicio?.let { " a las $it" } ?: ""),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White.copy(alpha = 0.9f)
+                        "Esta semana",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
-                }
-            } else {
-                eventos.take(3).forEach { evento ->
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        if (evento.horaInicio != null) {
-                            Text(
-                                evento.horaInicio,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.65f),
-                                modifier = Modifier.widthIn(min = 40.dp)
-                            )
+                        if (totalEventos > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50.dp))
+                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .padding(horizontal = 10.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    "$totalEventos",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         }
-                        Text(
-                            evento.titulo,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        )
+                        Text("›", style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.5f))
                     }
                 }
-                if (eventos.size > 3) {
+                if (eventosPorDia.isEmpty()) {
                     Text(
-                        "+${eventos.size - 3} más",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
+                        "Sin eventos esta semana",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.75f)
                     )
+                } else {
+                    eventosPorDia.entries.take(5).forEach { (fecha, eventos) ->
+                        val label = if (fecha == hoy) "Hoy" else {
+                            try { sdfOut.format(sdfIn.parse(fecha)!!).replaceFirstChar { it.uppercase() } }
+                            catch (_: Exception) { fecha }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (fecha == hoy) Color(0xFF6EE7B7) else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.widthIn(min = 50.dp)
+                            )
+                            Column {
+                                eventos.take(2).forEach { evento ->
+                                    Text(
+                                        buildString {
+                                            evento.horaInicio?.let { append("$it ") }
+                                            append(evento.titulo)
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White
+                                    )
+                                }
+                                if (eventos.size > 2) {
+                                    Text("+${eventos.size - 2} más", style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.5f))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-    } // inner padding Box
     }
 }
 
 @Composable
-fun WidgetComprasPendientes(
-    items: List<ItemCompra>,
-    onClick: () -> Unit
+fun WidgetPendientes(
+    compras: List<ItemCompra>,
+    tareas: List<Pendiente>,
+    onClickCompras: () -> Unit,
+    onClickPendientes: () -> Unit
 ) {
+    val total = compras.size + tareas.size
     val gradienteRosa = Brush.linearGradient(listOf(Color(0xFF831843), Color(0xFFF472B6)))
+    val onClick = if (tareas.isNotEmpty()) onClickPendientes else onClickCompras
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1171,9 +1219,7 @@ fun WidgetComprasPendientes(
             .background(gradienteRosa)
             .clickable(onClick = onClick)
     ) {
-        // Glassmorphic overlay
         Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
-        // Decorative circle
         Box(
             Modifier
                 .size(80.dp)
@@ -1192,7 +1238,7 @@ fun WidgetComprasPendientes(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Compras pendientes",
+                    "Pendientes",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -1201,7 +1247,7 @@ fun WidgetComprasPendientes(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (items.isNotEmpty()) {
+                    if (total > 0) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50.dp))
@@ -1209,7 +1255,7 @@ fun WidgetComprasPendientes(
                                 .padding(horizontal = 10.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                "${items.size}",
+                                "$total",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -1219,23 +1265,36 @@ fun WidgetComprasPendientes(
                     Text("›", style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.5f))
                 }
             }
-            if (items.isEmpty()) {
+            if (total == 0) {
                 Text(
-                    "Todo al día ✓",
+                    "Todo al día",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )
             } else {
-                items.take(3).forEach { item ->
+                // Tareas primero
+                tareas.take(2).forEach { tarea ->
                     Text(
-                        "• ${item.descripcion}",
+                        "○ ${tarea.titulo}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.85f)
                     )
                 }
-                if (items.size > 3) {
+                // Luego compras
+                val restantes = 3 - tareas.take(2).size
+                if (restantes > 0 && compras.isNotEmpty()) {
+                    compras.take(restantes).forEach { item ->
+                        Text(
+                            "🛒 ${item.descripcion}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                    }
+                }
+                val ocultos = total - minOf(total, 3)
+                if (ocultos > 0) {
                     Text(
-                        "+${items.size - 3} más",
+                        "+$ocultos más",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.55f)
                     )
@@ -1317,7 +1376,7 @@ fun TarjetaMenuPrincipalAnimada(
 ) {
     val gradients = listOf(
         CardGrad0, CardGrad1, CardGrad2, CardGrad3,
-        CardGrad4, CardGrad5, CardGrad6, CardGrad7
+        CardGrad4, CardGrad5, CardGrad6, CardGrad7, CardGrad8
     )
     val gradient = gradients[item.colorIndex % gradients.size]
 

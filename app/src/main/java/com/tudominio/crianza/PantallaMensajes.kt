@@ -44,7 +44,7 @@ fun PantallaMensajes(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(BgGrad5)) {
+    Box(Modifier.fillMaxSize().background(BgGrad6)) {
     Scaffold(
         modifier = Modifier.imePadding(),
         containerColor = Color.Transparent,

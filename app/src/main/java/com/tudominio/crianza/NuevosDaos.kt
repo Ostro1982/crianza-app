@@ -79,3 +79,24 @@ interface MensajeDao {
     @Query("DELETE FROM mensajes WHERE id = :id")
     suspend fun eliminarPorId(id: String)
 }
+
+@Dao
+interface PendienteDao {
+    @Query("SELECT * FROM pendientes ORDER BY completado ASC, fechaCreacion DESC")
+    suspend fun obtenerTodos(): List<Pendiente>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertar(pendiente: Pendiente)
+
+    @Update
+    suspend fun actualizar(pendiente: Pendiente)
+
+    @Delete
+    suspend fun eliminar(pendiente: Pendiente)
+
+    @Query("SELECT * FROM pendientes WHERE completado = 0 ORDER BY fechaCreacion DESC")
+    suspend fun obtenerPendientes(): List<Pendiente>
+
+    @Query("DELETE FROM pendientes WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
+}

@@ -54,7 +54,7 @@ fun PantallaDocumentos(
     var documentoViendo by remember { mutableStateOf<Documento?>(null) }
     var contenidoDescifrado by remember { mutableStateOf<String?>(null) }
 
-    Box(Modifier.fillMaxSize().background(BgGrad7)) {
+    Box(Modifier.fillMaxSize().background(BgGrad8)) {
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {

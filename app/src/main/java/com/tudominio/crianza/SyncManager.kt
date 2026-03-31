@@ -68,6 +68,12 @@ class SyncManager(
         "aceptadoPadre1" to aceptadoPadre1, "aceptadoPadre2" to aceptadoPadre2
     )
 
+    private fun Pendiente.toMap() = mapOf(
+        "id" to id, "titulo" to titulo, "completado" to completado,
+        "fechaCreacion" to fechaCreacion, "fechaLimite" to fechaLimite,
+        "asignadoA" to asignadoA
+    )
+
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any>.toEvento(): Evento? {
         return try {
@@ -179,6 +185,20 @@ class SyncManager(
         } catch (e: Exception) { null }
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toPendiente(): Pendiente? {
+        return try {
+            Pendiente(
+                id = this["id"] as? String ?: return null,
+                titulo = this["titulo"] as? String ?: "",
+                completado = this["completado"] as? Boolean ?: false,
+                fechaCreacion = this["fechaCreacion"] as? Long ?: 0L,
+                fechaLimite = this["fechaLimite"] as? String ?: "",
+                asignadoA = this["asignadoA"] as? String ?: ""
+            )
+        } catch (e: Exception) { null }
+    }
+
     // ── Escrituras (Room + Firestore) ─────────────────────────────────────────
 
     suspend fun insertarEvento(evento: Evento) {
@@ -261,6 +281,21 @@ class SyncManager(
         col("compensaciones").document(compensacion.id).delete()
     }
 
+    suspend fun insertarPendiente(pendiente: Pendiente) {
+        db.pendienteDao().insertar(pendiente)
+        col("pendientes").document(pendiente.id).set(pendiente.toMap())
+    }
+
+    suspend fun actualizarPendiente(pendiente: Pendiente) {
+        db.pendienteDao().actualizar(pendiente)
+        col("pendientes").document(pendiente.id).set(pendiente.toMap())
+    }
+
+    suspend fun eliminarPendiente(pendiente: Pendiente) {
+        db.pendienteDao().eliminar(pendiente)
+        col("pendientes").document(pendiente.id).delete()
+    }
+
     // ── Usuarios Google ───────────────────────────────────────────────────────
 
     fun registrarUsuarioGoogle(usuario: UsuarioGoogle) {
@@ -297,6 +332,7 @@ class SyncManager(
         db.mensajeDao().obtenerTodos().forEach { col("mensajes").document(it.id).set(it.toMap()) }
         db.registroTiempoDao().obtenerTodosLosRegistros().forEach { col("registros_tiempo").document(it.id).set(it.toMap()) }
         db.compensacionDao().obtenerTodasLasCompensaciones().forEach { col("compensaciones").document(it.id).set(it.toMap()) }
+        db.pendienteDao().obtenerTodos().forEach { col("pendientes").document(it.id).set(it.toMap()) }
         FamilyIdManager.marcarSubidaInicial(context)
     }
 
@@ -308,7 +344,8 @@ class SyncManager(
         onItemsActualizados: () -> Unit,
         onMensajesActualizados: () -> Unit,
         onRegistrosActualizados: () -> Unit = {},
-        onCompensacionesActualizadas: () -> Unit = {}
+        onCompensacionesActualizadas: () -> Unit = {},
+        onPendientesActualizados: () -> Unit = {}
     ) {
         col("eventos").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
@@ -397,6 +434,21 @@ class SyncManager(
                     }
                 }
                 onCompensacionesActualizadas()
+            }
+        }
+
+        col("pendientes").addSnapshotListener { snap, err ->
+            if (err != null || snap == null) return@addSnapshotListener
+            scope.launch {
+                for (change in snap.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                            change.document.data.toPendiente()?.let { db.pendienteDao().insertar(it) }
+                        DocumentChange.Type.REMOVED ->
+                            db.pendienteDao().eliminarPorId(change.document.id)
+                    }
+                }
+                onPendientesActualizados()
             }
         }
 

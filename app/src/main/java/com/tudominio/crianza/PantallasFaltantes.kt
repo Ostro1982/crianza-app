@@ -917,7 +917,7 @@ fun PantallaRecuerdos(
     var mostrarDialogo by remember { mutableStateOf(false) }
     var recuerdoEditando by remember { mutableStateOf<Recuerdo?>(null) }
 
-    Box(Modifier.fillMaxSize().background(BgGrad6)) {
+    Box(Modifier.fillMaxSize().background(BgGrad7)) {
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {

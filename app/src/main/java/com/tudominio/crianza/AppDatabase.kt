@@ -21,9 +21,10 @@ import androidx.room.TypeConverters
         ItemCompra::class,
         Documento::class,
         Mensaje::class,
-        CategoriaCompra::class
+        CategoriaCompra::class,
+        Pendiente::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -41,6 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun documentoDao(): DocumentoDao
     abstract fun mensajeDao(): MensajeDao
     abstract fun categoriaCompraDao(): CategoriaCompraDao
+    abstract fun pendienteDao(): PendienteDao
 
     companion object {
         @Volatile
