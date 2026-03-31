@@ -29,12 +29,13 @@ import java.util.*
 fun PantallaMensajes(
     mensajes: List<Mensaje>,
     padres: List<Padre>,
+    idPadreActual: String = padres.firstOrNull()?.id ?: "",
     configuracion: ConfiguracionIntegracion = ConfiguracionIntegracion(),
     onEnviar: (Mensaje) -> Unit,
     onAtras: () -> Unit
 ) {
     var texto by remember { mutableStateOf("") }
-    var remitenteSeleccionado by remember { mutableStateOf(padres.firstOrNull()?.id ?: "") }
+    val remitenteSeleccionado = idPadreActual
     val listState = rememberLazyListState()
     val sdf = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
 
@@ -61,27 +62,6 @@ fun PantallaMensajes(
         },
         bottomBar = {
             Column {
-                // Selector de remitente
-                if (padres.size > 1) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(GlassWhiteHeavy)
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Enviando como:", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
-                        padres.forEach { padre ->
-                            FilterChip(
-                                selected = remitenteSeleccionado == padre.id,
-                                onClick = { remitenteSeleccionado = padre.id },
-                                label = { Text(padre.nombre, fontSize = 12.sp) }
-                            )
-                        }
-                    }
-                }
-
                 // Campo de texto
                 Row(
                     modifier = Modifier

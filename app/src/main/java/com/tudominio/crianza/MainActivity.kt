@@ -469,6 +469,7 @@ fun NavegacionApp() {
         "mensajes" -> PantallaMensajes(
             mensajes = mensajes,
             padres = padres,
+            idPadreActual = idPadreActual,
             configuracion = configuracionIntegracion,
             onEnviar = { msg -> scope.launch { syncManager.insertarMensaje(msg); mensajes = db.mensajeDao().obtenerTodos() } },
             onAtras = { pantallaActual = "principal" }
