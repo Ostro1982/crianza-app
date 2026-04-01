@@ -326,11 +326,10 @@ fun PantallaRegistroFamilia(
                                 Icon(Icons.Default.Add, contentDescription = "Agregar", tint = Color.White)
                             }
                         }
-                        OutlinedTextField(
+                        CampoFecha(
                             value = nuevoHijoFecha,
+                            label = "Fecha de nacimiento (opcional)",
                             onValueChange = { nuevoHijoFecha = it },
-                            placeholder = { Text("Fecha de nacimiento (YYYY-MM-DD, opcional)", color = Color.White.copy(0.4f)) },
-                            singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White, unfocusedTextColor = Color.White,
@@ -338,9 +337,12 @@ fun PantallaRegistroFamilia(
                                 unfocusedBorderColor = Color.White.copy(0.2f),
                                 cursorColor = Color.White,
                                 focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(12.dp)
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedLabelColor = Color.White.copy(0.7f),
+                                unfocusedLabelColor = Color.White.copy(0.4f),
+                                focusedTrailingIconColor = Color.White.copy(0.7f),
+                                unfocusedTrailingIconColor = Color.White.copy(0.5f)
+                            )
                         )
                     }
                 }
@@ -510,11 +512,10 @@ private fun AdultoCard(
             }
 
             // Campo fecha de nacimiento
-            OutlinedTextField(
+            CampoFecha(
                 value = persona.fechaNacimiento,
+                label = "Fecha de nacimiento (opcional)",
                 onValueChange = { onCambiar(persona.copy(fechaNacimiento = it)) },
-                placeholder = { Text("Fecha de nac. (YYYY-MM-DD, opcional)", color = Color.White.copy(0.4f)) },
-                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -523,13 +524,12 @@ private fun AdultoCard(
                     unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
                     cursorColor = Color.White,
                     focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(12.dp),
-                trailingIcon = if (edadAdulto != null) {
-                    { Text("$edadAdulto", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.7f),
-                        modifier = Modifier.padding(end = 8.dp)) }
-                } else null
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedLabelColor = Color.White.copy(0.7f),
+                    unfocusedLabelColor = Color.White.copy(0.4f),
+                    focusedTrailingIconColor = Color.White.copy(0.7f),
+                    unfocusedTrailingIconColor = Color.White.copy(0.5f)
+                )
             )
         }
     }

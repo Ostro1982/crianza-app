@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -24,7 +26,7 @@ import androidx.room.TypeConverters
         CategoriaCompra::class,
         Pendiente::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -48,6 +50,13 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        // v14 → v15: agregar columna "categoria" a gastos
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE gastos ADD COLUMN categoria TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -55,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crianza_database"
                 )
+                    .addMigrations(MIGRATION_14_15)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

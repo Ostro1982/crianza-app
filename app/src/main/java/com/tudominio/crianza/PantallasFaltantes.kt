@@ -822,7 +822,11 @@ fun PantallaGastos(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(gasto.descripcion, fontWeight = FontWeight.Bold, color = Color.White)
                                 Text("$${"%.2f".format(gasto.monto)} · ${gasto.fecha}", color = Color.White.copy(alpha = 0.8f))
-                                Text("Pagó: ${gasto.nombrePagador}", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                val detalle = listOfNotNull(
+                                    "Pagó: ${gasto.nombrePagador}",
+                                    gasto.categoria.takeIf { it.isNotEmpty() }
+                                ).joinToString(" · ")
+                                Text(detalle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
                             }
                             IconButton(onClick = { gastoEditando = gasto }) {
                                 Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
@@ -858,6 +862,8 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
     var monto by remember { mutableStateOf(gasto?.monto?.toString() ?: "") }
     var fecha by remember { mutableStateOf(gasto?.fecha ?: obtenerFechaActual()) }
     var idPagador by remember { mutableStateOf(gasto?.idPagador ?: (padres.firstOrNull()?.id ?: "")) }
+    var categoria by remember { mutableStateOf(gasto?.categoria ?: "") }
+    var expandirCategorias by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -876,6 +882,36 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
                 )
                 CampoFecha(value = fecha, label = "Fecha", onValueChange = { fecha = it }, modifier = Modifier.fillMaxWidth())
 
+                // Selector de categoría
+                ExposedDropdownMenuBox(
+                    expanded = expandirCategorias,
+                    onExpandedChange = { expandirCategorias = it }
+                ) {
+                    OutlinedTextField(
+                        value = categoria.ifEmpty { "Sin categoría" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandirCategorias) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandirCategorias,
+                        onDismissRequest = { expandirCategorias = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Sin categoría") },
+                            onClick = { categoria = ""; expandirCategorias = false }
+                        )
+                        CATEGORIAS_GASTO.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = { categoria = cat; expandirCategorias = false }
+                            )
+                        }
+                    }
+                }
+
                 Text("¿Quién pagó?")
                 padres.forEach { padre ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -886,7 +922,7 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
             }
         },
         confirmButton = {
-            Button(onClick = { 
+            Button(onClick = {
                 val pagador = padres.find { it.id == idPagador }
                 onGuardar(Gasto(
                     id = gasto?.id ?: UUID.randomUUID().toString(),
@@ -896,7 +932,8 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
                     idPagador = idPagador,
                     nombrePagador = pagador?.nombre ?: "",
                     idsHijos = emptyList(),
-                    nombresHijos = ""
+                    nombresHijos = "",
+                    categoria = categoria
                 ))
             }, enabled = desc.isNotBlank() && monto.toDoubleOrNull() != null) {
                 Text("Guardar")

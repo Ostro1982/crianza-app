@@ -36,7 +36,8 @@ class SyncManager(
         "id" to id, "descripcion" to descripcion, "monto" to monto, "fecha" to fecha,
         "idPagador" to idPagador, "nombrePagador" to nombrePagador,
         "idsHijos" to idsHijos, "nombresHijos" to nombresHijos,
-        "dividirAutomatico" to dividirAutomatico, "fechaCompleta" to fechaCompleta
+        "dividirAutomatico" to dividirAutomatico, "fechaCompleta" to fechaCompleta,
+        "categoria" to categoria
     )
 
     private fun ItemCompra.toMap() = mapOf(
@@ -107,7 +108,8 @@ class SyncManager(
                 idsHijos = (this["idsHijos"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
                 nombresHijos = this["nombresHijos"] as? String ?: "",
                 dividirAutomatico = this["dividirAutomatico"] as? Boolean ?: true,
-                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
+                categoria = this["categoria"] as? String ?: ""
             )
         } catch (e: Exception) { null }
     }

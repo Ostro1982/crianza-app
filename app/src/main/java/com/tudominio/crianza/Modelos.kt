@@ -85,7 +85,13 @@ data class Gasto(
     val idsHijos: List<String> = emptyList(), // IDs de los hijos involucrados
     val nombresHijos: String = "", // Texto para mostrar
     val dividirAutomatico: Boolean = true,
-    val fechaCompleta: Long = System.currentTimeMillis()
+    val fechaCompleta: Long = System.currentTimeMillis(),
+    val categoria: String = ""
+)
+
+val CATEGORIAS_GASTO = listOf(
+    "Alimentación", "Salud", "Educación", "Ropa", "Transporte",
+    "Entretenimiento", "Hogar", "Higiene", "Actividades", "Otro"
 )
 
 @Entity(tableName = "compensaciones")

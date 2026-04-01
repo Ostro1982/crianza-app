@@ -11,7 +11,9 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -24,21 +26,39 @@ fun CampoFecha(
     value: String,
     label: String,
     onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    colors: TextFieldColors? = null,
+    placeholder: String? = null
 ) {
     var mostrarPicker by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
-            }
-        )
+        if (colors != null) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(label) },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = placeholder?.let { { Text(it) } },
+                trailingIcon = {
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
+                },
+                colors = colors,
+                shape = RoundedCornerShape(12.dp)
+            )
+        } else {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(label) },
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = null)
+                }
+            )
+        }
         // Overlay clickable transparente sobre el TextField
         Box(
             Modifier
