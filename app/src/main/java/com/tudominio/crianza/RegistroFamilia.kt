@@ -504,6 +504,8 @@ private fun AdultoCard(
                             labelColor = Color.White
                         ),
                         border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = seleccionado,
                             selectedBorderColor = Color.Transparent,
                             borderColor = Color.White.copy(alpha = 0.2f)
                         )

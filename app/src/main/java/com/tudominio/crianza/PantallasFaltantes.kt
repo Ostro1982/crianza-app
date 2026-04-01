@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -589,6 +591,7 @@ fun PantallaGastos(
 ) {
     var mostrarDialogo by remember { mutableStateOf(false) }
     var gastoEditando by remember { mutableStateOf<Gasto?>(null) }
+    var busqueda by remember { mutableStateOf("") }
 
     Box(Modifier.fillMaxSize().background(BgGrad2)) {
     Scaffold(
@@ -812,27 +815,84 @@ fun PantallaGastos(
                 }
             }
 
+            // Búsqueda
+            OutlinedTextField(
+                value = busqueda,
+                onValueChange = { busqueda = it },
+                placeholder = { Text("Buscar gastos...", color = Color.White.copy(0.4f)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(0.5f)) },
+                trailingIcon = {
+                    if (busqueda.isNotEmpty()) {
+                        IconButton(onClick = { busqueda = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Limpiar", tint = Color.White.copy(0.5f))
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Color.White.copy(0.3f),
+                    unfocusedBorderColor = Color.White.copy(0.15f),
+                    cursorColor = Color.White,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent
+                ),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            val gastosFiltrados = if (busqueda.isBlank()) gastos else {
+                val q = busqueda.lowercase()
+                gastos.filter {
+                    it.descripcion.lowercase().contains(q) ||
+                    it.nombrePagador.lowercase().contains(q) ||
+                    it.categoria.lowercase().contains(q)
+                }
+            }
+
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(gastos.sortedByDescending { it.fecha }) { gasto ->
-                    Box(
-                        modifier = Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
+                items(gastosFiltrados.sortedByDescending { it.fecha }, key = { it.id }) { gasto ->
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = {
+                            if (it == SwipeToDismissBoxValue.EndToStart) {
+                                onEliminarGasto(gasto.id)
+                                true
+                            } else false
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        backgroundContent = {
+                            Box(
+                                Modifier.fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFEF4444))
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.White)
+                            }
+                        },
+                        enableDismissFromStartToEnd = false
                     ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(gasto.descripcion, fontWeight = FontWeight.Bold, color = Color.White)
-                                Text("$${"%.2f".format(gasto.monto)} · ${gasto.fecha}", color = Color.White.copy(alpha = 0.8f))
-                                val detalle = listOfNotNull(
-                                    "Pagó: ${gasto.nombrePagador}",
-                                    gasto.categoria.takeIf { it.isNotEmpty() }
-                                ).joinToString(" · ")
-                                Text(detalle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
-                            }
-                            IconButton(onClick = { gastoEditando = gasto }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
-                            }
-                            IconButton(onClick = { onEliminarGasto(gasto.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFF87171))
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(gasto.descripcion, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("$${"%.2f".format(gasto.monto)} · ${gasto.fecha}", color = Color.White.copy(alpha = 0.8f))
+                                    val detalle = listOfNotNull(
+                                        "Pagó: ${gasto.nombrePagador}",
+                                        gasto.categoria.takeIf { it.isNotEmpty() }
+                                    ).joinToString(" · ")
+                                    Text(detalle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                }
+                                IconButton(onClick = { gastoEditando = gasto }) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
+                                }
                             }
                         }
                     }
