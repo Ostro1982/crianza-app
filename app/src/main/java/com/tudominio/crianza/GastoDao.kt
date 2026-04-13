@@ -32,4 +32,7 @@ interface GastoDao {
 
     @Query("DELETE FROM gastos WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM gastos")
+    suspend fun eliminarTodos()
 }

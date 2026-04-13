@@ -51,10 +51,10 @@ fun PantallaMensajes(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Mensajes internos", color = Color.White) },
+                title = { Text("Mensajes internos", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -132,14 +132,14 @@ fun PantallaMensajes(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("📱 Comandos por WhatsApp",
-                                fontWeight = FontWeight.Bold, color = Color.White)
+                                fontWeight = FontWeight.Bold, color = Neutral10)
                             if (configuracion.whatsappTelefonoPadre1.isNotEmpty())
                                 Text("Padre 1: +${configuracion.whatsappTelefonoPadre1}",
-                                    color = Color.White.copy(alpha = 0.85f),
+                                    color = NeutralVariant30,
                                     style = MaterialTheme.typography.bodySmall)
                             if (configuracion.whatsappTelefonoPadre2.isNotEmpty())
                                 Text("Padre 2: +${configuracion.whatsappTelefonoPadre2}",
-                                    color = Color.White.copy(alpha = 0.85f),
+                                    color = NeutralVariant30,
                                     style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(2.dp))
                             val comandos = listOf(
@@ -152,7 +152,7 @@ fun PantallaMensajes(
                             )
                             comandos.forEach {
                                 Text("  $it",
-                                    color = Color.White.copy(alpha = 0.7f),
+                                    color = NeutralVariant30,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                             }
@@ -164,7 +164,7 @@ fun PantallaMensajes(
             if (mensajes.isEmpty() && !waActivo) {
                 item {
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No hay mensajes. ¡Empezá la conversación!", color = Color.White)
+                        Text("No hay mensajes. ¡Empezá la conversación!", color = Neutral10)
                     }
                 }
             }
@@ -200,7 +200,7 @@ fun BurbujaMensaje(
                 Text(
                     mensaje.nombreEmisor,
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFFC4B5FD),
+                    color = Indigo80,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
                 )
@@ -212,19 +212,19 @@ fun BurbujaMensaje(
                     bottomStart = 16.dp,
                     bottomEnd = 16.dp
                 ),
-                color = if (esPropio) Color(0xFF7C3AED)
+                color = if (esPropio) Indigo30
                 else Color(0x4DFFFFFF)
             ) {
                 Text(
                     mensaje.texto,
-                    color = Color.White,
+                    color = if (esPropio) Color.White else Neutral10,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                 )
             }
             Text(
                 hora,
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.5f),
+                color = NeutralVariant50,
                 modifier = Modifier.padding(top = 2.dp, start = 4.dp, end = 4.dp)
             )
         }

@@ -84,6 +84,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-firestore-ktx")
 
+    // Coroutines await() para Tasks de Firebase/Play Services
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
     // OkHttp (Telegram Bot API)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
@@ -93,6 +96,10 @@ dependencies {
 
     // Coil — carga de imágenes (fotos en recuerdos)
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // QR: generar (ZXing) + escanear (journeyapps wrapping zxing)
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // Google Sign-In (Credential Manager — sin Firebase)
     implementation("androidx.credentials:credentials:1.3.0")

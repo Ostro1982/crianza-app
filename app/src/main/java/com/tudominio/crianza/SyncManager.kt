@@ -9,18 +9,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import java.util.concurrent.atomic.AtomicInteger
 
 class SyncManager(
     private val context: Context,
     private val db: AppDatabase
 ) {
-    private val familyId = FamilyIdManager.obtenerFamilyId(context)
     private val fs = Firebase.firestore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var listenerRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
 
-    private fun col(nombre: String) = fs.collection("familias/$familyId/$nombre")
+    private fun familyId() = FamilyIdManager.obtenerFamilyId(context)
+    private fun col(nombre: String) = fs.collection("familias/${familyId()}/$nombre")
 
     // ── Serialización ────────────────────────────────────────────────────────
 
@@ -305,7 +308,7 @@ class SyncManager(
             "email" to usuario.email,
             "nombre" to usuario.nombre,
             "fotoUrl" to (usuario.fotoUrl ?: ""),
-            "familyId" to familyId
+            "familyId" to familyId()
         ))
     }
 
@@ -340,6 +343,34 @@ class SyncManager(
 
     // ── Listeners en tiempo real ──────────────────────────────────────────────
 
+    private var ultimosCallbacks: ListenerCallbacks? = null
+
+    data class ListenerCallbacks(
+        val onEventosActualizados: () -> Unit,
+        val onGastosActualizados: () -> Unit,
+        val onItemsActualizados: () -> Unit,
+        val onMensajesActualizados: () -> Unit,
+        val onRegistrosActualizados: () -> Unit,
+        val onCompensacionesActualizadas: () -> Unit,
+        val onPendientesActualizados: () -> Unit
+    )
+
+    fun detenerListeners() {
+        listenerRegistrations.forEach { it.remove() }
+        listenerRegistrations.clear()
+    }
+
+    fun reiniciarListeners() {
+        val cb = ultimosCallbacks ?: return
+        detenerListeners()
+        iniciarListeners(
+            cb.onEventosActualizados, cb.onGastosActualizados,
+            cb.onItemsActualizados, cb.onMensajesActualizados,
+            cb.onRegistrosActualizados, cb.onCompensacionesActualizadas,
+            cb.onPendientesActualizados
+        )
+    }
+
     fun iniciarListeners(
         onEventosActualizados: () -> Unit,
         onGastosActualizados: () -> Unit,
@@ -349,7 +380,15 @@ class SyncManager(
         onCompensacionesActualizadas: () -> Unit = {},
         onPendientesActualizados: () -> Unit = {}
     ) {
-        col("eventos").addSnapshotListener { snap, err ->
+        detenerListeners()
+        ultimosCallbacks = ListenerCallbacks(
+            onEventosActualizados, onGastosActualizados,
+            onItemsActualizados, onMensajesActualizados,
+            onRegistrosActualizados, onCompensacionesActualizadas,
+            onPendientesActualizados
+        )
+
+        listenerRegistrations += col("eventos").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -364,7 +403,7 @@ class SyncManager(
             }
         }
 
-        col("gastos").addSnapshotListener { snap, err ->
+        listenerRegistrations += col("gastos").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -379,7 +418,7 @@ class SyncManager(
             }
         }
 
-        col("items_compra").addSnapshotListener { snap, err ->
+        listenerRegistrations += col("items_compra").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -394,7 +433,7 @@ class SyncManager(
             }
         }
 
-        col("mensajes").addSnapshotListener { snap, err ->
+        listenerRegistrations += col("mensajes").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -409,7 +448,7 @@ class SyncManager(
             }
         }
 
-        col("registros_tiempo").addSnapshotListener { snap, err ->
+        listenerRegistrations += col("registros_tiempo").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -424,7 +463,7 @@ class SyncManager(
             }
         }
 
-        col("compensaciones").addSnapshotListener { snap, err ->
+        listenerRegistrations += col("compensaciones").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -439,7 +478,7 @@ class SyncManager(
             }
         }
 
-        col("pendientes").addSnapshotListener { snap, err ->
+        listenerRegistrations += col("pendientes").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
                 for (change in snap.documentChanges) {
@@ -454,6 +493,48 @@ class SyncManager(
             }
         }
 
-        Log.d("SyncManager", "Listeners activos para familia: $familyId")
+        Log.d("SyncManager", "Listeners activos para familia: ${familyId()}")
+    }
+
+    // Descarga todos los datos de la familia actual de Firestore a Room
+    suspend fun descargarDatosDeFamilia() {
+        val fid = familyId()
+        Log.d("SyncManager", "Descargando datos de familia: $fid")
+
+        val eventosSnap = col("eventos").get().await()
+        eventosSnap.documents.forEach { doc -> doc.data?.toEvento()?.let { db.eventoDao().insertarEvento(it) } }
+
+        val gastosSnap = col("gastos").get().await()
+        gastosSnap.documents.forEach { doc -> doc.data?.toGasto()?.let { db.gastoDao().insertarGasto(it) } }
+
+        val itemsSnap = col("items_compra").get().await()
+        itemsSnap.documents.forEach { doc -> doc.data?.toItemCompra()?.let { db.itemCompraDao().insertar(it) } }
+
+        val mensajesSnap = col("mensajes").get().await()
+        mensajesSnap.documents.forEach { doc -> doc.data?.toMensaje()?.let { db.mensajeDao().insertar(it) } }
+
+        val registrosSnap = col("registros_tiempo").get().await()
+        registrosSnap.documents.forEach { doc -> doc.data?.toRegistroTiempo()?.let { db.registroTiempoDao().insertarRegistro(it) } }
+
+        val compensacionesSnap = col("compensaciones").get().await()
+        compensacionesSnap.documents.forEach { doc -> doc.data?.toCompensacion()?.let { db.compensacionDao().insertarCompensacion(it) } }
+
+        val pendientesSnap = col("pendientes").get().await()
+        pendientesSnap.documents.forEach { doc -> doc.data?.toPendiente()?.let { db.pendienteDao().insertar(it) } }
+
+        Log.d("SyncManager", "Datos descargados OK de familia: $fid (eventos=${eventosSnap.size()}, gastos=${gastosSnap.size()}, items=${itemsSnap.size()}, mensajes=${mensajesSnap.size()}, registros=${registrosSnap.size()}, comp=${compensacionesSnap.size()}, pend=${pendientesSnap.size()})")
+    }
+
+    // Sube datos locales a otra familia en Firestore (espera confirmación)
+    suspend fun subirDatosAFamilia(otraFamilyId: String) {
+        fun otraCol(nombre: String) = fs.collection("familias/$otraFamilyId/$nombre")
+        db.eventoDao().obtenerTodosLosEventos().forEach { otraCol("eventos").document(it.id).set(it.toMap()).await() }
+        db.gastoDao().obtenerTodosLosGastos().forEach { otraCol("gastos").document(it.id).set(it.toMap()).await() }
+        db.itemCompraDao().obtenerTodos().filter { !it.esPrivado }.forEach { otraCol("items_compra").document(it.id).set(it.toMap()).await() }
+        db.mensajeDao().obtenerTodos().forEach { otraCol("mensajes").document(it.id).set(it.toMap()).await() }
+        db.registroTiempoDao().obtenerTodosLosRegistros().forEach { otraCol("registros_tiempo").document(it.id).set(it.toMap()).await() }
+        db.compensacionDao().obtenerTodasLasCompensaciones().forEach { otraCol("compensaciones").document(it.id).set(it.toMap()).await() }
+        db.pendienteDao().obtenerTodos().forEach { otraCol("pendientes").document(it.id).set(it.toMap()).await() }
+        Log.d("SyncManager", "Datos subidos a familia: $otraFamilyId")
     }
 }

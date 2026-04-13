@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -80,6 +81,7 @@ fun PantallaListaCompras(
     onAtras: () -> Unit
 ) {
     var mostrarDialogoAgregar by remember { mutableStateOf(false) }
+    var itemEditando by remember { mutableStateOf<ItemCompra?>(null) }
     var tabSeleccionado by remember { mutableIntStateOf(0) }
 
     val efectivoPadreId = idPadreActual.ifEmpty { padres.firstOrNull()?.id ?: "" }
@@ -101,27 +103,27 @@ fun PantallaListaCompras(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Lista de compras", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Lista de compras", fontWeight = FontWeight.Bold, color = Neutral10)
                         if (padres.size >= 2) {
                             val nombre = padres.find { it.id == idPadreActual }?.nombre ?: ""
                             if (nombre.isNotEmpty())
                                 Text(
                                     "Hola, $nombre",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.7f)
+                                    color = NeutralVariant30
                                 )
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
                     if (comprados.isNotEmpty()) {
                         TextButton(onClick = onEliminarComprados) {
-                            Text("Limpiar ✓", color = Color(0xFFF87171))
+                            Text("Limpiar ✓", color = Red40)
                         }
                     }
                 },
@@ -154,12 +156,12 @@ fun PantallaListaCompras(
                 items(tabs) { (index, label, count) ->
                     val isSelected = tabSeleccionado == index
                     val bgColor by animateColorAsState(
-                        targetValue = if (isSelected) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.06f),
+                        targetValue = if (isSelected) GlassWhite else GlassWhite.copy(alpha = 0.4f),
                         animationSpec = tween(300),
                         label = "chipBg"
                     )
                     val borderColor by animateColorAsState(
-                        targetValue = if (isSelected) Color.White.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.12f),
+                        targetValue = if (isSelected) NeutralVariant30.copy(alpha = 0.4f) else NeutralVariant50.copy(alpha = 0.12f),
                         animationSpec = tween(300),
                         label = "chipBorder"
                     )
@@ -181,12 +183,12 @@ fun PantallaListaCompras(
                         ) {
                             if (isSelected) {
                                 Box(
-                                    Modifier.size(7.dp).clip(CircleShape).background(Color.White)
+                                    Modifier.size(7.dp).clip(CircleShape).background(Neutral10)
                                 )
                             }
                             Text(
                                 label,
-                                color = if (isSelected) Color.White else Color.White.copy(alpha = 0.55f),
+                                color = if (isSelected) Neutral10 else NeutralVariant50,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 style = MaterialTheme.typography.labelLarge
                             )
@@ -194,12 +196,12 @@ fun PantallaListaCompras(
                                 Box(
                                     Modifier
                                         .clip(RoundedCornerShape(50.dp))
-                                        .background(if (isSelected) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f))
+                                        .background(if (isSelected) GlassWhite else GlassWhite.copy(alpha = 0.4f))
                                         .padding(horizontal = 7.dp, vertical = 2.dp)
                                 ) {
                                     Text(
                                         "$count",
-                                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.5f),
+                                        color = if (isSelected) Neutral10 else NeutralVariant50,
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.labelSmall
                                     )
@@ -219,12 +221,12 @@ fun PantallaListaCompras(
                             else "La lista está vacía",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            color = Neutral10
                         )
                         Text(
                             "Tocá el botón para agregar",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = NeutralVariant50,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -240,16 +242,20 @@ fun PantallaListaCompras(
                             Text(
                                 "PENDIENTES  •  ${pendientes.size}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = NeutralVariant30,
                                 modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
                             )
                         }
                         items(pendientes, key = { it.id }) { item ->
-                            TarjetaItemCompra(
-                                item = item,
-                                onToggle = { onActualizar(item.copy(comprado = !item.comprado)) },
-                                onEliminar = { onEliminar(item) }
-                            )
+                            SwipeParaBorrar(onEliminar = { onEliminar(item) }) {
+                                TarjetaItemCompra(
+                                    item = item,
+                                    puedeEditar = item.idPagador == efectivoPadreId,
+                                    onToggle = { onActualizar(item.copy(comprado = !item.comprado)) },
+                                    onEditar = { itemEditando = item },
+                                    onEliminar = { onEliminar(item) }
+                                )
+                            }
                         }
                     }
                     if (comprados.isNotEmpty()) {
@@ -258,16 +264,18 @@ fun PantallaListaCompras(
                             Text(
                                 "COMPRADOS  •  ${comprados.size}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.5f),
+                                color = NeutralVariant50,
                                 modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
                             )
                         }
                         items(comprados, key = { it.id }) { item ->
-                            TarjetaItemCompra(
-                                item = item,
-                                onToggle = { onActualizar(item.copy(comprado = !item.comprado)) },
-                                onEliminar = { onEliminar(item) }
-                            )
+                            SwipeParaBorrar(onEliminar = { onEliminar(item) }) {
+                                TarjetaItemCompra(
+                                    item = item,
+                                    onToggle = { onActualizar(item.copy(comprado = !item.comprado)) },
+                                    onEliminar = { onEliminar(item) }
+                                )
+                            }
                         }
                     }
                 }
@@ -290,17 +298,30 @@ fun PantallaListaCompras(
             }
         )
     }
+
+    itemEditando?.let { item ->
+        DialogoEditarItemCompra(
+            item = item,
+            onDismiss = { itemEditando = null },
+            onGuardar = { actualizado ->
+                onActualizar(actualizado)
+                itemEditando = null
+            }
+        )
+    }
 }
 
 @Composable
 fun TarjetaItemCompra(
     item: ItemCompra,
+    puedeEditar: Boolean = false,
     onToggle: () -> Unit,
+    onEditar: () -> Unit = {},
     onEliminar: () -> Unit
 ) {
     val targetAlpha = if (item.comprado) 0.4f else 1f
     val animBgColor by animateColorAsState(
-        targetValue = if (item.comprado) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.15f),
+        targetValue = if (item.comprado) GlassWhite.copy(alpha = 0.4f) else GlassWhite,
         animationSpec = tween(350),
         label = "cardBg"
     )
@@ -322,9 +343,9 @@ fun TarjetaItemCompra(
                 checked = item.comprado,
                 onCheckedChange = { onToggle() },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF34D399),
+                    checkedColor = Teal40,
                     checkmarkColor = Color.White,
-                    uncheckedColor = Color.White.copy(alpha = 0.45f)
+                    uncheckedColor = NeutralVariant50
                 )
             )
             Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
@@ -337,7 +358,7 @@ fun TarjetaItemCompra(
                         fontWeight = if (!item.comprado) FontWeight.SemiBold else FontWeight.Normal,
                         textDecoration = if (item.comprado) TextDecoration.LineThrough else TextDecoration.None,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (item.comprado) Color.White.copy(alpha = 0.35f) else Color.White
+                        color = if (item.comprado) NeutralVariant50 else Neutral10
                     )
                 }
                 val meta = listOfNotNull(
@@ -353,30 +374,40 @@ fun TarjetaItemCompra(
                     Text(
                         meta,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = if (item.comprado) 0.2f else 0.55f),
+                        color = if (item.comprado) NeutralVariant50.copy(alpha = 0.5f) else NeutralVariant50,
                         textDecoration = if (item.comprado) TextDecoration.LineThrough else TextDecoration.None
                     )
                 }
             }
             if (!item.comprado) {
+                if (puedeEditar) {
+                    IconButton(onClick = onEditar, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint = NeutralVariant50,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
                 IconButton(onClick = onEliminar, modifier = Modifier.size(36.dp)) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Eliminar",
-                        tint = Color(0xFFF87171).copy(alpha = 0.7f),
+                        tint = Red40.copy(alpha = 0.7f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             } else {
                 // Comprado: icono de check con fondo circular
                 Box(
-                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF34D399).copy(.12f)),
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Teal40.copy(.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Check,
                         contentDescription = "Comprado",
-                        tint = Color(0xFF34D399).copy(alpha = 0.5f),
+                        tint = Teal40.copy(alpha = 0.5f),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -815,5 +846,71 @@ fun DialogoSelectorCategoria(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } },
         dismissButton = null
+    )
+}
+
+@Composable
+fun DialogoEditarItemCompra(
+    item: ItemCompra,
+    onDismiss: () -> Unit,
+    onGuardar: (ItemCompra) -> Unit
+) {
+    var desc by remember { mutableStateOf(item.descripcion) }
+    var cantidad by remember { mutableStateOf(item.cantidad) }
+    var unidad by remember { mutableStateOf(item.unidad) }
+    var precio by remember { mutableStateOf(if (item.precio > 0) item.precio.toString() else "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Editar producto", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = desc, onValueChange = { desc = it },
+                    label = { Text("Producto") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = cantidad, onValueChange = { cantidad = it },
+                        label = { Text("Cantidad") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    OutlinedTextField(
+                        value = unidad, onValueChange = { unidad = it },
+                        label = { Text("Unidad") },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("kg, L, u.") },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+                OutlinedTextField(
+                    value = precio,
+                    onValueChange = { precio = it.filter { c -> c.isDigit() || c == '.' } },
+                    label = { Text("Precio (opcional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    prefix = { Text("$ ") },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onGuardar(item.copy(
+                        descripcion = desc.trim(),
+                        cantidad = cantidad.ifBlank { "1" },
+                        unidad = unidad.trim(),
+                        precio = precio.toDoubleOrNull() ?: 0.0
+                    ))
+                },
+                enabled = desc.isNotBlank(),
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("Guardar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        shape = RoundedCornerShape(20.dp)
     )
 }

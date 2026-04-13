@@ -30,6 +30,9 @@ interface ItemCompraDao {
 
     @Query("DELETE FROM items_compra WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM items_compra")
+    suspend fun eliminarTodos()
 }
 
 @Dao
@@ -78,6 +81,9 @@ interface MensajeDao {
 
     @Query("DELETE FROM mensajes WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM mensajes")
+    suspend fun eliminarTodos()
 }
 
 @Dao
@@ -99,4 +105,7 @@ interface PendienteDao {
 
     @Query("DELETE FROM pendientes WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM pendientes")
+    suspend fun eliminarTodos()
 }

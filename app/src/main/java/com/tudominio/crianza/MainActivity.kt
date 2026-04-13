@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.core.content.ContextCompat
@@ -149,7 +150,7 @@ fun NavegacionApp() {
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var usuarioGoogle by remember { mutableStateOf<UsuarioGoogle?>(null) }
     // Código de familia único (generado una vez, basado en IDs de padres)
-    val codigoFamiliar by remember { mutableStateOf(java.util.UUID.randomUUID().toString().take(8).uppercase()) }
+    val codigoFamiliar by remember { mutableStateOf(FamilyIdManager.obtenerFamilyId(context)) }
     // Info de actualización disponible (no null = hay versión nueva)
     var actualizacionInfo by remember { mutableStateOf<ActualizacionChecker.ActualizacionInfo?>(null) }
 
@@ -230,6 +231,15 @@ fun NavegacionApp() {
         )
     }
 
+    // ── Back handler: en principal no salir, en sub-pantallas volver a principal ──
+    BackHandler(enabled = true) {
+        when (pantallaActual) {
+            "principal" -> { /* No hacer nada — no salir de la app */ }
+            "cargando", "seleccionModo" -> { /* No salir */ }
+            else -> pantallaActual = "principal"
+        }
+    }
+
     when (pantallaActual) {
         "cargando" -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -241,7 +251,9 @@ fun NavegacionApp() {
                 modoSeleccionado = modo
                 prefs.edit().putString("modo", modo).apply()
                 pantallaActual = "registroFamilia"
-            }
+            },
+            onGoogle = { pantallaActual = "google" },
+            onVincular = { pantallaActual = "vincular" }
         )
         "registroFamilia" -> PantallaRegistroFamilia(
             modo = modoSeleccionado,
@@ -300,6 +312,8 @@ fun NavegacionApp() {
             onMensajes = { pantallaActual = "mensajes" },
             onPendientes = { pantallaActual = "pendientes" },
             registrosTiempo = registrosTiempo,
+            codigoFamiliar = codigoFamiliar,
+            usuarioGoogle = usuarioGoogle,
             onIniciarCustodia = {
                 scope.launch {
                     val padre = padres.find { it.id == idPadreActual } ?: return@launch
@@ -331,7 +345,20 @@ fun NavegacionApp() {
             onAtras = { pantallaActual = "registroFamilia" },
             onEditarFamilia = { pantallaActual = "registroFamilia" },
             onGoogle = { pantallaActual = "google" },
-            onVincular = { pantallaActual = "vincular" }
+            onVincular = { pantallaActual = "vincular" },
+            onRevincular = {
+                scope.launch {
+                    FamilyIdManager.desvincular(context)
+                    db.eventoDao().eliminarTodos()
+                    db.gastoDao().eliminarTodos()
+                    db.itemCompraDao().eliminarTodos()
+                    db.mensajeDao().eliminarTodos()
+                    db.registroTiempoDao().eliminarTodos()
+                    db.compensacionDao().eliminarTodos()
+                    db.pendienteDao().eliminarTodos()
+                    pantallaActual = "vincular"
+                }
+            }
         )
         "tiempo" -> PantallaTiempo(
             hijos = hijos,
@@ -552,12 +579,7 @@ fun NavegacionApp() {
             },
             onAtras = { pantallaActual = "principal" }
         )
-        "vincular" -> PantallaVincular(
-            onVinculado = { pantallaActual = "principal" },
-            onAtras = { pantallaActual = "principal" },
-            onBuscarEmail = { email -> syncManager.buscarUsuarioPorEmail(email) }
-        )
-        "google" -> PantallaGoogle(
+        "vincular", "google" -> PantallaCuentaVincular(
             usuarioActual = usuarioGoogle,
             codigoFamiliar = codigoFamiliar,
             onIniciarSesion = { user ->
@@ -565,7 +587,13 @@ fun NavegacionApp() {
                 syncManager.registrarUsuarioGoogle(user)
             },
             onCerrarSesion = { usuarioGoogle = null },
-            onAtras = { pantallaActual = "principal" }
+            onVinculado = {
+                syncManager.reiniciarListeners()
+                scope.launch { syncManager.subirDatosLocalesIfNeeded() }
+                pantallaActual = "principal"
+            },
+            onAtras = { pantallaActual = "principal" },
+            onBuscarEmail = { email -> syncManager.buscarUsuarioPorEmail(email) }
         )
         "recuerdos" -> PantallaRecuerdos(
             recuerdos = recuerdos,
@@ -601,7 +629,9 @@ fun NavegacionApp() {
 fun PantallaSeleccionModo(
     padresExisten: Boolean = false,
     onContinuar: () -> Unit = {},
-    onModoSeleccionado: (String) -> Unit
+    onModoSeleccionado: (String) -> Unit,
+    onGoogle: () -> Unit = {},
+    onVincular: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -623,14 +653,14 @@ fun PantallaSeleccionModo(
             Text(
                 "Crianza",
                 style = MaterialTheme.typography.displaySmall.copy(
-                    color = Color.White,
+                    color = Neutral10,
                     fontWeight = FontWeight.ExtraBold
                 )
             )
             Text(
                 "Compartida",
                 style = MaterialTheme.typography.headlineMedium.copy(
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = NeutralVariant30,
                     fontWeight = FontWeight.Light
                 )
             )
@@ -638,7 +668,7 @@ fun PantallaSeleccionModo(
             Text(
                 "Tu familia. Tu acuerdo.",
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    color = Color.White.copy(alpha = 0.6f)
+                    color = NeutralVariant50
                 )
             )
 
@@ -651,11 +681,11 @@ fun PantallaSeleccionModo(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.25f)
+                        containerColor = Indigo40
                     )
                 ) {
                     Text(
-                        "▶  Continuar con mi familia",
+                        "\u25B6  Continuar con mi familia",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 6.dp)
@@ -665,9 +695,9 @@ fun PantallaSeleccionModo(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    "─  o crear nueva  ─",
+                    "\u2500  o crear nueva  \u2500",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color.White.copy(alpha = 0.45f)
+                        color = NeutralVariant50
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -680,7 +710,7 @@ fun PantallaSeleccionModo(
             Text(
                 "¿Cómo es tu familia?",
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = Neutral10,
                     letterSpacing = 0.8.sp
                 )
             )
@@ -709,10 +739,48 @@ fun PantallaSeleccionModo(
             Text(
                 "Podés cambiar esto después en configuración",
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color.White.copy(alpha = 0.4f)
+                    color = NeutralVariant50
                 ),
                 textAlign = TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // ── Cuenta / Vincular ────────────────────────────────────────────
+            Text(
+                "¿Ya tenés cuenta?",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    color = Neutral10
+                )
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onGoogle,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, NeutralVariant50)
+                ) {
+                    Icon(Icons.Default.Person, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Google", fontSize = 13.sp)
+                }
+                OutlinedButton(
+                    onClick = onVincular,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, NeutralVariant50)
+                ) {
+                    Icon(Icons.Default.Sync, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Vincular", fontSize = 13.sp)
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -724,7 +792,7 @@ fun OpcionModoCard(emoji: String, titulo: String, subtitulo: String, onClick: ()
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.14f)),
+        colors = CardDefaults.cardColors(containerColor = GlassWhite),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
@@ -734,7 +802,7 @@ fun OpcionModoCard(emoji: String, titulo: String, subtitulo: String, onClick: ()
         ) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = Color.White.copy(alpha = 0.2f),
+                color = Indigo90,
                 modifier = Modifier.size(52.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -745,7 +813,7 @@ fun OpcionModoCard(emoji: String, titulo: String, subtitulo: String, onClick: ()
                 Text(
                     titulo,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = Color.White,
+                        color = Neutral10,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -753,11 +821,11 @@ fun OpcionModoCard(emoji: String, titulo: String, subtitulo: String, onClick: ()
                 Text(
                     subtitulo,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = NeutralVariant50
                     )
                 )
             }
-            Text("›", style = MaterialTheme.typography.titleLarge.copy(color = Color.White.copy(alpha = 0.5f)))
+            Text("\u203A", style = MaterialTheme.typography.titleLarge.copy(color = NeutralVariant50))
         }
     }
 }
@@ -790,34 +858,33 @@ fun PantallaPrincipal(
     registrosTiempo: List<RegistroTiempo> = emptyList(),
     onIniciarCustodia: () -> Unit = {},
     onFinalizarCustodia: () -> Unit = {},
+    codigoFamiliar: String = "",
+    usuarioGoogle: UsuarioGoogle? = null,
     onAtras: () -> Unit,
     onEditarFamilia: () -> Unit,
     onGoogle: () -> Unit = {},
-    onVincular: () -> Unit = {}
+    onVincular: () -> Unit = {},
+    onRevincular: () -> Unit = {}
 ) {
-    // Primarios: las 3 funciones principales, se muestran en fila de 3 mas grandes
-    val menuItemsPrimarios = listOf(
-        ItemMenuPrincipal("Tiempo",       "Registros diarios",   Icons.Default.AccessTime,           0, onTiempo),
-        ItemMenuPrincipal("Calendario",   "Eventos y citas",     Icons.Default.CalendarMonth,        1, onCalendario),
-        ItemMenuPrincipal("Gastos",       "Control de pagos",    Icons.Default.AccountBalanceWallet, 2, onGastos),
-    )
-    // Secundarios: las demas, en grid de 2 columnas
-    val menuItemsSecundarios = listOf(
-        ItemMenuPrincipal("Compensación", "Balance y deudas",    Icons.Default.Balance,              3, onCompensacion),
-        ItemMenuPrincipal("Compras",      "Lista compartida",    Icons.Default.ShoppingCart,         4, onListaCompras),
-        ItemMenuPrincipal("Pendientes",   "Tareas por hacer",    Icons.Default.CheckCircle,          5, onPendientes),
-        ItemMenuPrincipal("Mensajes",     "Comunicación",        Icons.Default.Chat,                 6, onMensajes),
-        ItemMenuPrincipal("Recuerdos",    "Momentos especiales", Icons.Default.MenuBook,             7, onRecuerdos),
-        ItemMenuPrincipal("Documentos",   "Bóveda privada",      Icons.Default.Lock,                 8, onDocumentos),
-    )
+    // ── Formato fecha y nombre ────────────────────────────────────────────────
+    val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
+    val fechaHoy = remember { sdfDisplay.format(java.util.Date()).replaceFirstChar { it.uppercase() } }
+    val nombrePadre = padres.find { it.id == idPadreActual }?.nombre ?: "Usuario"
 
     // ── Estado dinámico del dashboard ──────────────────────────────────────────
     val context = LocalContext.current
     var eventosSemana by remember { mutableStateOf<Map<String, List<Evento>>>(emptyMap()) }
     var comprasPendientes by remember { mutableStateOf<List<ItemCompra>>(emptyList()) }
     var tareasPendientes by remember { mutableStateOf<List<Pendiente>>(emptyList()) }
+    var totalTareas by remember { mutableStateOf(0) }
     var compensacionesPendientes by remember { mutableStateOf(0) }
+    var balNetoCompensacion by remember { mutableStateOf(0.0) }
+    var deudorNombre by remember { mutableStateOf("") }
+    var acreedorNombre by remember { mutableStateOf("") }
     var mensajesNoLeidos by remember { mutableStateOf(0) }
+    var ultimoMensaje by remember { mutableStateOf<Mensaje?>(null) }
+    var gastosMes by remember { mutableStateOf<List<Gasto>>(emptyList()) }
+    var totalGastosMes by remember { mutableStateOf(0.0) }
 
     // Custodia rápida: detectar si hay registros abiertos hoy para el padre actual
     val hoyStr = remember { obtenerFechaActual() }
@@ -846,80 +913,165 @@ fun PantallaPrincipal(
             db.itemCompraDao().obtenerCompartidos()
         }.filter { !it.comprado }
 
-        tareasPendientes = withContext(Dispatchers.IO) {
-            db.pendienteDao().obtenerPendientes()
-        }
+        val todasTareas = withContext(Dispatchers.IO) { db.pendienteDao().obtenerTodos() }
+        totalTareas = todasTareas.size
+        tareasPendientes = todasTareas.filter { !it.completado }
 
-        compensacionesPendientes = withContext(Dispatchers.IO) {
+        val todasCompensaciones = withContext(Dispatchers.IO) {
             db.compensacionDao().obtenerTodasLasCompensaciones()
-        }.count { !it.confirmada }
+        }
+        compensacionesPendientes = todasCompensaciones.count { !it.confirmada }
 
         mensajesNoLeidos = withContext(Dispatchers.IO) { db.mensajeDao().contarNoLeidos() }
+
+        val mensajes = withContext(Dispatchers.IO) { db.mensajeDao().obtenerTodos() }
+        ultimoMensaje = mensajes.maxByOrNull { it.fechaCompleta }
+
+        val todosGastos = withContext(Dispatchers.IO) { db.gastoDao().obtenerTodosLosGastos() }
+        val mesActual = hoy.substring(0, 7)
+        gastosMes = todosGastos.filter { it.fecha.startsWith(mesActual) }.sortedByDescending { it.fechaCompleta }
+        totalGastosMes = gastosMes.sumOf { it.monto }
+
+        // Calcular balance neto de compensación (tiempo + gastos + compras - pagos)
+        if (padres.size >= 2) {
+            val p1 = padres[0]; val p2 = padres[1]
+            val todosRegistros = withContext(Dispatchers.IO) { db.registroTiempoDao().obtenerTodosLosRegistros() }
+            val registrosComp = todosRegistros.filter { !it.autocompensado }
+            val config = withContext(Dispatchers.IO) { db.configuracionDao().obtenerConfiguracion() }
+            val valorEf = when (config?.tipoValor) {
+                "hora" -> config.valorHora
+                "semana" -> config.valorHora / (7 * 24)
+                else -> (config?.valorHora ?: 10.0) / 24
+            }
+            val horasPorPadre = calcularHorasPorPadre(registrosComp)
+            val totalH = horasPorPadre.values.sum()
+            val h1 = horasPorPadre[p1.id] ?: 0.0
+            val pctR1 = if (totalH > 0) (h1 / totalH * 100).toInt() else 0
+            val obj1 = config?.porcentajePadre1 ?: 50
+            val dif1 = pctR1 - obj1
+            val horasDeuda = if (totalH > 0) kotlin.math.abs(dif1) * totalH / 100 else 0.0
+            val montoTiempo = horasDeuda * valorEf
+            val timeBal = when { dif1 < 0 -> -montoTiempo; dif1 > 0 -> montoTiempo; else -> 0.0 }
+
+            val gastosComp = todosGastos.filter { !it.autocompensado }
+            val gP1 = gastosComp.filter { it.idPagador == p1.id }.sumOf { it.monto }
+            val gP2 = gastosComp.filter { it.idPagador == p2.id }.sumOf { it.monto }
+            val balG = (gP1 - gP2) / 2
+
+            val pagadas = withContext(Dispatchers.IO) { db.itemCompraDao().obtenerCompartidos() }
+                .filter { it.precio > 0 && it.comprado }
+            val cP1 = pagadas.filter { it.idPagador == p1.id }.sumOf { it.precio }
+            val cP2 = pagadas.filter { it.idPagador == p2.id }.sumOf { it.precio }
+            val balC = (cP1 - cP2) / 2
+
+            val balPend = todasCompensaciones.filter { !it.confirmada }.sumOf { c ->
+                when (c.idPagador) { p1.id -> c.montoTotal; p2.id -> -c.montoTotal; else -> 0.0 }
+            }
+
+            balNetoCompensacion = balG + balC + timeBal - balPend
+            val deudorP = if (balNetoCompensacion < 0) p1 else p2
+            val acreedorP = if (balNetoCompensacion < 0) p2 else p1
+            deudorNombre = deudorP.nombre
+            acreedorNombre = acreedorP.nombre
+        }
     }
 
     Box(Modifier.fillMaxSize().background(BgGradientMain)) {
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "Crianza Compartida",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onConfiguracion) {
-                        Icon(Icons.Default.Settings, contentDescription = "Configuración", tint = Color.White)
-                    }
-                    TextButton(onClick = onEditarFamilia) { Text("Familia", color = Color.White) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        }
-    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(bottom = 88.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ── Selector "Soy yo" compacto ────────────────────────────────────
+            Spacer(Modifier.height(44.dp))
+
+            // ── Header cálido ─────────────────────────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Hola, $nombrePadre",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold, color = Neutral10)
+                    Text(fechaHoy, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onConfiguracion) {
+                        Icon(Icons.Default.Settings, "Configuración", tint = NeutralVariant50)
+                    }
+                    var showUserMenu by remember { mutableStateOf(false) }
+                    Box {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(CircleShape)
+                                .background(Rose40).clickable { showUserMenu = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(nombrePadre.firstOrNull()?.uppercase() ?: "?",
+                                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                        DropdownMenu(
+                            expanded = showUserMenu,
+                            onDismissRequest = { showUserMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Cuenta Google") },
+                                onClick = { showUserMenu = false; onGoogle() },
+                                leadingIcon = { Icon(Icons.Default.Person, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Vincular dispositivo") },
+                                onClick = { showUserMenu = false; onVincular() },
+                                leadingIcon = { Icon(Icons.Default.Sync, null) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Editar familia") },
+                                onClick = { showUserMenu = false; onEditarFamilia() },
+                                leadingIcon = { Icon(Icons.Default.MenuBook, null) }
+                            )
+                            if (FamilyIdManager.estaVinculado(context)) {
+                                DropdownMenuItem(
+                                    text = { Text("Volver a vincular") },
+                                    onClick = { showUserMenu = false; onRevincular() },
+                                    leadingIcon = { Icon(Icons.Default.Sync, null) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Selector padre ────────────────────────────────────────────────
             if (padres.size >= 2) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "Soy yo:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
+                    Text("Soy yo:", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
                     padres.forEach { padre ->
                         FilterChip(
                             selected = idPadreActual == padre.id,
                             onClick = { onCambiarPadreActual(padre.id) },
                             label = { Text(padre.nombre, fontWeight = if (idPadreActual == padre.id) FontWeight.Bold else FontWeight.Normal) },
                             leadingIcon = if (idPadreActual == padre.id) {
-                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                                { Icon(Icons.Default.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
                             } else null,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color.White.copy(alpha = 0.35f),
-                                selectedLabelColor = Color.White,
-                                selectedLeadingIconColor = Color.White,
-                                containerColor = Color.White.copy(alpha = 0.12f),
-                                labelColor = Color.White.copy(alpha = 0.75f)
+                                selectedContainerColor = Indigo40.copy(alpha = 0.15f),
+                                selectedLabelColor = Indigo30,
+                                selectedLeadingIconColor = Indigo30,
+                                containerColor = NeutralVariant80.copy(alpha = 0.3f),
+                                labelColor = NeutralVariant30
                             )
                         )
                     }
                 }
             }
 
-            // ── Custodia rápida ───────────────────────────────────────────────
+            // ── Hero: Custodia ────────────────────────────────────────────────
             if (hijos.isNotEmpty() && idPadreActual.isNotEmpty()) {
                 WidgetCustodiaRapida(
                     activa = custodiaActiva,
@@ -928,121 +1080,176 @@ fun PantallaPrincipal(
                 )
             }
 
-            // ── Widget de clima ───────────────────────────────────────────────
+            // ── Clima ─────────────────────────────────────────────────────────
             ClimaCard()
 
-            // ── Widgets dinámicos ─────────────────────────────────────────────
-            WidgetEstaSemana(
-                eventosPorDia = eventosSemana,
-                onClick = onCalendario
-            )
-            WidgetPendientes(
-                compras = comprasPendientes,
-                tareas = tareasPendientes,
-                onClickCompras = onListaCompras,
-                onClickPendientes = onPendientes
-            )
-            if (compensacionesPendientes > 0 || mensajesNoLeidos > 0) {
-                WidgetAccionPrioritaria(
-                    compensacionesPendientes = compensacionesPendientes,
-                    mensajesNoLeidos = mensajesNoLeidos,
-                    onClickCompensacion = onCompensacion,
-                    onClickMensajes = onMensajes
-                )
-            }
+            Spacer(Modifier.height(8.dp))
 
-            // ── Grid de funciones con animación de entrada ─────────────────
+            // ── Mosaico de tarjetas glass ─────────────────────────────────
+            // TODO: Permitir al usuario ocultar/mostrar tarjetas del dashboard
+            //       (Inbox, Próximamente, Compras, Pendientes, Compensación, Finanzas)
+            //       desde Configuración con toggles por módulo.────
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Fila primaria: 3 funciones principales, mas grandes
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    menuItemsPrimarios.forEachIndexed { index, item ->
-                        TarjetaMenuPrincipalAnimada(
-                            item = item,
-                            modifier = Modifier.weight(1f),
-                            delayMs = index * 60,
-                            esPrimaria = true
+                // ── Inbox (ancho completo) ────────────────────────────────────
+                GlassCard(onClick = onMensajes) {
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("\uD83D\uDCAC", fontSize = 22.sp)
+                            Text("Inbox", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                        }
+                        if (mensajesNoLeidos > 0) {
+                            WarmBadge("$mensajesNoLeidos nuevo${if (mensajesNoLeidos > 1) "s" else ""}", isAlert = true)
+                        }
+                    }
+                    ultimoMensaje?.let { msg ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            buildString {
+                                append(msg.nombreEmisor); append(" \u2022 ")
+                                append(msg.texto.take(60))
+                                if (msg.texto.length > 60) append("\u2026")
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = NeutralVariant30
                         )
                     }
                 }
 
-                // Filas secundarias: grid 2 columnas, mas compactas
-                menuItemsSecundarios.chunked(2).forEachIndexed { filaIdx, fila ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        fila.forEachIndexed { colIdx, item ->
-                            TarjetaMenuPrincipalAnimada(
-                                item = item,
-                                modifier = Modifier.weight(1f),
-                                delayMs = (3 + filaIdx * 2 + colIdx) * 60,
-                                esPrimaria = false
-                            )
-                        }
-                        if (fila.size == 1) Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // ── Sección inferior ──────────────────────────────────────────
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Botón Cuenta / Co-padre
-                    OutlinedButton(
-                        onClick = onGoogle,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp)
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Column {
-                            Text("Cuenta", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Co-padre", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.6f))
+                // ── Próximamente + Compras ────────────────────────────────────
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GlassCard(onClick = onCalendario, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                        Text("\uD83D\uDCC5", fontSize = 22.sp)
+                        Text("Próximamente", style = MaterialTheme.typography.labelLarge,
+                            color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        val sdfIn = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        val sdfShort = java.text.SimpleDateFormat("EEE", java.util.Locale("es"))
+                        if (eventosSemana.isEmpty()) {
+                            Text("Sin eventos", style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        } else {
+                            eventosSemana.entries.take(3).forEach { (fecha, eventos) ->
+                                val label = if (fecha == hoyStr) "HOY" else try {
+                                    sdfShort.format(sdfIn.parse(fecha)!!).uppercase()
+                                } catch (_: Exception) { fecha }
+                                eventos.take(1).forEach { ev ->
+                                    Text("$label ${ev.horaInicio ?: ""}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold, color = Neutral10)
+                                    Text(ev.titulo, style = MaterialTheme.typography.bodySmall,
+                                        color = NeutralVariant30, lineHeight = 16.sp)
+                                    Spacer(Modifier.height(2.dp))
+                                }
+                            }
                         }
                     }
-                    // Divisor vertical
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(52.dp)
-                            .align(Alignment.CenterVertically)
-                            .background(Color.White.copy(alpha = 0.15f))
-                    )
-                    // Botón Vincular
-                    OutlinedButton(
-                        onClick = onVincular,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp)
-                    ) {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Column {
-                            Text("Vincular", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Dispositivos", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(0.6f))
+                    GlassCard(onClick = onListaCompras, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("\uD83D\uDED2", fontSize = 22.sp)
+                            Text("Lista de compras", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                            if (comprasPendientes.isNotEmpty()) WarmBadge("${comprasPendientes.size}")
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        if (comprasPendientes.isEmpty()) {
+                            Text("Lista vacía", style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        } else {
+                            comprasPendientes.take(3).forEach { item ->
+                                Text("\u2610 ${item.descripcion}",
+                                    style = MaterialTheme.typography.bodySmall, color = Neutral10)
+                            }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                // ── Pendientes + Compensación ─────────────────────────────────
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    GlassCard(onClick = onPendientes, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                        Text("\u2611", fontSize = 22.sp)
+                        Text("Pendientes", style = MaterialTheme.typography.labelLarge,
+                            color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                        Text("${tareasPendientes.size}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold, color = Neutral10)
+                        if (totalTareas > 0) {
+                            Text("de $totalTareas", style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        }
+                        tareasPendientes.firstOrNull()?.let {
+                            Text(it.titulo, style = MaterialTheme.typography.bodySmall, color = NeutralVariant30)
+                        }
+                    }
+                    GlassCard(onClick = onCompensacion, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                        Text("\u2696", fontSize = 22.sp)
+                        Text("Compensación", style = MaterialTheme.typography.labelLarge,
+                            color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                        if (kotlin.math.abs(balNetoCompensacion) > 0.01) {
+                            Text("$${String.format("%,.0f", kotlin.math.abs(balNetoCompensacion))}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold, color = Neutral10)
+                            Text("$deudorNombre debe",
+                                style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        } else if (compensacionesPendientes > 0) {
+                            Text("$compensacionesPendientes",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold, color = Neutral10)
+                            Text("pendiente${if (compensacionesPendientes > 1) "s" else ""}",
+                                style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        } else {
+                            Text("Al día", style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold, color = Indigo40)
+                        }
+                    }
+                }
+
+                // ── Finanzas Mes (ancho completo) ─────────────────────────────
+                GlassCard(onClick = onGastos) {
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("\uD83D\uDCB0", fontSize = 22.sp)
+                            Text("Finanzas Mes", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                        }
+                        Text("$${String.format("%,.0f", totalGastosMes)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold, color = Neutral10)
+                    }
+                    if (gastosMes.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        gastosMes.take(3).forEach { gasto ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(gasto.descripcion.take(25),
+                                    style = MaterialTheme.typography.bodySmall, color = NeutralVariant30)
+                                Text("$${String.format("%,.0f", gasto.monto)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold, color = Neutral10)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
             }
         }
+
+        // ── Bottom Nav ────────────────────────────────────────────────────────
+        BottomNavBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            onTiempo = onTiempo,
+            onRecuerdos = onRecuerdos,
+            onDocumentos = onDocumentos,
+            onGastos = onGastos
+        )
     }
-    }  // Box
 }
 
 @Composable
@@ -1053,8 +1260,8 @@ fun ClimaCard() {
     var clima      by remember { mutableStateOf<ClimaData?>(null) }
     var coordenadas by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
-    fun windyUrl() = coordenadas?.let { (lat, lon) ->
-        "https://www.windy.com/?${lat},${lon},10"
+    fun climaUrl() = coordenadas?.let { (lat, lon) ->
+        "https://www.accuweather.com/es/search-locations?query=${lat},${lon}"
     }
 
     val permLauncher = rememberLauncherForActivityResult(
@@ -1105,10 +1312,11 @@ fun ClimaCard() {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(GlassWhite)
-                .clickable { windyUrl()?.let { uriHandler.openUri(it) } }
-                .padding(horizontal = 20.dp, vertical = 18.dp)
+                .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                .clickable { climaUrl()?.let { uriHandler.openUri(it) } }
+                .padding(horizontal = 20.dp, vertical = 14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1116,36 +1324,32 @@ fun ClimaCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Mañana", style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.7f))
+                    Text("Mañana", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(data.mananaIcono, fontSize = 26.sp)
                         Text("${data.mananaTemp}°", style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White, fontWeight = FontWeight.Bold)
+                            color = Neutral10, fontWeight = FontWeight.Bold)
                     }
-                    Text("7 am", style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.5f))
+                    Text("7 am", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
                 }
                 Box(modifier = Modifier.height(48.dp).width(1.dp)
-                    .background(Color.White.copy(alpha = 0.3f)))
+                    .background(NeutralVariant80.copy(alpha = 0.5f)))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Tarde", style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.7f))
+                    Text("Tarde", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(data.tardeIcono, fontSize = 26.sp)
                         Text("${data.tardeTemp}°", style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White, fontWeight = FontWeight.Bold)
+                            color = Neutral10, fontWeight = FontWeight.Bold)
                     }
-                    Text("4 pm", style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.5f))
+                    Text("4 pm", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
                 }
             }
             Text(
-                "Ver pronóstico →",
+                "Ver pronóstico \u2192",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.55f),
+                color = NeutralVariant50,
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
         }
@@ -1158,274 +1362,60 @@ fun WidgetCustodiaRapida(
     desde: String,
     onToggle: () -> Unit
 ) {
-    val gradiente = if (activa)
-        Brush.linearGradient(listOf(Color(0xFF1E3A5F), Color(0xFF3B82F6)))
-    else
-        Brush.linearGradient(listOf(Color(0xFF1F2937), Color(0xFF4B5563)))
-
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(gradiente)
+            .clip(RoundedCornerShape(22.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        NeutralVariant80.copy(alpha = 0.18f),
+                        NeutralVariant90.copy(alpha = 0.10f)
+                    )
+                )
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(22.dp))
             .clickable(onClick = onToggle)
     ) {
-        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
-        Box(
-            Modifier
-                .size(70.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 15.dp, y = (-15).dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f))
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    if (activa) "Los nenes están conmigo" else "Los nenes están conmigo",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    if (activa) "Desde las $desde — tocar para finalizar"
-                    else "Tocar para iniciar registro",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.75f)
-                )
-            }
-            Surface(
-                shape = CircleShape,
-                color = if (activa) Color(0xFF22C55E) else Color.White.copy(alpha = 0.2f),
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        if (activa) Icons.Default.Check else Icons.Default.AccessTime,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun WidgetEstaSemana(
-    eventosPorDia: Map<String, List<Evento>>,
-    onClick: () -> Unit
-) {
-    val gradienteVerde = Brush.linearGradient(listOf(Color(0xFF064E3B), Color(0xFF10B981)))
-    val sdfIn = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
-    val sdfOut = remember { java.text.SimpleDateFormat("EEE d", java.util.Locale("es")) }
-    val hoy = remember { obtenerFechaActual() }
-    val totalEventos = eventosPorDia.values.sumOf { it.size }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(gradienteVerde)
-            .clickable(onClick = onClick)
-    ) {
-        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
-        Box(
-            Modifier
-                .size(80.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 20.dp, y = (-20).dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f))
-        )
-        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Esta semana",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (totalEventos > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50.dp))
-                                    .background(Color.White.copy(alpha = 0.2f))
-                                    .padding(horizontal = 10.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    "$totalEventos",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                        Text("›", style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.5f))
-                    }
-                }
-                if (eventosPorDia.isEmpty()) {
-                    Text(
-                        "Sin eventos esta semana",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.75f)
-                    )
-                } else {
-                    eventosPorDia.entries.take(5).forEach { (fecha, eventos) ->
-                        val label = if (fecha == hoy) "Hoy" else {
-                            try { sdfOut.format(sdfIn.parse(fecha)!!).replaceFirstChar { it.uppercase() } }
-                            catch (_: Exception) { fecha }
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Text(
-                                label,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (fecha == hoy) Color(0xFF6EE7B7) else Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.widthIn(min = 50.dp)
-                            )
-                            Column {
-                                eventos.take(2).forEach { evento ->
-                                    Text(
-                                        buildString {
-                                            evento.horaInicio?.let { append("$it ") }
-                                            append(evento.titulo)
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White
-                                    )
-                                }
-                                if (eventos.size > 2) {
-                                    Text("+${eventos.size - 2} más", style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White.copy(alpha = 0.5f))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun WidgetPendientes(
-    compras: List<ItemCompra>,
-    tareas: List<Pendiente>,
-    onClickCompras: () -> Unit,
-    onClickPendientes: () -> Unit
-) {
-    val total = compras.size + tareas.size
-    val gradienteRosa = Brush.linearGradient(listOf(Color(0xFF831843), Color(0xFFF472B6)))
-    val onClick = if (tareas.isNotEmpty()) onClickPendientes else onClickCompras
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(gradienteRosa)
-            .clickable(onClick = onClick)
-    ) {
-        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
-        Box(
-            Modifier
-                .size(80.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 20.dp, y = (-20).dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f))
-        )
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Pendientes",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Text(
+                "\uD83C\uDFE0 Custodia ${if (activa) "Activa" else "Inactiva"}",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = NeutralVariant30
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (activa) "Están contigo" else "Tocar para iniciar",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Neutral10
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (activa) "Desde las $desde \u2022 Tocar para finalizar"
+                else "Registrar tiempo de custodia",
+                style = MaterialTheme.typography.bodyMedium,
+                color = NeutralVariant30
+            )
+            if (activa) {
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color.Black.copy(alpha = 0.06f))
                 ) {
-                    if (total > 0) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50.dp))
-                                .background(Color.White.copy(alpha = 0.2f))
-                                .padding(horizontal = 10.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                "$total",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                    Text("›", style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.5f))
-                }
-            }
-            if (total == 0) {
-                Text(
-                    "Todo al día",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            } else {
-                // Tareas primero
-                tareas.take(2).forEach { tarea ->
-                    Text(
-                        "○ ${tarea.titulo}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                }
-                // Luego compras
-                val restantes = 3 - tareas.take(2).size
-                if (restantes > 0 && compras.isNotEmpty()) {
-                    compras.take(restantes).forEach { item ->
-                        Text(
-                            "🛒 ${item.descripcion}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.75f)
-                        )
-                    }
-                }
-                val ocultos = total - minOf(total, 3)
-                if (ocultos > 0) {
-                    Text(
-                        "+$ocultos más",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.55f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.65f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Brush.horizontalGradient(listOf(Rose40, Indigo40)))
                     )
                 }
             }
@@ -1433,195 +1423,98 @@ fun WidgetPendientes(
     }
 }
 
-@Composable
-fun WidgetAccionPrioritaria(
-    compensacionesPendientes: Int,
-    mensajesNoLeidos: Int,
-    onClickCompensacion: () -> Unit,
-    onClickMensajes: () -> Unit
-) {
-    val onClick = if (compensacionesPendientes > 0) onClickCompensacion else onClickMensajes
-    val gradienteRojo = Brush.linearGradient(listOf(Color(0xFF7F1D1D), Color(0xFFF97316)))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(gradienteRojo)
-            .clickable(onClick = onClick)
-    ) {
-        // Glassmorphic overlay
-        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f)))
-        // Decorative circle
-        Box(
-            Modifier
-                .size(70.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 15.dp, y = (-15).dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.06f))
-        )
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Acción prioritaria",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text("›", style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.5f))
-            }
-            if (compensacionesPendientes > 0) {
-                Text(
-                    "$compensacionesPendientes compensación${if (compensacionesPendientes > 1) "es" else ""} sin confirmar",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
-            if (mensajesNoLeidos > 0) {
-                Text(
-                    "$mensajesNoLeidos mensaje${if (mensajesNoLeidos > 1) "s" else ""} sin leer",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
-        }
-    }
-}
+// ── Helpers UI warm minimal ──────────────────────────────────────────────────
 
 @Composable
-fun TarjetaMenuPrincipalAnimada(
-    item: ItemMenuPrincipal,
+fun GlassCard(
     modifier: Modifier = Modifier,
-    delayMs: Int = 0,
-    esPrimaria: Boolean = false
+    onClick: () -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    val gradients = listOf(
-        CardGrad0, CardGrad1, CardGrad2, CardGrad3,
-        CardGrad4, CardGrad5, CardGrad6, CardGrad7, CardGrad8
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(GlassWhite)
+            .border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        content = content
     )
-    val gradient = gradients[item.colorIndex % gradients.size]
+}
 
-    // Animacion de entrada
-    val animAlpha = remember { Animatable(0f) }
-    val animOffset = remember { Animatable(30f) }
-    val animScale = remember { Animatable(0.88f) }
-
-    LaunchedEffect(Unit) {
-        delay(delayMs.toLong())
-        launch {
-            animAlpha.animateTo(1f, tween(400, easing = FastOutSlowInEasing))
-        }
-        launch {
-            animOffset.animateTo(0f, tween(500, easing = FastOutSlowInEasing))
-        }
-        launch {
-            animScale.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
-        }
+@Composable
+fun WarmBadge(text: String, isAlert: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isAlert) Red90 else Indigo90.copy(alpha = 0.5f))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isAlert) Red40 else NeutralVariant30)
     }
+}
 
-    val cornerRadius = if (esPrimaria) 22.dp else 24.dp
-    val iconSize = if (esPrimaria) 32.dp else 40.dp
+@Composable
+fun SmallIconButton(emoji: String, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(emoji, fontSize = 24.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
+    }
+}
 
+@Composable
+fun BottomNavBar(
+    modifier: Modifier = Modifier,
+    onTiempo: () -> Unit,
+    onRecuerdos: () -> Unit,
+    onDocumentos: () -> Unit,
+    onGastos: () -> Unit
+) {
     Box(
         modifier = modifier
-            .then(if (esPrimaria) Modifier.height(130.dp) else Modifier.aspectRatio(1f))
-            .graphicsLayer {
-                alpha = animAlpha.value
-                translationY = animOffset.value * density
-                scaleX = animScale.value
-                scaleY = animScale.value
-            }
-            .clip(RoundedCornerShape(cornerRadius))
-            .background(gradient)
-            .clickable(onClick = item.onClick)
+            .fillMaxWidth()
+            .background(GlassWhiteHeavy)
+            .padding(top = 1.dp)
     ) {
-        // Circulo decorativo grande
-        Box(
-            Modifier
-                .size(if (esPrimaria) 80.dp else 90.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 20.dp, y = (-20).dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.07f))
-        )
-        // Segundo circulo decorativo mas chico
-        Box(
-            Modifier
-                .size(if (esPrimaria) 40.dp else 50.dp)
-                .align(Alignment.BottomStart)
-                .offset(x = (-12).dp, y = 12.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.05f))
-        )
-        // Glassmorphic overlay sutil
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Color.White.copy(alpha = 0.04f))
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = if (esPrimaria) 10.dp else 16.dp, vertical = if (esPrimaria) 16.dp else 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.Black.copy(alpha = 0.06f)))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)
+                .padding(bottom = 28.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icono con fondo glassmorphic
-            Box(
-                modifier = Modifier
-                    .size(if (esPrimaria) 48.dp else 56.dp)
-                    .clip(RoundedCornerShape(if (esPrimaria) 14.dp else 16.dp))
-                    .background(Color.White.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = item.titulo,
-                    tint = Color.White,
-                    modifier = Modifier.size(iconSize)
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onTiempo)) {
+                Text("\u23F2", fontSize = 20.sp)
+                Text("Tiempo", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
             }
-            Spacer(modifier = Modifier.height(if (esPrimaria) 10.dp else 14.dp))
-            Text(
-                item.titulo,
-                style = if (esPrimaria) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
-            if (!esPrimaria) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    item.subtitulo,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-            } else {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    item.subtitulo,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.6f),
-                    textAlign = TextAlign.Center
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onRecuerdos)) {
+                Text("\uD83D\uDCF8", fontSize = 20.sp)
+                Text("Recuerdos", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onDocumentos)) {
+                Text("\uD83D\uDCC4", fontSize = 20.sp)
+                Text("Docs", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onGastos)) {
+                Text("\uD83D\uDCB0", fontSize = 20.sp)
+                Text("Gastos", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
             }
         }
     }
-}
-
-// Mantener para compatibilidad si se usa en previews
-@Composable
-fun TarjetaMenuPrincipal(item: ItemMenuPrincipal, modifier: Modifier = Modifier) {
-    TarjetaMenuPrincipalAnimada(item = item, modifier = modifier)
 }
 
 @Preview(showBackground = true)

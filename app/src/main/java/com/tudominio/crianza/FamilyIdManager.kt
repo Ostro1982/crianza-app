@@ -51,4 +51,14 @@ object FamilyIdManager {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putBoolean("subida_inicial_ok", false).apply()
     }
+
+    fun desvincular(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val nuevoId = UUID.randomUUID().toString()
+        prefs.edit()
+            .putString(KEY_FAMILY_ID, nuevoId)
+            .putBoolean(KEY_IS_LINKED, false)
+            .putBoolean("subida_inicial_ok", false)
+            .apply()
+    }
 }

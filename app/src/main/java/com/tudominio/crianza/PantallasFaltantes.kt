@@ -101,10 +101,10 @@ fun PantallaCalendario(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Calendario", color = Color.White) },
+                title = { Text("Calendario", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
@@ -123,13 +123,13 @@ fun PantallaCalendario(
                             ))
                         }
                     }) {
-                        Icon(Icons.Outlined.Sync, contentDescription = "Sincronizar calendario", tint = Color.White)
+                        Icon(Icons.Outlined.Sync, contentDescription = "Sincronizar calendario", tint = NeutralVariant30)
                     }
                     IconButton(onClick = {
                         fechaPreseleccionada = hoy
                         mostrarDialogo = true
                     }) {
-                        Icon(Icons.Default.Add, contentDescription = "Agregar evento", tint = Color.White)
+                        Icon(Icons.Default.Add, contentDescription = "Agregar evento", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -151,7 +151,7 @@ fun PantallaCalendario(
                     "${nombresMeses[mesActual]} $anioActual",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Neutral10
                 )
 
                 IconButton(onClick = {
@@ -598,15 +598,15 @@ fun PantallaGastos(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Gastos", color = Color.White) },
+                title = { Text("Gastos", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
                     IconButton(onClick = { mostrarDialogo = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Agregar gasto", tint = Color.White)
+                        Icon(Icons.Default.Add, contentDescription = "Agregar gasto", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -629,15 +629,15 @@ fun PantallaGastos(
             val totalMes = gastosMes.sumOf { it.monto }
 
             // Colores semanticos para balance
-            val BalanceGreen = Color(0xFF34D399)
-            val BalanceAmber = Color(0xFFFBBF24)
+            val BalanceGreen = Teal40
+            val BalanceAmber = Rose40
 
             Box(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(
                         androidx.compose.ui.graphics.Brush.linearGradient(
-                            listOf(Color(0x40312E81), Color(0x403730A3))
+                            listOf(Indigo30.copy(alpha = 0.25f), Indigo40.copy(alpha = 0.25f))
                         )
                     )
             ) {
@@ -645,7 +645,7 @@ fun PantallaGastos(
                 Box(
                     Modifier.fillMaxWidth()
                         .clip(RoundedCornerShape(23.dp))
-                        .background(Color(0x1AFFFFFF))
+                        .background(GlassWhite)
                         .padding(20.dp)
                 ) {
                 Column {
@@ -657,18 +657,18 @@ fun PantallaGastos(
                         Text(
                             "${nombresMeses[mesActual]} $anioActual",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
+                            color = Neutral10,
                             fontWeight = FontWeight.Bold
                         )
                         Box(
                             Modifier.clip(RoundedCornerShape(50.dp))
-                                .background(Color.White.copy(alpha = 0.1f))
+                                .background(GlassWhite)
                                 .padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 "ESTE MES",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.55f),
+                                color = NeutralVariant50,
                                 letterSpacing = 1.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -678,14 +678,14 @@ fun PantallaGastos(
                     Text(
                         "$${"%.2f".format(totalMes)}",
                         style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp),
-                        color = Color.White,
+                        color = Neutral10,
                         fontWeight = FontWeight.Black,
                         letterSpacing = (-1).sp
                     )
 
                     if (padres.size >= 2) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(NeutralVariant50.copy(alpha = 0.2f)))
                         Spacer(modifier = Modifier.height(16.dp))
 
                         val totalP1Mes = gastosMes.filter { it.idPagador == padres[0].id }.sumOf { it.monto }
@@ -697,7 +697,7 @@ fun PantallaGastos(
                             Box(
                                 Modifier.fillMaxWidth().height(10.dp)
                                     .clip(RoundedCornerShape(50.dp))
-                                    .background(Color.White.copy(.06f))
+                                    .background(NeutralVariant50.copy(.15f))
                             ) {
                                 Row(Modifier.fillMaxSize()) {
                                     Box(
@@ -705,7 +705,7 @@ fun PantallaGastos(
                                             .clip(RoundedCornerShape(topStart = 50.dp, bottomStart = 50.dp))
                                             .background(
                                                 androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                                    listOf(Color(0xFFA78BFA).copy(.7f), Color(0xFFA78BFA))
+                                                    listOf(Indigo40.copy(.7f), Indigo40)
                                                 )
                                             )
                                     )
@@ -714,7 +714,7 @@ fun PantallaGastos(
                                             .clip(RoundedCornerShape(topEnd = 50.dp, bottomEnd = 50.dp))
                                             .background(
                                                 androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                                    listOf(Color(0xFFF472B6), Color(0xFFF472B6).copy(.7f))
+                                                    listOf(Rose40, Rose40.copy(.7f))
                                                 )
                                             )
                                     )
@@ -726,21 +726,21 @@ fun PantallaGastos(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFA78BFA)))
+                                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Indigo40))
                                     Spacer(Modifier.width(8.dp))
-                                    Text(padres[0].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                    Text(padres[0].nombre, color = NeutralVariant30, style = MaterialTheme.typography.bodySmall)
                                 }
                                 Spacer(Modifier.height(2.dp))
-                                Text("$${"%.2f".format(totalP1Mes)}", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                Text("$${"%.2f".format(totalP1Mes)}", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(padres[1].nombre, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
+                                    Text(padres[1].nombre, color = NeutralVariant30, style = MaterialTheme.typography.bodySmall)
                                     Spacer(Modifier.width(8.dp))
-                                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFF472B6)))
+                                    Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Rose40))
                                 }
                                 Spacer(Modifier.height(2.dp))
-                                Text("$${"%.2f".format(totalP2Mes)}", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                Text("$${"%.2f".format(totalP2Mes)}", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                             }
                         }
 
@@ -793,7 +793,7 @@ fun PantallaGastos(
             if (gastos.size != gastosMes.size) {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                        .clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.1f))
+                        .clip(RoundedCornerShape(16.dp)).background(GlassWhite)
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
@@ -803,12 +803,12 @@ fun PantallaGastos(
                         Text(
                             "Total general",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(.6f)
+                            color = NeutralVariant50
                         )
                         Text(
                             "$${"%.2f".format(total)}",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
+                            color = Neutral10,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -819,23 +819,23 @@ fun PantallaGastos(
             OutlinedTextField(
                 value = busqueda,
                 onValueChange = { busqueda = it },
-                placeholder = { Text("Buscar gastos...", color = Color.White.copy(0.4f)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(0.5f)) },
+                placeholder = { Text("Buscar gastos...", color = NeutralVariant50) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = NeutralVariant50) },
                 trailingIcon = {
                     if (busqueda.isNotEmpty()) {
                         IconButton(onClick = { busqueda = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Limpiar", tint = Color.White.copy(0.5f))
+                            Icon(Icons.Default.Close, contentDescription = "Limpiar", tint = NeutralVariant50)
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White.copy(0.3f),
-                    unfocusedBorderColor = Color.White.copy(0.15f),
-                    cursorColor = Color.White,
+                    focusedTextColor = Neutral10,
+                    unfocusedTextColor = Neutral10,
+                    focusedBorderColor = NeutralVariant30.copy(0.5f),
+                    unfocusedBorderColor = NeutralVariant50.copy(0.3f),
+                    cursorColor = Neutral10,
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent
                 ),
@@ -853,45 +853,23 @@ fun PantallaGastos(
 
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(gastosFiltrados.sortedByDescending { it.fecha }, key = { it.id }) { gasto ->
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart) {
-                                onEliminarGasto(gasto.id)
-                                true
-                            } else false
-                        }
-                    )
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            Box(
-                                Modifier.fillMaxSize()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFEF4444))
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.White)
-                            }
-                        },
-                        enableDismissFromStartToEnd = false
-                    ) {
+                    SwipeParaBorrar(onEliminar = { onEliminarGasto(gasto.id) }) {
                         Box(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
                         ) {
                             Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(gasto.descripcion, fontWeight = FontWeight.Bold, color = Color.White)
-                                    Text("$${"%.2f".format(gasto.monto)} · ${gasto.fecha}", color = Color.White.copy(alpha = 0.8f))
+                                    Text(gasto.descripcion, fontWeight = FontWeight.Bold, color = Neutral10)
+                                    Text("$${"%.2f".format(gasto.monto)} · ${gasto.fecha}", color = NeutralVariant30)
                                     val detalle = listOfNotNull(
                                         "Pagó: ${gasto.nombrePagador}",
                                         gasto.categoria.takeIf { it.isNotEmpty() }
                                     ).joinToString(" · ")
-                                    Text(detalle, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                    Text(detalle, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
                                 }
                                 IconButton(onClick = { gastoEditando = gasto }) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
+                                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = NeutralVariant30)
                                 }
                             }
                         }
@@ -923,6 +901,7 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
     var fecha by remember { mutableStateOf(gasto?.fecha ?: obtenerFechaActual()) }
     var idPagador by remember { mutableStateOf(gasto?.idPagador ?: (padres.firstOrNull()?.id ?: "")) }
     var categoria by remember { mutableStateOf(gasto?.categoria ?: "") }
+    var autocompensado by remember { mutableStateOf(gasto?.autocompensado ?: false) }
     var expandirCategorias by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -979,6 +958,18 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
                         Text(padre.nombre)
                     }
                 }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(checked = autocompensado, onCheckedChange = { autocompensado = it })
+                    Column {
+                        Text("Autocompensado", fontWeight = FontWeight.Medium)
+                        Text("No entra a la deuda de compensación",
+                            style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                    }
+                }
             }
         },
         confirmButton = {
@@ -993,7 +984,8 @@ fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGu
                     nombrePagador = pagador?.nombre ?: "",
                     idsHijos = emptyList(),
                     nombresHijos = "",
-                    categoria = categoria
+                    categoria = categoria,
+                    autocompensado = autocompensado
                 ))
             }, enabled = desc.isNotBlank() && monto.toDoubleOrNull() != null) {
                 Text("Guardar")
@@ -1019,15 +1011,15 @@ fun PantallaRecuerdos(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Recuerdos y Anécdotas", color = Color.White) },
+                title = { Text("Recuerdos y Anécdotas", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
                     IconButton(onClick = { mostrarDialogo = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Agregar recuerdo", tint = Color.White)
+                        Icon(Icons.Default.Add, contentDescription = "Agregar recuerdo", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -1036,7 +1028,7 @@ fun PantallaRecuerdos(
     ) { paddingValues ->
         if (recuerdos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text("No hay recuerdos aún. ¡Agrega el primero!", color = Color.White)
+                Text("No hay recuerdos aún. ¡Agrega el primero!", color = NeutralVariant30)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)) {
@@ -1059,21 +1051,21 @@ fun PantallaRecuerdos(
                             }
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Image, contentDescription = null, tint = Color.White.copy(alpha = 0.8f))
+                                    Icon(Icons.Default.Image, contentDescription = null, tint = NeutralVariant30)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(recuerdo.titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text(recuerdo.titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Neutral10)
                                 }
-                                Text(recuerdo.fecha, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                Text(recuerdo.fecha, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
                                 if (recuerdo.descripcion.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    Text(recuerdo.descripcion, color = Color.White.copy(alpha = 0.85f))
+                                    Text(recuerdo.descripcion, color = NeutralVariant30)
                                 }
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                     IconButton(onClick = { recuerdoEditando = recuerdo }) {
-                                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
+                                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = NeutralVariant30)
                                     }
                                     IconButton(onClick = { onEliminarRecuerdo(recuerdo.id) }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFF87171))
+                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Red40)
                                     }
                                 }
                             }

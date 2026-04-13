@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CategoriaCompra::class,
         Pendiente::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

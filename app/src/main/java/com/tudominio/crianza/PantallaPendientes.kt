@@ -50,15 +50,15 @@ fun PantallaPendientes(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("Pendientes", color = Color.White, fontWeight = FontWeight.Bold) },
+                    title = { Text("Pendientes", color = Neutral10, fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onAtras) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                         }
                     },
                     actions = {
                         IconButton(onClick = { mostrarDialogo = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Agregar", tint = Color.White)
+                            Icon(Icons.Default.Add, contentDescription = "Agregar", tint = NeutralVariant30)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -77,14 +77,14 @@ fun PantallaPendientes(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("✓", style = MaterialTheme.typography.displayLarge, color = Color.White.copy(alpha = 0.4f))
+                            Text("✓", style = MaterialTheme.typography.displayLarge, color = NeutralVariant50)
                             Spacer(Modifier.height(8.dp))
-                            Text("Sin pendientes", color = Color.White.copy(alpha = 0.7f))
+                            Text("Sin pendientes", color = NeutralVariant30)
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 "Tocá + para agregar tareas",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.5f)
+                                color = NeutralVariant50
                             )
                         }
                     }
@@ -95,12 +95,14 @@ fun PantallaPendientes(
                         modifier = Modifier.animateContentSize()
                     ) {
                         items(noCompletados, key = { it.id }) { pendiente ->
-                            TarjetaPendiente(
-                                pendiente = pendiente,
-                                onToggle = { onActualizar(pendiente.copy(completado = !pendiente.completado)) },
-                                onEditar = { pendienteEditando = pendiente },
-                                onEliminar = { onEliminar(pendiente) }
-                            )
+                            SwipeParaBorrar(onEliminar = { onEliminar(pendiente) }) {
+                                TarjetaPendiente(
+                                    pendiente = pendiente,
+                                    onToggle = { onActualizar(pendiente.copy(completado = !pendiente.completado)) },
+                                    onEditar = { pendienteEditando = pendiente },
+                                    onEliminar = { onEliminar(pendiente) }
+                                )
+                            }
                         }
 
                         if (completados.isNotEmpty()) {
@@ -112,19 +114,21 @@ fun PantallaPendientes(
                                     Text(
                                         if (mostrarCompletados) "Ocultar completados (${completados.size})"
                                         else "Mostrar completados (${completados.size})",
-                                        color = Color.White.copy(alpha = 0.7f)
+                                        color = NeutralVariant30
                                     )
                                 }
                             }
 
                             if (mostrarCompletados) {
                                 items(completados, key = { it.id }) { pendiente ->
-                                    TarjetaPendiente(
-                                        pendiente = pendiente,
-                                        onToggle = { onActualizar(pendiente.copy(completado = !pendiente.completado)) },
-                                        onEditar = { pendienteEditando = pendiente },
-                                        onEliminar = { onEliminar(pendiente) }
-                                    )
+                                    SwipeParaBorrar(onEliminar = { onEliminar(pendiente) }) {
+                                        TarjetaPendiente(
+                                            pendiente = pendiente,
+                                            onToggle = { onActualizar(pendiente.copy(completado = !pendiente.completado)) },
+                                            onEditar = { pendienteEditando = pendiente },
+                                            onEliminar = { onEliminar(pendiente) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -183,7 +187,7 @@ fun TarjetaPendiente(
                     imageVector = if (pendiente.completado) Icons.Default.CheckCircle
                     else Icons.Default.RadioButtonUnchecked,
                     contentDescription = if (pendiente.completado) "Desmarcar" else "Completar",
-                    tint = if (pendiente.completado) Color(0xFF6EE7B7) else Color.White.copy(alpha = 0.6f)
+                    tint = if (pendiente.completado) Teal80 else NeutralVariant50
                 )
             }
             Spacer(Modifier.width(8.dp))
@@ -191,7 +195,7 @@ fun TarjetaPendiente(
                 Text(
                     pendiente.titulo,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White,
+                    color = Neutral10,
                     textDecoration = if (pendiente.completado) TextDecoration.LineThrough else TextDecoration.None
                 )
                 val detalles = listOfNotNull(
@@ -207,13 +211,13 @@ fun TarjetaPendiente(
                     Text(
                         detalles,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.5f)
+                        color = NeutralVariant50
                     )
                 }
             }
             IconButton(onClick = onEliminar, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.Delete, contentDescription = "Eliminar",
-                    tint = Color(0xFFF87171), modifier = Modifier.size(18.dp))
+                    tint = Red40, modifier = Modifier.size(18.dp))
             }
         }
     }

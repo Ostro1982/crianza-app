@@ -42,6 +42,9 @@ interface RegistroTiempoDao {
 
     @Query("DELETE FROM registros_tiempo WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM registros_tiempo")
+    suspend fun eliminarTodos()
 }
 
 @Dao

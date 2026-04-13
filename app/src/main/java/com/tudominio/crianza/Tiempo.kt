@@ -26,10 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tudominio.crianza.ui.theme.BgGrad0
-import com.tudominio.crianza.ui.theme.CrianzaTheme
-import com.tudominio.crianza.ui.theme.GlassWhite
-import com.tudominio.crianza.ui.theme.GlassWhiteHeavy
+import com.tudominio.crianza.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -53,15 +50,15 @@ fun PantallaTiempo(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Registro de tiempo", color = Color.White) },
+                title = { Text("Registro de tiempo", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
                     IconButton(onClick = onVerResumen) {
-                        Icon(Icons.Default.Info, contentDescription = "Resumen", tint = Color.White)
+                        Icon(Icons.Default.Info, contentDescription = "Resumen", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -86,12 +83,12 @@ fun PantallaTiempo(
                     Text(
                         "Sin registros de tiempo",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
+                        color = Neutral10
                     )
                     Text(
                         "Tocá + para anotar tiempo con los niños",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = NeutralVariant30
                     )
                 }
             }
@@ -101,12 +98,14 @@ fun PantallaTiempo(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(registros.sortedByDescending { it.fechaCompleta }) { registro ->
-                    TarjetaRegistroTiempo(
-                        registro = registro,
-                        onEliminar = { onEliminarRegistro(registro.id) },
-                        onEditar = { registroEditando = registro }
-                    )
+                items(registros.sortedByDescending { it.fechaCompleta }, key = { it.id }) { registro ->
+                    SwipeParaBorrar(onEliminar = { onEliminarRegistro(registro.id) }) {
+                        TarjetaRegistroTiempo(
+                            registro = registro,
+                            onEliminar = { onEliminarRegistro(registro.id) },
+                            onEditar = { registroEditando = registro }
+                        )
+                    }
                 }
                 item { Spacer(modifier = Modifier.height(72.dp)) }
             }
@@ -191,7 +190,7 @@ fun TarjetaRegistroTiempo(
                         Icons.Outlined.AccessTime,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.White.copy(alpha = 0.8f)
+                        tint = NeutralVariant30
                     )
                     if (horasFmt != null) {
                         Text(
@@ -199,7 +198,7 @@ fun TarjetaRegistroTiempo(
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = (-0.3).sp,
-                            color = Color.White
+                            color = Neutral10
                         )
                     }
                 }
@@ -212,7 +211,7 @@ fun TarjetaRegistroTiempo(
                     text = if (registro.esTodosLosHijos) "Todos los niños" else registro.nombreHijo,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = Neutral10
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -222,18 +221,18 @@ fun TarjetaRegistroTiempo(
                         Icons.Outlined.Person,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
-                        tint = Color.White.copy(alpha = 0.7f)
+                        tint = NeutralVariant30
                     )
                     Text(
                         registro.nombrePadre,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = NeutralVariant30
                     )
                 }
                 Text(
                     "${registro.fecha}  ·  ${registro.horaInicio}–${registro.horaFin}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f)
+                    color = NeutralVariant50
                 )
             }
 
@@ -242,7 +241,7 @@ fun TarjetaRegistroTiempo(
                     Icons.Default.Edit,
                     contentDescription = "Editar",
                     modifier = Modifier.size(18.dp),
-                    tint = Color.White.copy(alpha = 0.8f)
+                    tint = NeutralVariant30
                 )
             }
             IconButton(onClick = onEliminar, modifier = Modifier.size(36.dp)) {
@@ -250,7 +249,7 @@ fun TarjetaRegistroTiempo(
                     Icons.Default.Delete,
                     contentDescription = "Eliminar",
                     modifier = Modifier.size(18.dp),
-                    tint = Color(0xFFF87171)
+                    tint = Red40
                 )
             }
         }
@@ -271,6 +270,7 @@ fun DialogoRegistroTiempo(
     var horaInicio by remember { mutableStateOf(registroExistente?.horaInicio ?: "") }
     var horaFin by remember { mutableStateOf(registroExistente?.horaFin ?: "") }
     var esTodosLosHijos by remember { mutableStateOf(false) }
+    var autocompensado by remember { mutableStateOf(registroExistente?.autocompensado ?: false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -350,6 +350,18 @@ fun DialogoRegistroTiempo(
                     )
                 }
 
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(checked = autocompensado, onCheckedChange = { autocompensado = it })
+                    Column {
+                        Text("Autocompensado", fontWeight = FontWeight.Medium)
+                        Text("No entra a la deuda de compensación",
+                            style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                    }
+                }
+
                 // Preview de horas calculadas
                 val hIni = normalizarHora(horaInicio)
                 val hFin = normalizarHora(horaFin)
@@ -390,7 +402,8 @@ fun DialogoRegistroTiempo(
                                     idHijo = "", nombreHijo = "",
                                     idPadre = padre.id, nombrePadre = padre.nombre,
                                     fecha = fecha, horaInicio = hInorm, horaFin = hFnorm,
-                                    fechaCompleta = System.currentTimeMillis(), esTodosLosHijos = false
+                                    fechaCompleta = System.currentTimeMillis(), esTodosLosHijos = false,
+                                    autocompensado = autocompensado
                                 ), true
                             )
                         } else {
@@ -404,7 +417,8 @@ fun DialogoRegistroTiempo(
                                         idPadre = padre.id, nombrePadre = padre.nombre,
                                         fecha = fecha, horaInicio = hInorm, horaFin = hFnorm,
                                         fechaCompleta = registroExistente?.fechaCompleta ?: System.currentTimeMillis(),
-                                        esTodosLosHijos = registroExistente?.esTodosLosHijos ?: false
+                                        esTodosLosHijos = registroExistente?.esTodosLosHijos ?: false,
+                                        autocompensado = autocompensado
                                     ), false
                                 )
                             }

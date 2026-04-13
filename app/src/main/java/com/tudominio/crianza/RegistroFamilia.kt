@@ -27,12 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tudominio.crianza.ui.theme.CrianzaTheme
-import com.tudominio.crianza.ui.theme.GlassWhite
-import com.tudominio.crianza.ui.theme.GlassWhiteHeavy
-import com.tudominio.crianza.ui.theme.GradientEnd
-import com.tudominio.crianza.ui.theme.GradientMid
-import com.tudominio.crianza.ui.theme.GradientStart
+import com.tudominio.crianza.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
 
 data class PersonaFormulario(
@@ -93,7 +88,7 @@ fun PantallaRegistroFamilia(
         colorStops = arrayOf(
             0.0f to GradientStart,
             0.45f to GradientMid,
-            0.75f to Color(0xFF4F46E5),
+            0.75f to Indigo40,
             1.0f to GradientEnd
         )
     )
@@ -127,7 +122,7 @@ fun PantallaRegistroFamilia(
                     Icon(
                         Icons.Default.ArrowBack,
                         contentDescription = "Atrás",
-                        tint = Color.White
+                        tint = NeutralVariant30
                     )
                 }
 
@@ -138,14 +133,14 @@ fun PantallaRegistroFamilia(
                     Text(
                         text = "Tu familia",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
+                        color = Neutral10,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = if (modo == "juntos") "Padres juntos · mismo hogar"
                                else "Co-parentalidad · hogares separados",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = NeutralVariant30,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -172,7 +167,7 @@ fun PantallaRegistroFamilia(
                         Text(
                             text = "Adultos responsables",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
+                            color = Neutral10,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -184,7 +179,7 @@ fun PantallaRegistroFamilia(
                         Icon(
                             Icons.Default.Add,
                             contentDescription = "Agregar adulto",
-                            tint = Color.White,
+                            tint = NeutralVariant30,
                             modifier = Modifier.padding(6.dp).size(18.dp)
                         )
                     }
@@ -216,7 +211,7 @@ fun PantallaRegistroFamilia(
                     Text(
                         text = "Niños y niñas",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
+                        color = Neutral10,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -250,7 +245,7 @@ fun PantallaRegistroFamilia(
                                             Text(
                                                 text = hijo.nombre,
                                                 style = MaterialTheme.typography.bodyMedium,
-                                                color = Color.White,
+                                                color = Neutral10,
                                                 fontWeight = FontWeight.Medium
                                             )
                                             val edad = edadHijo(hijo)
@@ -258,13 +253,13 @@ fun PantallaRegistroFamilia(
                                                 Text(
                                                     text = edad,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = Color.White.copy(0.65f)
+                                                    color = NeutralVariant50
                                                 )
                                             } else if (hijo.fechaNacimiento.isNotBlank()) {
                                                 Text(
                                                     text = hijo.fechaNacimiento,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = Color.White.copy(0.65f)
+                                                    color = NeutralVariant50
                                                 )
                                             }
                                         }
@@ -274,11 +269,11 @@ fun PantallaRegistroFamilia(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(Icons.Default.Close, contentDescription = "Eliminar",
-                                            tint = Color.White.copy(alpha = 0.6f),
+                                            tint = NeutralVariant50,
                                             modifier = Modifier.size(16.dp))
                                     }
                                 }
-                                if (index < hijos.lastIndex) Divider(color = Color.White.copy(alpha = 0.15f))
+                                if (index < hijos.lastIndex) Divider(color = NeutralVariant50.copy(alpha = 0.3f))
                             }
                         }
                     }
@@ -297,14 +292,14 @@ fun PantallaRegistroFamilia(
                             OutlinedTextField(
                                 value = nuevoHijo,
                                 onValueChange = { nuevoHijo = it },
-                                placeholder = { Text("Nombre del niño/a", color = Color.White.copy(0.5f)) },
+                                placeholder = { Text("Nombre del niño/a", color = NeutralVariant50) },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color.White.copy(0.5f),
+                                    focusedTextColor = Neutral10, unfocusedTextColor = Neutral10,
+                                    focusedBorderColor = NeutralVariant30,
                                     unfocusedBorderColor = Color.Transparent,
-                                    cursorColor = Color.White,
+                                    cursorColor = Neutral10,
                                     focusedContainerColor = Color.Transparent,
                                     unfocusedContainerColor = Color.Transparent
                                 ),
@@ -323,7 +318,7 @@ fun PantallaRegistroFamilia(
                                 },
                                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = GlassWhiteHeavy)
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = "Agregar", tint = Color.White)
+                                Icon(Icons.Default.Add, contentDescription = "Agregar", tint = NeutralVariant30)
                             }
                         }
                         CampoFecha(
@@ -332,16 +327,16 @@ fun PantallaRegistroFamilia(
                             onValueChange = { nuevoHijoFecha = it },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color.White.copy(0.5f),
-                                unfocusedBorderColor = Color.White.copy(0.2f),
-                                cursorColor = Color.White,
+                                focusedTextColor = Neutral10, unfocusedTextColor = Neutral10,
+                                focusedBorderColor = NeutralVariant30,
+                                unfocusedBorderColor = NeutralVariant50.copy(alpha = 0.4f),
+                                cursorColor = Neutral10,
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
-                                focusedLabelColor = Color.White.copy(0.7f),
-                                unfocusedLabelColor = Color.White.copy(0.4f),
-                                focusedTrailingIconColor = Color.White.copy(0.7f),
-                                unfocusedTrailingIconColor = Color.White.copy(0.5f)
+                                focusedLabelColor = NeutralVariant30,
+                                unfocusedLabelColor = NeutralVariant50,
+                                focusedTrailingIconColor = NeutralVariant30,
+                                unfocusedTrailingIconColor = NeutralVariant50
                             )
                         )
                     }
@@ -373,8 +368,8 @@ fun PantallaRegistroFamilia(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,
                     contentColor = GradientMid,
-                    disabledContainerColor = Color.White.copy(alpha = 0.3f),
-                    disabledContentColor = Color.White.copy(alpha = 0.5f)
+                    disabledContainerColor = GlassWhite,
+                    disabledContentColor = NeutralVariant50
                 )
             ) {
                 Text(
@@ -432,13 +427,13 @@ private fun AdultoCard(
                             text = if (persona.nombre.isBlank()) "Persona ${index + 1}"
                                    else persona.nombre,
                             style = MaterialTheme.typography.titleSmall,
-                            color = Color.White,
+                            color = Neutral10,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = if (edadAdulto != null) "${persona.rol} · $edadAdulto" else persona.rol,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.7f)
+                            color = NeutralVariant30
                         )
                     }
                 }
@@ -450,7 +445,7 @@ private fun AdultoCard(
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Eliminar",
-                            tint = Color.White.copy(alpha = 0.5f),
+                            tint = NeutralVariant50,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -461,15 +456,15 @@ private fun AdultoCard(
             OutlinedTextField(
                 value = persona.nombre,
                 onValueChange = { onCambiar(persona.copy(nombre = it)) },
-                placeholder = { Text("Nombre completo", color = Color.White.copy(0.45f)) },
+                placeholder = { Text("Nombre completo", color = NeutralVariant50) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White.copy(alpha = 0.6f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
-                    cursorColor = Color.White,
+                    focusedTextColor = Neutral10,
+                    unfocusedTextColor = Neutral10,
+                    focusedBorderColor = NeutralVariant30,
+                    unfocusedBorderColor = NeutralVariant50.copy(alpha = 0.4f),
+                    cursorColor = Neutral10,
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent
                 ),
@@ -480,7 +475,7 @@ private fun AdultoCard(
             Text(
                 "Rol",
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.6f)
+                color = NeutralVariant50
             )
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -501,13 +496,13 @@ private fun AdultoCard(
                             selectedContainerColor = Color.White.copy(alpha = 0.9f),
                             selectedLabelColor = GradientMid,
                             containerColor = GlassWhiteHeavy,
-                            labelColor = Color.White
+                            labelColor = Neutral10
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = seleccionado,
                             selectedBorderColor = Color.Transparent,
-                            borderColor = Color.White.copy(alpha = 0.2f)
+                            borderColor = NeutralVariant50.copy(alpha = 0.3f)
                         )
                     )
                 }
@@ -520,17 +515,17 @@ private fun AdultoCard(
                 onValueChange = { onCambiar(persona.copy(fechaNacimiento = it)) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White.copy(alpha = 0.6f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
-                    cursorColor = Color.White,
+                    focusedTextColor = Neutral10,
+                    unfocusedTextColor = Neutral10,
+                    focusedBorderColor = NeutralVariant30,
+                    unfocusedBorderColor = NeutralVariant50.copy(alpha = 0.4f),
+                    cursorColor = Neutral10,
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    focusedLabelColor = Color.White.copy(0.7f),
-                    unfocusedLabelColor = Color.White.copy(0.4f),
-                    focusedTrailingIconColor = Color.White.copy(0.7f),
-                    unfocusedTrailingIconColor = Color.White.copy(0.5f)
+                    focusedLabelColor = NeutralVariant30,
+                    unfocusedLabelColor = NeutralVariant50,
+                    focusedTrailingIconColor = NeutralVariant30,
+                    unfocusedTrailingIconColor = NeutralVariant50
                 )
             )
         }

@@ -16,7 +16,8 @@ data class RegistroTiempo(
     val horaInicio: String, // HH:MM
     val horaFin: String, // HH:MM
     val fechaCompleta: Long = System.currentTimeMillis(),
-    val esTodosLosHijos: Boolean = false
+    val esTodosLosHijos: Boolean = false,
+    val autocompensado: Boolean = false // No entra a deuda de compensación
 )
 
 @Entity(tableName = "hijos")
@@ -86,7 +87,8 @@ data class Gasto(
     val nombresHijos: String = "", // Texto para mostrar
     val dividirAutomatico: Boolean = true,
     val fechaCompleta: Long = System.currentTimeMillis(),
-    val categoria: String = ""
+    val categoria: String = "",
+    val autocompensado: Boolean = false // No entra a deuda de compensación
 )
 
 val CATEGORIAS_GASTO = listOf(
@@ -108,7 +110,8 @@ data class Compensacion(
     val montoTotal: Double,
     val fechaCompleta: Long = System.currentTimeMillis(),
     val aceptadoPadre1: Boolean = false,
-    val aceptadoPadre2: Boolean = false
+    val aceptadoPadre2: Boolean = false,
+    val tipoCompensacion: String = "dinero" // "dinero", "horas", "dias"
 ) {
     val confirmada: Boolean get() = aceptadoPadre1 && aceptadoPadre2
 }
@@ -218,4 +221,15 @@ data class FiltroEmail(
     val tipo: String, // "remitente" o "asunto"
     val valor: String,
     val activo: Boolean = true
+)
+
+// Modelo para solicitudes de vinculación entre familias (no persistido en Room)
+data class SolicitudVinculacion(
+    val id: String = UUID.randomUUID().toString(),
+    val deFamilyId: String = "",
+    val deNombre: String = "",
+    val paraFamilyId: String = "",
+    val paraNombre: String = "",
+    val modoSync: String = "mis_datos",
+    val estado: String = "pendiente" // pendiente, aceptada, rechazada
 )

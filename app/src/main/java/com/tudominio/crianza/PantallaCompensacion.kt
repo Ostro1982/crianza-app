@@ -42,23 +42,23 @@ import com.tudominio.crianza.ui.theme.*
 import java.util.*
 import kotlin.math.abs
 
-// ── Paleta interna ────────────────────────────────────────────────────────────
+// ── Paleta interna (warm) ─────────────────────────────────────────────────────
 private val Glass10      = Color(0x1AFFFFFF)   // 10 % blanco
 private val Glass20      = Color(0x33FFFFFF)   // 20 %
 private val Glass35      = Color(0x59FFFFFF)   // 35 %
-private val Amber        = Color(0xFFFBBF24)
-private val Mint         = Color(0xFF34D399)
-private val Coral        = Color(0xFFF87171)
-private val Lavender     = Color(0xFFA78BFA)
-private val Pink         = Color(0xFFF472B6)
+private val Amber        = Rose40              // ámbar cálido
+private val Mint         = Teal40              // verde salvia
+private val Coral        = Red40               // rojo suave
+private val Lavender     = Indigo40            // oliva
+private val Pink         = Rose40              // ámbar
 
-// Gradiente de fondo compartido
+// Gradiente de fondo compartido — warm salvia
 private val BgGradient   = Brush.verticalGradient(
-    listOf(Color(0xFF064E3B), Color(0xFF10B981))
+    listOf(Color(0xFFD0ECDA), Color(0xFFB8D8C0))
 )
-// Gradiente oscuro para diálogos (más profundo)
+// Gradiente para diálogos — beige cálido
 private val DialogBg     = Brush.verticalGradient(
-    listOf(Color(0xFF0F0C29), Color(0xFF1E1A4E), Color(0xFF302B63))
+    listOf(Color(0xFFF0EAD4), Color(0xFFDDE0C0), Color(0xFFD0C8B0))
 )
 
 // =============================================================================
@@ -91,6 +91,7 @@ fun PantallaCompensacion(
     // ── Registros filtrados ───────────────────────────────────────────────────
     val registrosFiltrados = remember(registros, periodo) {
         registros.filter { r ->
+            if (r.autocompensado) return@filter false
             val f = parseFecha(r.fecha)
             when (periodo) {
                 Periodo.SEMANA -> esMismaSemana(f, Date())
@@ -117,8 +118,9 @@ fun PantallaCompensacion(
     val montoTiempo   = horasDeuda * valorEfectivo
     val timeBal       = when { dif1 < 0 -> -montoTiempo; dif1 > 0 -> montoTiempo; else -> 0.0 }
 
-    val gastoP1  = if (p1 != null) gastos.filter { it.idPagador == p1.id }.sumOf { it.monto } else 0.0
-    val gastoP2  = if (p2 != null) gastos.filter { it.idPagador == p2.id }.sumOf { it.monto } else 0.0
+    val gastosCompensables = gastos.filter { !it.autocompensado }
+    val gastoP1  = if (p1 != null) gastosCompensables.filter { it.idPagador == p1.id }.sumOf { it.monto } else 0.0
+    val gastoP2  = if (p2 != null) gastosCompensables.filter { it.idPagador == p2.id }.sumOf { it.monto } else 0.0
     val balGasto = (gastoP1 - gastoP2) / 2
 
     val pagadas  = itemsCompra.filter { it.precio > 0 && it.comprado }
@@ -143,7 +145,7 @@ fun PantallaCompensacion(
                 title = {
                     Text(
                         "Compensación",
-                        color = Color.White,
+                        color = Neutral10,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 21.sp,
                         letterSpacing = (-0.3).sp
@@ -151,7 +153,7 @@ fun PantallaCompensacion(
                 },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, null, tint = NeutralVariant30)
                     }
                 },
                 actions = {
@@ -162,13 +164,13 @@ fun PantallaCompensacion(
                     TextButton(onClick = { mostrarDialogoTipoValor = true }) {
                         Text(
                             if (ok) "✓ $tLabel" else "⏳ $tLabel",
-                            color = Color.White.copy(.85f),
+                            color = NeutralVariant30,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp
                         )
                     }
                     IconButton(onClick = { mostrarDialogoValorHora = true }) {
-                        Icon(Icons.Default.Edit, null, tint = Color.White.copy(.85f))
+                        Icon(Icons.Default.Edit, null, tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -188,7 +190,7 @@ fun PantallaCompensacion(
                             Box(Modifier.fillMaxWidth().padding(36.dp), Alignment.Center) {
                                 Text(
                                     "Necesitás registrar al menos dos integrantes para calcular la compensación.",
-                                    color = Color.White.copy(.75f),
+                                    color = NeutralVariant30,
                                     textAlign = TextAlign.Center,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
@@ -235,7 +237,7 @@ fun PantallaCompensacion(
                             "Historial",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = Neutral10,
                             modifier = Modifier.padding(top = 4.dp, start = 2.dp)
                         )
                     }
@@ -246,15 +248,17 @@ fun PantallaCompensacion(
                                 Box(Modifier.fillMaxWidth().padding(28.dp), Alignment.Center) {
                                     Text(
                                         "Sin compensaciones registradas",
-                                        color = Color.White.copy(.45f),
+                                        color = NeutralVariant50,
                                         textAlign = TextAlign.Center
                                     )
                                 }
                             }
                         }
                     } else {
-                        items(compensaciones.sortedByDescending { it.fechaCompleta }) { comp ->
-                            HistorialCard(comp, padres, { onEliminarCompensacion(comp.id) }, onEditarCompensacion)
+                        items(compensaciones.sortedByDescending { it.fechaCompleta }, key = { it.id }) { comp ->
+                            SwipeParaBorrar(onEliminar = { onEliminarCompensacion(comp.id) }) {
+                                HistorialCard(comp, padres, { onEliminarCompensacion(comp.id) }, onEditarCompensacion)
+                            }
                         }
                     }
                 }
@@ -308,11 +312,11 @@ fun PantallaCompensacion(
 // Componentes internos
 // =============================================================================
 
-// ── Base card oscura con borde sutil ─────────────────────────────────────────
+// ── Base card con borde sutil ────────────────────────────────────────────────
 @Composable
 private fun DarkCard(
     modifier: Modifier = Modifier,
-    brushBg: Brush = Brush.linearGradient(listOf(Color(0x40312E81), Color(0x403730A3))),
+    brushBg: Brush = Brush.linearGradient(listOf(Color(0x40355028), Color(0x40446838))),
     content: @Composable ColumnScope.() -> Unit
 ) {
     Box(
@@ -358,7 +362,7 @@ private fun PillSelector(seleccionado: Periodo, onSelect: (Periodo) -> Unit) {
                         .clip(RoundedCornerShape(50.dp))
                         .background(
                             if (active)
-                                Brush.linearGradient(listOf(Lavender.copy(.7f), Pink.copy(.7f)))
+                                Brush.linearGradient(listOf(Indigo40.copy(.7f), Teal40.copy(.7f)))
                             else
                                 Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
                         )
@@ -368,7 +372,7 @@ private fun PillSelector(seleccionado: Periodo, onSelect: (Periodo) -> Unit) {
                 ) {
                     Text(
                         label,
-                        color = if (active) Color.White else Color.White.copy(.5f),
+                        color = if (active) Color.White else NeutralVariant50,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                         style = MaterialTheme.typography.labelMedium
                     )
@@ -385,9 +389,9 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
     val acreedor    = if (balNeto < 0) p2 else p1
 
     val heroBg = if (equilibrado)
-        Brush.linearGradient(listOf(Color(0xFF064E3B), Color(0xFF065F46), Color(0xFF047857)))
+        Brush.linearGradient(listOf(Indigo30, Indigo40, Teal30))
     else
-        Brush.linearGradient(listOf(Color(0xFF047857), Color(0xFF059669), Color(0xFF10B981)))
+        Brush.linearGradient(listOf(Teal30, Teal40, Indigo40))
 
     Box(
         Modifier
@@ -420,7 +424,7 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
         ) {
             Text(
                 "BALANCE TOTAL",
-                color = Color.White.copy(.55f),
+                color = NeutralVariant50,
                 style = MaterialTheme.typography.labelSmall,
                 letterSpacing = 2.5.sp,
                 fontWeight = FontWeight.Medium
@@ -442,7 +446,7 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                     "¡Todo equilibrado!",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
-                    color = Color.White
+                    color = Neutral10
                 )
                 Text("Sin deuda pendiente", color = Mint.copy(.85f), style = MaterialTheme.typography.bodySmall)
             } else {
@@ -457,10 +461,10 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                         Modifier.padding(horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("debe", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
+                        Text("debe", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                         Text(
                             "────▶",
-                            color = Color.White.copy(.4f),
+                            color = NeutralVariant50,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Light
                         )
@@ -473,19 +477,19 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                     "$${String.format("%,.2f", abs(balNeto))}",
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = Neutral10,
                     letterSpacing = (-1).sp
                 )
                 Spacer(Modifier.height(6.dp))
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50.dp))
-                        .background(Color.White.copy(.12f))
+                        .background(GlassWhite)
                         .padding(horizontal = 14.dp, vertical = 5.dp)
                 ) {
                     Text(
                         "${deudor.nombre} le debe a ${acreedor.nombre}",
-                        color = Color.White.copy(.85f),
+                        color = NeutralVariant30,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -518,7 +522,7 @@ private fun AvatarHero(nombre: String, ringColor: Color) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text(nombre, color = Color.White.copy(.75f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        Text(nombre, color = NeutralVariant30, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -533,7 +537,7 @@ private fun TiempoCard(
     dif1: Int, horasDeuda: Double, montoTiempo: Double,
     tipoValor: String, valorHora: Double
 ) {
-    DarkCard(brushBg = Brush.linearGradient(listOf(Color(0x40312E81), Color(0x40312E81)))) {
+    DarkCard(brushBg = Brush.linearGradient(listOf(Color(0x40355028), Color(0x40446838)))) {
         // Encabezado
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -544,10 +548,10 @@ private fun TiempoCard(
             }
             Spacer(Modifier.width(10.dp))
             Column {
-                Text("Tiempo con los hijos", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                Text("Tiempo con los hijos", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                 Text(
                     "${String.format("%.0f", totalHoras)} hs totales registradas",
-                    color = Color.White.copy(.45f),
+                    color = NeutralVariant50,
                     style = MaterialTheme.typography.labelSmall
                 )
             }
@@ -563,7 +567,7 @@ private fun TiempoCard(
 
         if (horasDeuda > 0.01) {
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(.08f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(NeutralVariant50.copy(.2f)))
             Spacer(Modifier.height(14.dp))
 
             val tipoTxt = when (tipoValor) { "hora" -> "hora"; "semana" -> "semana"; else -> "día" }
@@ -586,7 +590,7 @@ private fun TiempoCard(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Text("$${String.format("%.2f", valorHora)} / $tipoTxt", color = Color.White.copy(.35f), style = MaterialTheme.typography.labelSmall)
+                    Text("$${String.format("%.2f", valorHora)} / $tipoTxt", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 }
                 Text(
                     "$${String.format("%.2f", montoTiempo)}",
@@ -607,21 +611,21 @@ private fun BarraTiempoVisual(nombre: String, horas: Double, pctReal: Int, pctOb
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(9.dp).clip(CircleShape).background(color))
                 Spacer(Modifier.width(7.dp))
-                Text(nombre, color = Color.White.copy(.9f), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                Text(nombre, color = Neutral10, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${String.format("%.0f", horas)} hs", color = Color.White.copy(.45f), style = MaterialTheme.typography.labelSmall)
+                Text("${String.format("%.0f", horas)} hs", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 Box(
                     Modifier.clip(RoundedCornerShape(50.dp)).background(color.copy(.2f)).padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text("$pctReal%", color = color, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                 }
-                Text("obj $pctObj%", color = Color.White.copy(.3f), style = MaterialTheme.typography.labelSmall)
+                Text("obj $pctObj%", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
             }
         }
         Spacer(Modifier.height(6.dp))
         // Track
-        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50.dp)).background(Color.White.copy(.08f))) {
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50.dp)).background(NeutralVariant50.copy(.2f))) {
             // Fill real
             Box(
                 Modifier
@@ -633,7 +637,7 @@ private fun BarraTiempoVisual(nombre: String, horas: Double, pctReal: Int, pctOb
             // Marcador objetivo
             val objFrac = (pctObj / 100f).coerceIn(0.02f, 0.98f)
             Box(Modifier.fillMaxWidth(objFrac).fillMaxHeight()) {
-                Box(Modifier.align(Alignment.CenterEnd).width(2.dp).fillMaxHeight().background(Color.White.copy(.55f)))
+                Box(Modifier.align(Alignment.CenterEnd).width(2.dp).fillMaxHeight().background(NeutralVariant30))
             }
         }
     }
@@ -646,7 +650,7 @@ private fun GastosCard(
     gastoP1: Double, gastoP2: Double,
     compP1: Double, compP2: Double
 ) {
-    DarkCard(brushBg = Brush.linearGradient(listOf(Color(0x40003730), Color(0x40005046)))) {
+    DarkCard(brushBg = Brush.linearGradient(listOf(Color(0x402A5040), Color(0x40406850)))) {
         if (gastoP1 + gastoP2 > 0) {
             SeccionGastos(
                 icono = { Icon(Icons.Outlined.Receipt, null, tint = Mint, modifier = Modifier.size(20.dp)) },
@@ -660,29 +664,29 @@ private fun GastosCard(
         if (compP1 + compP2 > 0) {
             if (gastoP1 + gastoP2 > 0) {
                 Spacer(Modifier.height(16.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(.07f)))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(NeutralVariant50.copy(.15f)))
                 Spacer(Modifier.height(16.dp))
             }
             SeccionGastos(
-                icono = { Icon(Icons.Outlined.ShoppingCart, null, tint = Color(0xFF67E8F9), modifier = Modifier.size(20.dp)) },
+                icono = { Icon(Icons.Outlined.ShoppingCart, null, tint = Teal80, modifier = Modifier.size(20.dp)) },
                 titulo = "Compras de lista",
                 total = compP1 + compP2,
                 p1 = p1, v1 = compP1,
                 p2 = p2, v2 = compP2,
-                accentColor = Color(0xFF67E8F9)
+                accentColor = Teal80
             )
         }
         // Diferencia neta
         val dif = abs((gastoP1 - gastoP2) / 2 + (compP1 - compP2) / 2)
         if (dif > 0.01) {
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(.07f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(NeutralVariant50.copy(.15f)))
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Text("Diferencia a repartir", color = Color.White.copy(.5f), style = MaterialTheme.typography.bodySmall)
+                Text("Diferencia a repartir", color = NeutralVariant50, style = MaterialTheme.typography.bodySmall)
                 Text(
                     "$${String.format("%.2f", dif)}",
-                    color = Color(0xFFFCD34D),
+                    color = Rose80,
                     fontWeight = FontWeight.Black,
                     fontSize = 18.sp
                 )
@@ -706,7 +710,7 @@ private fun SeccionGastos(
             contentAlignment = Alignment.Center
         ) { icono() }
         Spacer(Modifier.width(10.dp))
-        Text(titulo, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+        Text(titulo, color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.weight(1f))
         Text("$${String.format("%,.2f", total)}", color = accentColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
     }
@@ -720,8 +724,8 @@ private fun SeccionGastos(
 private fun FilaProporcional(nombre: String, valor: Double, total: Double, color: Color) {
     val frac = if (total > 0) (valor / total).toFloat().coerceIn(0f, 1f) else 0f
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(nombre, color = Color.White.copy(.6f), style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(76.dp))
-        Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(50.dp)).background(Color.White.copy(.1f))) {
+        Text(nombre, color = NeutralVariant30, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(76.dp))
+        Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(50.dp)).background(NeutralVariant50.copy(.2f))) {
             Box(
                 Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(50.dp))
                     .background(Brush.horizontalGradient(listOf(color.copy(.5f), color)))
@@ -729,7 +733,7 @@ private fun FilaProporcional(nombre: String, valor: Double, total: Double, color
         }
         Text(
             "$${String.format("%.2f", valor)}",
-            color = Color.White.copy(.85f),
+            color = Neutral10,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.width(70.dp),
@@ -745,11 +749,13 @@ private fun PagoCard(
     monto: Double, horasDeuda: Double, valorHora: Double,
     onRegistrar: (Compensacion) -> Unit
 ) {
+    var tipoComp by remember { mutableStateOf("dinero") }
+
     Box(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF064E3B), Color(0xFF059669), Color(0xFF10B981))))
+            .background(Brush.linearGradient(listOf(Indigo30, Teal30, Teal40)))
     ) {
         // Decoración
         Box(
@@ -759,22 +765,50 @@ private fun PagoCard(
         Column(Modifier.padding(22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(Color.White.copy(.15f)),
+                    Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(GlassWhite),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Payment, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Default.Payment, null, tint = Neutral10, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Registrar compensación", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                    Text("${pagador.nombre} paga a ${receptor.nombre}", color = Color.White.copy(.6f), style = MaterialTheme.typography.labelSmall)
+                    Text("Registrar compensación", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                    Text("${pagador.nombre} compensa a ${receptor.nombre}", color = NeutralVariant30, style = MaterialTheme.typography.labelSmall)
                 }
             }
+            Spacer(Modifier.height(12.dp))
+
+            // Selector tipo de compensación
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(50.dp)).background(GlassWhite.copy(.3f)).padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                listOf("dinero" to "Dinero", "horas" to "Horas", "dias" to "Días").forEach { (tipo, label) ->
+                    val active = tipoComp == tipo
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(50.dp))
+                            .background(if (active) GlassWhite else Color.Transparent)
+                            .clickable { tipoComp = tipo }
+                            .padding(vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(label, color = if (active) Neutral10 else NeutralVariant30,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                val displayText = when (tipoComp) {
+                    "horas" -> "${String.format("%.1f", horasDeuda)} hs"
+                    "dias" -> "${String.format("%.1f", horasDeuda / 24)} días"
+                    else -> "$${String.format("%,.2f", monto)}"
+                }
                 Text(
-                    "$${String.format("%,.2f", monto)}",
-                    color = Color.White,
+                    displayText,
+                    color = Neutral10,
                     fontWeight = FontWeight.Black,
                     fontSize = 32.sp,
                     letterSpacing = (-1).sp
@@ -790,13 +824,14 @@ private fun PagoCard(
                                 horasCompensadas = horasDeuda,
                                 valorHora = valorHora,
                                 montoTotal = monto,
-                                fechaCompleta = System.currentTimeMillis()
+                                fechaCompleta = System.currentTimeMillis(),
+                                tipoCompensacion = tipoComp
                             )
                         )
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(.22f),
-                        contentColor = Color.White
+                        containerColor = GlassWhite,
+                        contentColor = Neutral10
                     ),
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
@@ -823,7 +858,7 @@ private fun HistorialCard(
         (diffMs / (1000L * 60 * 60 * 24)).toInt()
     } else 0
     val pendienteLarga = !comp.confirmada && diasPendiente >= 3
-    val WarningAmber = Color(0xFFFF9800)
+    val WarningAmber = Rose40
 
     // Transicion de color suave segun estado
     val targetAccent = when {
@@ -837,8 +872,8 @@ private fun HistorialCard(
         label = "accentTransition"
     )
     val targetBg = when {
-        pendienteLarga -> Color(0x28FF9800)  // Amber tint para urgencia
-        comp.confirmada -> Color(0x1534D399) // Green tint sutil
+        pendienteLarga -> Rose40.copy(.15f)    // Amber tint para urgencia
+        comp.confirmada -> Teal40.copy(.08f)  // Green tint sutil
         else -> Glass10
     }
     val bgColor by animateColorAsState(
@@ -887,7 +922,7 @@ private fun HistorialCard(
                             )
                         }
                     }
-                    Text(comp.fecha, color = Color.White.copy(.35f), style = MaterialTheme.typography.labelSmall)
+                    Text(comp.fecha, color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 }
                 IconButton(onClick = onEliminar, modifier = Modifier.size(30.dp)) {
                     Icon(Icons.Default.Delete, null, tint = Coral.copy(.7f), modifier = Modifier.size(15.dp))
@@ -899,17 +934,22 @@ private fun HistorialCard(
                 Column {
                     Text(
                         "${comp.nombrePagador}  →  ${comp.nombreReceptor}",
-                        color = Color.White.copy(.9f),
+                        color = Neutral10,
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     if (comp.horasCompensadas > 0.01) {
-                        Text("${String.format("%.1f", comp.horasCompensadas)} hs", color = Color.White.copy(.35f), style = MaterialTheme.typography.labelSmall)
+                        Text("${String.format("%.1f", comp.horasCompensadas)} hs", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                     }
                 }
+                val montoDisplay = when (comp.tipoCompensacion) {
+                    "horas" -> "${String.format("%.1f", comp.horasCompensadas)} hs"
+                    "dias" -> "${String.format("%.1f", comp.horasCompensadas / 24)} días"
+                    else -> "$${String.format("%,.2f", comp.montoTotal)}"
+                }
                 Text(
-                    "$${String.format("%,.2f", comp.montoTotal)}",
-                    color = Color.White,
+                    montoDisplay,
+                    color = Neutral10,
                     fontWeight = FontWeight.Black,
                     fontSize = 22.sp,
                     letterSpacing = (-0.5).sp
@@ -918,9 +958,9 @@ private fun HistorialCard(
 
             if (!comp.confirmada) {
                 Spacer(Modifier.height(12.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(.08f)))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(NeutralVariant50.copy(.2f)))
                 Spacer(Modifier.height(10.dp))
-                Text("Requiere aprobación de ambos", color = Color.White.copy(.35f), style = MaterialTheme.typography.labelSmall)
+                Text("Requiere aprobación de ambos", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 Spacer(Modifier.height(7.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     padres.forEachIndexed { idx, padre ->
@@ -934,10 +974,10 @@ private fun HistorialCard(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (aprobado) Mint else Color.White.copy(.75f),
+                                contentColor = if (aprobado) Mint else NeutralVariant30,
                                 disabledContentColor = Mint.copy(.7f)
                             ),
-                            border = BorderStroke(1.dp, if (aprobado) Mint.copy(.4f) else Color.White.copy(.2f))
+                            border = BorderStroke(1.dp, if (aprobado) Mint.copy(.4f) else NeutralVariant50.copy(.3f))
                         ) {
                             Text(
                                 if (aprobado) "✓ ${padre.nombre}" else padre.nombre,
@@ -999,27 +1039,27 @@ fun DialogoValorHora(
     DarkDialogBase(onDismiss) {
         Text(
             "Valor por $tipoTxt",
-            color = Color.White,
+            color = Neutral10,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleLarge
         )
         Spacer(Modifier.height(6.dp))
-        Text("Ingresá el monto en $", color = Color.White.copy(.5f), style = MaterialTheme.typography.bodySmall)
+        Text("Ingresá el monto en $", color = NeutralVariant50, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(20.dp))
         OutlinedTextField(
             value = valor,
             onValueChange = { valor = it.filter { c -> c.isDigit() || c == '.' } },
-            label = { Text("Valor por $tipoTxt ($)", color = Color.White.copy(.5f)) },
+            label = { Text("Valor por $tipoTxt ($)", color = NeutralVariant50) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Lavender,
-                unfocusedBorderColor = Color.White.copy(.25f),
-                cursorColor = Lavender,
-                focusedLabelColor = Lavender,
-                unfocusedLabelColor = Color.White.copy(.4f),
+                focusedTextColor = Neutral10,
+                unfocusedTextColor = Neutral10,
+                focusedBorderColor = Indigo40,
+                unfocusedBorderColor = NeutralVariant50.copy(.4f),
+                cursorColor = Indigo40,
+                focusedLabelColor = Indigo40,
+                unfocusedLabelColor = NeutralVariant50,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent
             )
@@ -1030,15 +1070,15 @@ fun DialogoValorHora(
                 onClick = onDismiss,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White.copy(.6f)),
-                border = BorderStroke(1.dp, Color.White.copy(.2f))
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeutralVariant30),
+                border = BorderStroke(1.dp, NeutralVariant50.copy(.3f))
             ) { Text("Cancelar") }
             Button(
                 onClick = { onGuardar(valor.toDoubleOrNull() ?: valorActual) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Lavender, contentColor = Color.White
+                    containerColor = Indigo40, contentColor = Color.White
                 )
             ) { Text("Guardar", fontWeight = FontWeight.Bold) }
         }
@@ -1054,20 +1094,20 @@ fun DialogoEditarCompensacion(
     var monto by remember { mutableStateOf(compensacion.montoTotal.toString()) }
 
     DarkDialogBase(onDismiss) {
-        Text("Editar compensación", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+        Text("Editar compensación", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(20.dp))
         OutlinedTextField(
             value = monto,
             onValueChange = { monto = it.filter { c -> c.isDigit() || c == '.' } },
-            label = { Text("Monto total ($)", color = Color.White.copy(.5f)) },
+            label = { Text("Monto total ($)", color = NeutralVariant50) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Lavender,
-                unfocusedBorderColor = Color.White.copy(.25f),
-                cursorColor = Lavender,
+                focusedTextColor = Neutral10,
+                unfocusedTextColor = Neutral10,
+                focusedBorderColor = Indigo40,
+                unfocusedBorderColor = NeutralVariant50.copy(.4f),
+                cursorColor = Indigo40,
                 focusedContainerColor = Color.Transparent,
                 unfocusedContainerColor = Color.Transparent
             )
@@ -1077,14 +1117,14 @@ fun DialogoEditarCompensacion(
             OutlinedButton(
                 onClick = onDismiss, modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White.copy(.6f)),
-                border = BorderStroke(1.dp, Color.White.copy(.2f))
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeutralVariant30),
+                border = BorderStroke(1.dp, NeutralVariant50.copy(.3f))
             ) { Text("Cancelar") }
             Button(
                 onClick = { onGuardar(compensacion.copy(montoTotal = monto.toDoubleOrNull() ?: compensacion.montoTotal)) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Lavender, contentColor = Color.White)
+                colors = ButtonDefaults.buttonColors(containerColor = Indigo40, contentColor = Color.White)
             ) { Text("Guardar", fontWeight = FontWeight.Bold) }
         }
     }
@@ -1101,9 +1141,9 @@ fun DialogoTipoValor(
     var tipoSeleccionado by remember { mutableStateOf(configuracion.tipoValor) }
 
     DarkDialogBase(onDismiss) {
-        Text("Tipo de compensación", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+        Text("Tipo de compensación", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(6.dp))
-        Text("Cómo se calcula el valor de referencia", color = Color.White.copy(.45f), style = MaterialTheme.typography.bodySmall)
+        Text("Cómo se calcula el valor de referencia", color = NeutralVariant50, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(20.dp))
 
         Column(
@@ -1115,7 +1155,7 @@ fun DialogoTipoValor(
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (tipoSeleccionado == tipo) Lavender.copy(.2f) else Color.White.copy(.05f))
+                        .background(if (tipoSeleccionado == tipo) Indigo40.copy(.15f) else NeutralVariant50.copy(.08f))
                         .clickable { tipoSeleccionado = tipo }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1124,12 +1164,12 @@ fun DialogoTipoValor(
                         selected = tipoSeleccionado == tipo,
                         onClick = { tipoSeleccionado = tipo },
                         colors = RadioButtonDefaults.colors(
-                            selectedColor = Lavender,
-                            unselectedColor = Color.White.copy(.3f)
+                            selectedColor = Indigo40,
+                            unselectedColor = NeutralVariant50
                         )
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(label, color = if (tipoSeleccionado == tipo) Color.White else Color.White.copy(.65f), fontWeight = if (tipoSeleccionado == tipo) FontWeight.SemiBold else FontWeight.Normal)
+                    Text(label, color = if (tipoSeleccionado == tipo) Neutral10 else NeutralVariant30, fontWeight = if (tipoSeleccionado == tipo) FontWeight.SemiBold else FontWeight.Normal)
                 }
             }
 
@@ -1139,15 +1179,15 @@ fun DialogoTipoValor(
                     onClick = { onCambiarTipo(tipoSeleccionado) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Lavender.copy(.6f), contentColor = Color.White)
+                    colors = ButtonDefaults.buttonColors(containerColor = Indigo40, contentColor = Color.White)
                 ) { Text("Proponer cambio · requiere aprobación de ambos", style = MaterialTheme.typography.labelSmall) }
             }
 
             if (tipoSeleccionado == configuracion.tipoValor) {
                 Spacer(Modifier.height(10.dp))
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(.08f)))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(NeutralVariant50.copy(.2f)))
                 Spacer(Modifier.height(12.dp))
-                Text("Aprobaciones", color = Color.White.copy(.45f), style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+                Text("Aprobaciones", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
                 Spacer(Modifier.height(8.dp))
                 padres.forEachIndexed { idx, padre ->
                     val aprobado = if (idx == 0) configuracion.aprobadoTipoValor1 else configuracion.aprobadoTipoValor2
@@ -1156,19 +1196,19 @@ fun DialogoTipoValor(
                         Arrangement.SpaceBetween,
                         Alignment.CenterVertically
                     ) {
-                        Text(padre.nombre, color = Color.White.copy(.8f), style = MaterialTheme.typography.bodyMedium)
+                        Text(padre.nombre, color = Neutral10, style = MaterialTheme.typography.bodyMedium)
                         if (aprobado) {
                             Box(
-                                Modifier.clip(RoundedCornerShape(50.dp)).background(Mint.copy(.2f)).padding(horizontal = 12.dp, vertical = 4.dp)
+                                Modifier.clip(RoundedCornerShape(50.dp)).background(Teal40.copy(.2f)).padding(horizontal = 12.dp, vertical = 4.dp)
                             ) {
-                                Text("✓ Aprobado", color = Mint, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text("✓ Aprobado", color = Teal40, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             OutlinedButton(
                                 onClick = { onAprobar(idx) },
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Lavender),
-                                border = BorderStroke(1.dp, Lavender.copy(.4f))
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Indigo40),
+                                border = BorderStroke(1.dp, Indigo40.copy(.4f))
                             ) { Text("Aprobar", style = MaterialTheme.typography.labelMedium) }
                         }
                     }
@@ -1180,7 +1220,7 @@ fun DialogoTipoValor(
         TextButton(
             onClick = onDismiss,
             modifier = Modifier.align(Alignment.End),
-            colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(.5f))
+            colors = ButtonDefaults.textButtonColors(contentColor = NeutralVariant30)
         ) { Text("Cerrar") }
     }
 }

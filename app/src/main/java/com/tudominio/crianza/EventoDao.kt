@@ -29,4 +29,7 @@ interface EventoDao {
 
     @Query("DELETE FROM eventos WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM eventos")
+    suspend fun eliminarTodos()
 }

@@ -45,15 +45,15 @@ fun PantallaResumenTiempo(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Resumen de tiempo", color = Color.White) },
+                title = { Text("Resumen de tiempo", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
                     IconButton(onClick = { mostrarDialogoConfig = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Ajustar porcentaje", tint = Color.White)
+                        Icon(Icons.Default.Edit, contentDescription = "Ajustar porcentaje", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -154,7 +154,7 @@ fun PantallaResumenTiempo(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF064E3B), Color(0xFF065F46), Color(0xFF047857))))
+                    .background(Brush.linearGradient(listOf(Indigo30, Indigo40, Teal30)))
                     .padding(horizontal = 24.dp, vertical = 28.dp)
             ) {
                 // Circulo decorativo grande
@@ -237,10 +237,10 @@ fun PantallaResumenTiempo(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ── Distribucion visual ────────────────────────────────────────
-            val Lavender = Color(0xFFA78BFA)
-            val PinkBar  = Color(0xFFF472B6)
-            val Mint     = Color(0xFF34D399)
-            val AmberW   = Color(0xFFFBBF24)
+            val Lavender = Indigo40
+            val PinkBar  = Rose40
+            val Mint     = Teal40
+            val AmberW   = Rose40
 
             Box(
                 modifier = Modifier
@@ -261,12 +261,12 @@ fun PantallaResumenTiempo(
                         "Distribución de tiempo",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Neutral10
                     )
                     Text(
                         "Período: ${textoPeriodo(periodoSeleccionado)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = NeutralVariant50
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -290,7 +290,7 @@ fun PantallaResumenTiempo(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White.copy(0.06f))
+                                .background(GlassWhite)
                         ) {
                             Row(Modifier.fillMaxSize()) {
                                 // Lado padre 1
@@ -324,7 +324,7 @@ fun PantallaResumenTiempo(
                                     }
                                 }
                                 // Separador
-                                Box(Modifier.width(2.dp).fillMaxHeight().background(Color.White.copy(.15f)))
+                                Box(Modifier.width(2.dp).fillMaxHeight().background(GlassWhite))
                                 // Lado padre 2
                                 Box(
                                     Modifier
@@ -365,14 +365,14 @@ fun PantallaResumenTiempo(
                                 Box(Modifier.size(10.dp).clip(CircleShape).background(Lavender))
                                 Spacer(Modifier.width(8.dp))
                                 Column {
-                                    Text(padres[0].nombre, color = Color.White.copy(.85f), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                                    Text("${String.format("%.1f", horasPadre1)} hs", color = Color.White.copy(.45f), style = MaterialTheme.typography.labelSmall)
+                                    Text(padres[0].nombre, color = Neutral10, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text("${String.format("%.1f", horasPadre1)} hs", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Column(horizontalAlignment = Alignment.End) {
-                                    Text(padres[1].nombre, color = Color.White.copy(.85f), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                                    Text("${String.format("%.1f", horasPadre2)} hs", color = Color.White.copy(.45f), style = MaterialTheme.typography.labelSmall)
+                                    Text(padres[1].nombre, color = Neutral10, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                    Text("${String.format("%.1f", horasPadre2)} hs", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                                 }
                                 Spacer(Modifier.width(8.dp))
                                 Box(Modifier.size(10.dp).clip(CircleShape).background(PinkBar))
@@ -385,17 +385,17 @@ fun PantallaResumenTiempo(
                         Row(
                             Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color.White.copy(.06f))
+                                .background(GlassWhite)
                                 .padding(12.dp),
                             Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("Objetivo", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
-                                Text("${configuracion.porcentajePadre1}% / ${configuracion.porcentajePadre2}%", color = Color.White.copy(.8f), fontWeight = FontWeight.SemiBold)
+                                Text("Objetivo", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
+                                Text("${configuracion.porcentajePadre1}% / ${configuracion.porcentajePadre2}%", color = Neutral10, fontWeight = FontWeight.SemiBold)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("Horas", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
-                                Text("${String.format("%.1f", horasPadre1)} / ${String.format("%.1f", horasPadre2)}", color = Color.White.copy(.8f), fontWeight = FontWeight.SemiBold)
+                                Text("Horas", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
+                                Text("${String.format("%.1f", horasPadre1)} / ${String.format("%.1f", horasPadre2)}", color = Neutral10, fontWeight = FontWeight.SemiBold)
                             }
                         }
 
@@ -406,8 +406,8 @@ fun PantallaResumenTiempo(
                         fun DetallePadre(nombre: String, pctReal: Int, pctObj: Int, dif: Int, color: Color) {
                             val difColor = when {
                                 dif > 0 -> Mint
-                                dif < 0 -> Color(0xFFF87171)
-                                else -> Color.White.copy(.6f)
+                                dif < 0 -> Red40
+                                else -> NeutralVariant50
                             }
                             Row(
                                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -417,7 +417,7 @@ fun PantallaResumenTiempo(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(Modifier.size(8.dp).clip(CircleShape).background(color))
                                     Spacer(Modifier.width(8.dp))
-                                    Text(nombre, color = Color.White.copy(.8f), style = MaterialTheme.typography.bodyMedium)
+                                    Text(nombre, color = Neutral10, style = MaterialTheme.typography.bodyMedium)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Box(
@@ -467,7 +467,7 @@ fun PantallaResumenTiempo(
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.bodyMedium
                                         )
-                                        Text("a $acreedor", color = Color.White.copy(.5f), style = MaterialTheme.typography.labelSmall)
+                                        Text("a $acreedor", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                                     }
                                     Text(
                                         "${String.format("%.0f", hDeuda)}h",
@@ -490,7 +490,7 @@ fun PantallaResumenTiempo(
                 text = "Detalle por hijo",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Neutral10
             )
 
             LazyColumn(
@@ -532,8 +532,8 @@ fun ResumenHijoCard(
 ) {
     val horasPorPadre = calcularHorasPorPadre(registros)
     val total = horasPorPadre.values.sum()
-    val Lavender = Color(0xFFA78BFA)
-    val PinkBar  = Color(0xFFF472B6)
+    val Lavender = Indigo40
+    val PinkBar  = Rose40
 
     Box(
         modifier = Modifier
@@ -546,7 +546,7 @@ fun ResumenHijoCard(
                 text = hijo.nombre,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Neutral10
             )
             Spacer(modifier = Modifier.height(10.dp))
             padres.forEachIndexed { index, padre ->
@@ -561,7 +561,7 @@ fun ResumenHijoCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(8.dp).clip(CircleShape).background(color))
                         Spacer(Modifier.width(8.dp))
-                        Text(padre.nombre, color = Color.White.copy(.8f), style = MaterialTheme.typography.bodySmall)
+                        Text(padre.nombre, color = Neutral10, style = MaterialTheme.typography.bodySmall)
                     }
                     Text(
                         "${String.format("%.1f", horas)}h ($pct%)",
@@ -577,7 +577,7 @@ fun ResumenHijoCard(
                 val h1 = horasPorPadre[padres[0].id] ?: 0.0
                 val frac = (h1 / total).toFloat().coerceIn(0.02f, 0.98f)
                 Box(
-                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50.dp)).background(Color.White.copy(.1f))
+                    Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50.dp)).background(GlassWhite)
                 ) {
                     Row(Modifier.fillMaxSize()) {
                         Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(topStart = 50.dp, bottomStart = 50.dp)).background(Lavender))

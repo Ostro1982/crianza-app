@@ -23,4 +23,7 @@ interface CompensacionDao {
 
     @Query("DELETE FROM compensaciones WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM compensaciones")
+    suspend fun eliminarTodos()
 }

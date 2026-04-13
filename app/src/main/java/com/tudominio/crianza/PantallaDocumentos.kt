@@ -62,19 +62,19 @@ fun PantallaDocumentos(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Lock, contentDescription = null,
-                            tint = Color.White, modifier = Modifier.size(20.dp))
+                            tint = NeutralVariant30, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Bóveda de documentos", color = Color.White)
+                        Text("Información Útil", color = Neutral10)
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
                     IconButton(onClick = { mostrarDialogo = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Agregar", tint = Color.White)
+                        Icon(Icons.Default.Add, contentDescription = "Agregar", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -89,14 +89,14 @@ fun PantallaDocumentos(
                 Text(
                     "🔒 Todo el contenido está encriptado con AES-256 usando el chip de seguridad del dispositivo.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = NeutralVariant30,
                     modifier = Modifier.padding(12.dp)
                 )
             }
 
             if (documentos.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No hay documentos. Agregá contraseñas, datos importantes, fotos, etc.", color = Color.White)
+                    Text("No hay documentos. Agregá contraseñas, datos importantes, fotos, etc.", color = Neutral10)
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -202,26 +202,26 @@ fun TarjetaDocumento(
         Column {
             Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Lock, contentDescription = null,
-                    tint = Color(0xFFC4B5FD), modifier = Modifier.size(24.dp))
+                    tint = Indigo40, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(documento.titulo, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    Text(documento.titulo, fontWeight = FontWeight.SemiBold, color = Neutral10)
                     val info = listOfNotNull(
                         documento.categoria.takeIf { it.isNotEmpty() },
                         "Modificado: ${sdf.format(Date(documento.fechaModificacion))}"
                     ).joinToString(" · ")
-                    Text(info, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                    Text(info, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
                     if (documento.rutaImagen.isNotEmpty()) {
                         Text("📷 Foto adjunta", style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFC4B5FD))
+                            color = Indigo40)
                     }
                 }
-                TextButton(onClick = onVer) { Text("Ver", color = Color(0xFFC4B5FD)) }
+                TextButton(onClick = onVer) { Text("Ver", color = Indigo40) }
                 IconButton(onClick = onEditar) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.White.copy(alpha = 0.8f))
+                    Icon(Icons.Default.Edit, contentDescription = "Editar", tint = NeutralVariant30)
                 }
                 IconButton(onClick = onEliminar) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFF87171))
+                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Red40)
                 }
             }
             // Miniatura de foto si existe
