@@ -1308,7 +1308,7 @@ fun ClimaCard() {
     }
 
     clima?.let { data ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -1346,11 +1346,12 @@ fun ClimaCard() {
                     Text("4 pm", style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
                 }
             }
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                "Ver pronóstico \u2192",
+                "Ver pronóstico →",
                 style = MaterialTheme.typography.labelSmall,
                 color = NeutralVariant50,
-                modifier = Modifier.align(Alignment.BottomEnd)
+                modifier = Modifier.align(Alignment.End)
             )
         }
     }
