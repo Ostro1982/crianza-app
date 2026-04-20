@@ -40,7 +40,7 @@ class SyncManager(
         "idPagador" to idPagador, "nombrePagador" to nombrePagador,
         "idsHijos" to idsHijos, "nombresHijos" to nombresHijos,
         "dividirAutomatico" to dividirAutomatico, "fechaCompleta" to fechaCompleta,
-        "categoria" to categoria
+        "categoria" to categoria, "autocompensado" to autocompensado
     )
 
     private fun ItemCompra.toMap() = mapOf(
@@ -60,7 +60,8 @@ class SyncManager(
         "id" to id, "idHijo" to idHijo, "nombreHijo" to nombreHijo,
         "idPadre" to idPadre, "nombrePadre" to nombrePadre,
         "fecha" to fecha, "horaInicio" to horaInicio, "horaFin" to horaFin,
-        "fechaCompleta" to fechaCompleta, "esTodosLosHijos" to esTodosLosHijos
+        "fechaCompleta" to fechaCompleta, "esTodosLosHijos" to esTodosLosHijos,
+        "autocompensado" to autocompensado
     )
 
     private fun Compensacion.toMap() = mapOf(
@@ -77,6 +78,32 @@ class SyncManager(
         "fechaCreacion" to fechaCreacion, "fechaLimite" to fechaLimite,
         "asignadoA" to asignadoA
     )
+
+    private fun RegistroEdicion.toMap() = mapOf(
+        "id" to id, "idRegistro" to idRegistro,
+        "fechaEdicion" to fechaEdicion,
+        "fechaAnterior" to fechaAnterior,
+        "horaInicioAnterior" to horaInicioAnterior,
+        "horaFinAnterior" to horaFinAnterior,
+        "nombreHijoAnterior" to nombreHijoAnterior,
+        "autocompensadoAnterior" to autocompensadoAnterior
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toRegistroEdicion(): RegistroEdicion? {
+        return try {
+            RegistroEdicion(
+                id = this["id"] as? String ?: return null,
+                idRegistro = this["idRegistro"] as? String ?: return null,
+                fechaEdicion = this["fechaEdicion"] as? Long ?: 0L,
+                fechaAnterior = this["fechaAnterior"] as? String ?: "",
+                horaInicioAnterior = this["horaInicioAnterior"] as? String ?: "",
+                horaFinAnterior = this["horaFinAnterior"] as? String ?: "",
+                nombreHijoAnterior = this["nombreHijoAnterior"] as? String ?: "",
+                autocompensadoAnterior = this["autocompensadoAnterior"] as? Boolean ?: false
+            )
+        } catch (e: Exception) { null }
+    }
 
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any>.toEvento(): Evento? {
@@ -112,7 +139,8 @@ class SyncManager(
                 nombresHijos = this["nombresHijos"] as? String ?: "",
                 dividirAutomatico = this["dividirAutomatico"] as? Boolean ?: true,
                 fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
-                categoria = this["categoria"] as? String ?: ""
+                categoria = this["categoria"] as? String ?: "",
+                autocompensado = this["autocompensado"] as? Boolean ?: false
             )
         } catch (e: Exception) { null }
     }
@@ -165,7 +193,8 @@ class SyncManager(
                 horaInicio = this["horaInicio"] as? String ?: "",
                 horaFin = this["horaFin"] as? String ?: "",
                 fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
-                esTodosLosHijos = this["esTodosLosHijos"] as? Boolean ?: false
+                esTodosLosHijos = this["esTodosLosHijos"] as? Boolean ?: false,
+                autocompensado = this["autocompensado"] as? Boolean ?: false
             )
         } catch (e: Exception) { null }
     }
@@ -262,11 +291,25 @@ class SyncManager(
     }
 
     suspend fun actualizarRegistro(registro: RegistroTiempo) {
+        val anterior = db.registroTiempoDao().obtenerPorId(registro.id)
+        if (anterior != null) {
+            val edicion = RegistroEdicion(
+                idRegistro = registro.id,
+                fechaAnterior = anterior.fecha,
+                horaInicioAnterior = anterior.horaInicio,
+                horaFinAnterior = anterior.horaFin,
+                nombreHijoAnterior = anterior.nombreHijo,
+                autocompensadoAnterior = anterior.autocompensado
+            )
+            db.registroEdicionDao().insertar(edicion)
+            col("registros_edicion").document(edicion.id).set(edicion.toMap())
+        }
         db.registroTiempoDao().actualizarRegistro(registro)
         col("registros_tiempo").document(registro.id).set(registro.toMap())
     }
 
     suspend fun eliminarRegistro(registro: RegistroTiempo) {
+        db.registroEdicionDao().eliminarPorRegistro(registro.id)
         db.registroTiempoDao().eliminarRegistro(registro)
         col("registros_tiempo").document(registro.id).delete()
     }
@@ -312,6 +355,19 @@ class SyncManager(
         ))
     }
 
+    // Registra emails de padres locales para que otros puedan encontrarlos sin Google Sign-In
+    fun registrarEmailsPadres(padres: List<Padre>) {
+        val fid = familyId()
+        padres.filter { it.email.isNotBlank() }.forEach { padre ->
+            fs.collection("usuarios").document("padre_${padre.id}").set(mapOf(
+                "email" to padre.email.lowercase().trim(),
+                "nombre" to padre.nombre,
+                "fotoUrl" to "",
+                "familyId" to fid
+            ))
+        }
+    }
+
     suspend fun buscarUsuarioPorEmail(email: String): Pair<String, String>? =
         suspendCoroutine { cont ->
             fs.collection("usuarios").whereEqualTo("email", email).get()
@@ -338,6 +394,7 @@ class SyncManager(
         db.registroTiempoDao().obtenerTodosLosRegistros().forEach { col("registros_tiempo").document(it.id).set(it.toMap()) }
         db.compensacionDao().obtenerTodasLasCompensaciones().forEach { col("compensaciones").document(it.id).set(it.toMap()) }
         db.pendienteDao().obtenerTodos().forEach { col("pendientes").document(it.id).set(it.toMap()) }
+        db.registroEdicionDao().obtenerTodos().forEach { col("registros_edicion").document(it.id).set(it.toMap()) }
         FamilyIdManager.marcarSubidaInicial(context)
     }
 
@@ -352,7 +409,8 @@ class SyncManager(
         val onMensajesActualizados: () -> Unit,
         val onRegistrosActualizados: () -> Unit,
         val onCompensacionesActualizadas: () -> Unit,
-        val onPendientesActualizados: () -> Unit
+        val onPendientesActualizados: () -> Unit,
+        val onEdicionesActualizadas: () -> Unit
     )
 
     fun detenerListeners() {
@@ -367,7 +425,7 @@ class SyncManager(
             cb.onEventosActualizados, cb.onGastosActualizados,
             cb.onItemsActualizados, cb.onMensajesActualizados,
             cb.onRegistrosActualizados, cb.onCompensacionesActualizadas,
-            cb.onPendientesActualizados
+            cb.onPendientesActualizados, cb.onEdicionesActualizadas
         )
     }
 
@@ -378,14 +436,15 @@ class SyncManager(
         onMensajesActualizados: () -> Unit,
         onRegistrosActualizados: () -> Unit = {},
         onCompensacionesActualizadas: () -> Unit = {},
-        onPendientesActualizados: () -> Unit = {}
+        onPendientesActualizados: () -> Unit = {},
+        onEdicionesActualizadas: () -> Unit = {}
     ) {
         detenerListeners()
         ultimosCallbacks = ListenerCallbacks(
             onEventosActualizados, onGastosActualizados,
             onItemsActualizados, onMensajesActualizados,
             onRegistrosActualizados, onCompensacionesActualizadas,
-            onPendientesActualizados
+            onPendientesActualizados, onEdicionesActualizadas
         )
 
         listenerRegistrations += col("eventos").addSnapshotListener { snap, err ->
@@ -439,7 +498,7 @@ class SyncManager(
                 for (change in snap.documentChanges) {
                     when (change.type) {
                         DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
-                            change.document.data.toMensaje()?.let { db.mensajeDao().insertar(it) }
+                            change.document.data.toMensaje()?.let { db.mensajeDao().insertarSiNoExiste(it) }
                         DocumentChange.Type.REMOVED ->
                             db.mensajeDao().eliminarPorId(change.document.id)
                     }
@@ -493,7 +552,64 @@ class SyncManager(
             }
         }
 
+        listenerRegistrations += col("registros_edicion").addSnapshotListener { snap, err ->
+            if (err != null || snap == null) return@addSnapshotListener
+            scope.launch {
+                for (change in snap.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                            change.document.data.toRegistroEdicion()?.let {
+                                db.registroEdicionDao().insertar(it)
+                            }
+                        DocumentChange.Type.REMOVED ->
+                            db.registroEdicionDao().eliminarPorId(change.document.id)
+                    }
+                }
+                onEdicionesActualizadas()
+            }
+        }
+
         Log.d("SyncManager", "Listeners activos para familia: ${familyId()}")
+    }
+
+    // ── Planificación semanal (SharedPreferences → Firestore) ────────────────
+
+    private fun planificacionToMap(): Map<String, Any> {
+        val prefs = context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE)
+        val map = mutableMapOf<String, Any>()
+        map["ciclo"] = prefs.getInt("dias_fijos_ciclo", 7)
+        map["repetir"] = prefs.getBoolean("dias_fijos_repetir", true)
+        map["actividades_fijas"] = prefs.getString("actividades_fijas", "") ?: ""
+        for (ciclo in listOf(7, 14)) {
+            for (idx in 0 until ciclo) {
+                val key = "dias_fijos_slots_${ciclo}_$idx"
+                val val_ = prefs.getString(key, "") ?: ""
+                if (val_.isNotBlank()) map[key] = val_
+            }
+        }
+        prefs.all.entries.filter { it.key.startsWith("actividad_eventos_") }.forEach { (k, v) ->
+            if (v is String && v.isNotBlank()) map[k] = v
+        }
+        return map
+    }
+
+    private fun aplicarPlanificacionDeMap(data: Map<String, Any>) {
+        val prefs = context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        (data["ciclo"] as? Long)?.let { editor.putInt("dias_fijos_ciclo", it.toInt()) }
+        (data["repetir"] as? Boolean)?.let { editor.putBoolean("dias_fijos_repetir", it) }
+        (data["actividades_fijas"] as? String)?.let { editor.putString("actividades_fijas", it) }
+        data.entries.filter { it.key.startsWith("dias_fijos_slots_") }.forEach { (k, v) ->
+            editor.putString(k, v as? String ?: "")
+        }
+        data.entries.filter { it.key.startsWith("actividad_eventos_") }.forEach { (k, v) ->
+            editor.putString(k, v as? String ?: "")
+        }
+        editor.apply()
+    }
+
+    suspend fun subirPlanificacion() {
+        col("config").document("planificacion").set(planificacionToMap()).await()
     }
 
     // Descarga todos los datos de la familia actual de Firestore a Room
@@ -511,7 +627,7 @@ class SyncManager(
         itemsSnap.documents.forEach { doc -> doc.data?.toItemCompra()?.let { db.itemCompraDao().insertar(it) } }
 
         val mensajesSnap = col("mensajes").get().await()
-        mensajesSnap.documents.forEach { doc -> doc.data?.toMensaje()?.let { db.mensajeDao().insertar(it) } }
+        mensajesSnap.documents.forEach { doc -> doc.data?.toMensaje()?.let { db.mensajeDao().insertarSiNoExiste(it) } }
 
         val registrosSnap = col("registros_tiempo").get().await()
         registrosSnap.documents.forEach { doc -> doc.data?.toRegistroTiempo()?.let { db.registroTiempoDao().insertarRegistro(it) } }
@@ -522,7 +638,14 @@ class SyncManager(
         val pendientesSnap = col("pendientes").get().await()
         pendientesSnap.documents.forEach { doc -> doc.data?.toPendiente()?.let { db.pendienteDao().insertar(it) } }
 
-        Log.d("SyncManager", "Datos descargados OK de familia: $fid (eventos=${eventosSnap.size()}, gastos=${gastosSnap.size()}, items=${itemsSnap.size()}, mensajes=${mensajesSnap.size()}, registros=${registrosSnap.size()}, comp=${compensacionesSnap.size()}, pend=${pendientesSnap.size()})")
+        val edicionesSnap = col("registros_edicion").get().await()
+        edicionesSnap.documents.forEach { doc -> doc.data?.toRegistroEdicion()?.let { db.registroEdicionDao().insertar(it) } }
+
+        // Planificación semanal
+        val planSnap = col("config").document("planificacion").get().await()
+        planSnap.data?.let { aplicarPlanificacionDeMap(it) }
+
+        Log.d("SyncManager", "Datos descargados OK de familia: $fid")
     }
 
     // Sube datos locales a otra familia en Firestore (espera confirmación)
@@ -535,6 +658,9 @@ class SyncManager(
         db.registroTiempoDao().obtenerTodosLosRegistros().forEach { otraCol("registros_tiempo").document(it.id).set(it.toMap()).await() }
         db.compensacionDao().obtenerTodasLasCompensaciones().forEach { otraCol("compensaciones").document(it.id).set(it.toMap()).await() }
         db.pendienteDao().obtenerTodos().forEach { otraCol("pendientes").document(it.id).set(it.toMap()).await() }
+        db.registroEdicionDao().obtenerTodos().forEach { otraCol("registros_edicion").document(it.id).set(it.toMap()).await() }
+        // Planificación semanal
+        fs.collection("familias/$otraFamilyId/config").document("planificacion").set(planificacionToMap()).await()
         Log.d("SyncManager", "Datos subidos a familia: $otraFamilyId")
     }
 }

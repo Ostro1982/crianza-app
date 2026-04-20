@@ -50,6 +50,7 @@ fun PantallaCalendario(
     padres: List<Padre>,
     onAgregarEvento: (Evento) -> Unit,
     onEliminarEvento: (String) -> Unit,
+    onEliminarEventosBulk: (List<String>) -> Unit = {},
     onEditarEvento: (Evento) -> Unit,
     onAtras: () -> Unit
 ) {
@@ -57,8 +58,12 @@ fun PantallaCalendario(
     var mostrarDialogo by remember { mutableStateOf(false) }
     var eventoEditando by remember { mutableStateOf<Evento?>(null) }
     var fechaPreseleccionada by remember { mutableStateOf("") }
+    var diaSeleccionado by remember { mutableStateOf("") }
     var snackMsg by remember { mutableStateOf<String?>(null) }
     val snackState = remember { SnackbarHostState() }
+    var mostrarPickerCalendario by remember { mutableStateOf(false) }
+    var calendariosDisponibles by remember { mutableStateOf<List<CalendarioDispositivo>>(emptyList()) }
+    var mostrarGestionRepetidas by remember { mutableStateOf(false) }
 
     val calendario = Calendar.getInstance()
     var mesActual by remember { mutableIntStateOf(calendario.get(Calendar.MONTH)) }
@@ -74,15 +79,28 @@ fun PantallaCalendario(
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     )
 
+    fun iniciarImportConCalendarios() {
+        val cals = GoogleCalendarService.obtenerCalendarios(context)
+        when {
+            cals.isEmpty() -> snackMsg = "No se encontraron calendarios en el dispositivo"
+            cals.size == 1 -> {
+                val importados = GoogleCalendarService.importarEventos(context, cals.first().id)
+                importados.forEach { onAgregarEvento(it) }
+                snackMsg = if (importados.isEmpty()) "Sin eventos nuevos" else "Importados ${importados.size} evento(s)"
+            }
+            else -> {
+                calendariosDisponibles = cals
+                mostrarPickerCalendario = true
+            }
+        }
+    }
+
     // Lanzador de permisos de calendario
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         if (perms[Manifest.permission.READ_CALENDAR] == true) {
-            val importados = GoogleCalendarService.importarEventos(context)
-            importados.forEach { onAgregarEvento(it) }
-            snackMsg = if (importados.isEmpty()) "Sin eventos nuevos en el dispositivo"
-                       else "Importados ${importados.size} evento(s) del calendario"
+            iniciarImportConCalendarios()
         } else {
             snackMsg = "Permiso de calendario denegado"
         }
@@ -108,14 +126,19 @@ fun PantallaCalendario(
                     }
                 },
                 actions = {
+                    val duplicados = eventos.groupBy { it.titulo }.filter { it.value.size > 1 }
+                    if (duplicados.isNotEmpty()) {
+                        IconButton(onClick = { mostrarGestionRepetidas = true }) {
+                            BadgedBox(badge = { Badge { Text(duplicados.size.toString()) } }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Gestionar repetidas", tint = NeutralVariant30)
+                            }
+                        }
+                    }
                     IconButton(onClick = {
                         val tienePermiso = android.content.pm.PackageManager.PERMISSION_GRANTED
                         val ok = context.checkSelfPermission(Manifest.permission.READ_CALENDAR) == tienePermiso
                         if (ok) {
-                            val importados = GoogleCalendarService.importarEventos(context)
-                            importados.forEach { onAgregarEvento(it) }
-                            snackMsg = if (importados.isEmpty()) "Sin eventos nuevos"
-                                       else "Importados ${importados.size} evento(s)"
+                            iniciarImportConCalendarios()
                         } else {
                             permLauncher.launch(arrayOf(
                                 Manifest.permission.READ_CALENDAR,
@@ -123,7 +146,7 @@ fun PantallaCalendario(
                             ))
                         }
                     }) {
-                        Icon(Icons.Outlined.Sync, contentDescription = "Sincronizar calendario", tint = NeutralVariant30)
+                        Icon(Icons.Outlined.Sync, contentDescription = "Importar de Google", tint = NeutralVariant30)
                     }
                     IconButton(onClick = {
                         fechaPreseleccionada = hoy
@@ -201,8 +224,8 @@ fun PantallaCalendario(
                                 shape = CircleShape
                             )
                             .clickable {
+                                diaSeleccionado = fechaStr
                                 fechaPreseleccionada = fechaStr
-                                mostrarDialogo = true
                             },
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
@@ -232,15 +255,43 @@ fun PantallaCalendario(
 
             Divider(modifier = Modifier.padding(vertical = 12.dp))
 
-            Text(
-                "Próximos Eventos",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            val eventosMostrar = if (diaSeleccionado.isNotEmpty())
+                eventos.filter { it.fecha == diaSeleccionado }
+            else eventos.filter { it.fecha >= hoy }.sortedBy { it.fecha }.take(10)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (diaSeleccionado.isNotEmpty()) {
+                        val parts = diaSeleccionado.split("-")
+                        "Eventos del ${parts.getOrElse(2){""}}-${parts.getOrElse(1){""}}-${parts.getOrElse(0){""}}"
+                    } else "Próximos eventos",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                TextButton(onClick = { mostrarDialogo = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Agregar", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
 
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(eventos.sortedBy { it.fecha }) { evento ->
+                if (eventosMostrar.isEmpty()) {
+                    item {
+                        Text(
+                            if (diaSeleccionado.isNotEmpty()) "Sin eventos este día" else "Sin próximos eventos",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+                items(eventosMostrar.sortedBy { it.fecha }) { evento ->
                     TarjetaEvento(
                         evento = evento,
                         padres = padres,
@@ -267,6 +318,89 @@ fun PantallaCalendario(
         }
     }
     }  // Box
+
+    // Dialog gestión de repetidas
+    if (mostrarGestionRepetidas) {
+        val grupos = eventos.groupBy { it.titulo }.filter { it.value.size > 1 }.toList()
+        val mesActualStr = "%04d-%02d".format(anioActual, mesActual + 1)
+        AlertDialog(
+            onDismissRequest = { mostrarGestionRepetidas = false },
+            title = { Text("Eventos repetidos") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    grupos.forEach { (titulo, grupo) ->
+                        ElevatedCard {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(titulo, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                Text("${grupo.size} eventos", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    val delMes = grupo.filter { it.fecha.startsWith(mesActualStr) }
+                                    if (delMes.isNotEmpty()) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                onEliminarEventosBulk(delMes.map { it.id })
+                                                mostrarGestionRepetidas = false
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                        ) { Text("Borrar este mes (${delMes.size})", style = MaterialTheme.typography.labelSmall) }
+                                    }
+                                    Button(
+                                        onClick = {
+                                            onEliminarEventosBulk(grupo.map { it.id })
+                                            mostrarGestionRepetidas = false
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                    ) { Text("Borrar todas (${grupo.size})", style = MaterialTheme.typography.labelSmall) }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { mostrarGestionRepetidas = false }) { Text("Cerrar") } }
+        )
+    }
+
+    // Picker de calendario Google
+    if (mostrarPickerCalendario && calendariosDisponibles.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { mostrarPickerCalendario = false },
+            title = { Text("¿De cuál calendario importar?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    calendariosDisponibles.forEach { cal ->
+                        Card(
+                            onClick = {
+                                mostrarPickerCalendario = false
+                                val importados = GoogleCalendarService.importarEventos(context, cal.id)
+                                importados.forEach { onAgregarEvento(it) }
+                                snackMsg = if (importados.isEmpty()) "Sin eventos nuevos en ${cal.nombre}"
+                                           else "Importados ${importados.size} evento(s) de ${cal.nombre}"
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = com.tudominio.crianza.ui.theme.GlassWhite)
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(cal.nombre, fontWeight = FontWeight.Medium)
+                                if (cal.cuenta.isNotEmpty()) {
+                                    Text(cal.cuenta, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { mostrarPickerCalendario = false }) { Text("Cancelar") }
+            }
+        )
+    }
 
     if (mostrarDialogo || eventoEditando != null) {
         DialogoEvento(
@@ -584,6 +718,7 @@ fun PantallaGastos(
     gastos: List<Gasto>,
     hijos: List<Hijo>,
     padres: List<Padre>,
+    idPadreActual: String = "",
     onAgregarGasto: (Gasto) -> Unit,
     onEliminarGasto: (String) -> Unit,
     onEditarGasto: (Gasto) -> Unit,
@@ -884,8 +1019,9 @@ fun PantallaGastos(
         DialogoGasto(
             gasto = gastoEditando,
             padres = padres,
+            idPadreActual = idPadreActual,
             onDismiss = { mostrarDialogo = false; gastoEditando = null },
-            onGuardar = { 
+            onGuardar = {
                 if (gastoEditando != null) onEditarGasto(it) else onAgregarGasto(it)
                 mostrarDialogo = false
                 gastoEditando = null
@@ -895,11 +1031,20 @@ fun PantallaGastos(
 }
 
 @Composable
-fun DialogoGasto(gasto: Gasto?, padres: List<Padre>, onDismiss: () -> Unit, onGuardar: (Gasto) -> Unit) {
+fun DialogoGasto(
+    gasto: Gasto?,
+    padres: List<Padre>,
+    idPadreActual: String = "",
+    onDismiss: () -> Unit,
+    onGuardar: (Gasto) -> Unit
+) {
     var desc by remember { mutableStateOf(gasto?.descripcion ?: "") }
     var monto by remember { mutableStateOf(gasto?.monto?.toString() ?: "") }
     var fecha by remember { mutableStateOf(gasto?.fecha ?: obtenerFechaActual()) }
-    var idPagador by remember { mutableStateOf(gasto?.idPagador ?: (padres.firstOrNull()?.id ?: "")) }
+    // Para nuevo gasto: defaultea al usuario actual si está configurado, si no al primero
+    val defaultPagador = gasto?.idPagador
+        ?: idPadreActual.ifEmpty { padres.firstOrNull()?.id ?: "" }
+    var idPagador by remember { mutableStateOf(defaultPagador) }
     var categoria by remember { mutableStateOf(gasto?.categoria ?: "") }
     var autocompensado by remember { mutableStateOf(gasto?.autocompensado ?: false) }
     var expandirCategorias by remember { mutableStateOf(false) }

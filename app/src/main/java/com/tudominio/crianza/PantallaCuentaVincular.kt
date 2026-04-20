@@ -221,32 +221,39 @@ fun PantallaCuentaVincular(
     // Estado para dialogo de direccion — (familyId del otro, nombre)
     var pendienteVincular by remember { mutableStateOf<Pair<String, String>?>(null) }
     var vinculadoExito by remember { mutableStateOf(false) }
+    var vinculandoCargando by remember { mutableStateOf(false) }
+    var vinculandoError by remember { mutableStateOf<String?>(null) }
 
     fun ejecutarVinculacion(otraFamilyId: String, modo: String) {
+        vinculandoCargando = true
+        vinculandoError = null
         scope.launch {
-            val sm = SyncManager(context, AppDatabase.getInstance(context))
-            when (modo) {
-                "yo_copio" -> {
-                    // Subo mis datos a la familia del otro, adopto su familyId, descargo sus datos
-                    sm.subirDatosAFamilia(otraFamilyId)
-                    FamilyIdManager.vincularConCodigo(context, otraFamilyId)
-                    sm.descargarDatosDeFamilia()
+            try {
+                val sm = SyncManager(context, AppDatabase.getInstance(context))
+                when (modo) {
+                    "yo_copio" -> {
+                        // Adopto su familyId y descargo sus datos (sin subir los mios primero)
+                        FamilyIdManager.vincularConCodigo(context, otraFamilyId)
+                        sm.descargarDatosDeFamilia()
+                    }
+                    "otro_copia" -> {
+                        // Subo mis datos a su familia para que los descargue (no cambio mi familyId)
+                        sm.subirDatosAFamilia(otraFamilyId)
+                    }
+                    "ambos" -> {
+                        // Subo mis datos a la otra familia, adopto su familyId, descargo sus datos
+                        sm.subirDatosAFamilia(otraFamilyId)
+                        FamilyIdManager.vincularConCodigo(context, otraFamilyId)
+                        sm.descargarDatosDeFamilia()
+                    }
                 }
-                "otro_copia" -> {
-                    // Subo mis datos a ambas familias para que el otro los encuentre
-                    sm.subirDatosLocalesIfNeeded()
-                    sm.subirDatosAFamilia(otraFamilyId)
-                }
-                "ambos" -> {
-                    // Subo mis datos a la otra familia, adopto su familyId, descargo sus datos
-                    sm.subirDatosAFamilia(otraFamilyId)
-                    FamilyIdManager.vincularConCodigo(context, otraFamilyId)
-                    sm.subirDatosLocalesIfNeeded()
-                    sm.descargarDatosDeFamilia()
-                }
+                vinculadoExito = true
+                onVinculado()
+            } catch (e: Exception) {
+                vinculandoError = "No se pudo vincular: ${e.message ?: "Error de red"}"
+            } finally {
+                vinculandoCargando = false
             }
-            vinculadoExito = true
-            onVinculado()
         }
     }
 
@@ -383,7 +390,26 @@ fun PantallaCuentaVincular(
                 fontWeight = FontWeight.Bold, color = Neutral10
             )
 
-            // ── Exito global ─────────────────────────────────────────────────
+            // ── Estado de vinculacion ────────────────────────────────────────
+            if (vinculandoCargando) {
+                GlassCard {
+                    CircularProgressIndicator(Modifier.size(32.dp), strokeWidth = 3.dp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Vinculando, espera un momento...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NeutralVariant50,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            vinculandoError?.let { err ->
+                GlassCard {
+                    Text(err, color = Red80, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { vinculandoError = null }) { Text("Cerrar") }
+                }
+            }
             if (vinculadoExito) {
                 GlassCard {
                     Text(
@@ -562,7 +588,15 @@ fun PantallaCuentaVincular(
                     Spacer(Modifier.height(12.dp))
 
                     if (fid == familyId) {
-                        Text("Ya estan vinculados!", color = Indigo80, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("Ya estan vinculados", color = Indigo80, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { pendienteVincular = Pair(fid, nombre) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Re-sincronizar datos")
+                        }
                     } else {
                         Button(
                             onClick = { pendienteVincular = Pair(fid, nombre) },

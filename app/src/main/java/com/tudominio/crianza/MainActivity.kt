@@ -34,11 +34,13 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -129,12 +131,13 @@ fun NavegacionApp() {
     val scope = rememberCoroutineScope()
 
     val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
-    var pantallaActual by remember { mutableStateOf("cargando") }
+    var pantallaActual by rememberSaveable { mutableStateOf("cargando") }
     var modoSeleccionado by remember { mutableStateOf(prefs.getString("modo", "") ?: "") }
 
     var padres by remember { mutableStateOf(listOf<Padre>()) }
     var hijos by remember { mutableStateOf(listOf<Hijo>()) }
-    var idPadreActual by remember { mutableStateOf("") }
+    var idPadreActual by remember { mutableStateOf(prefs.getString("padre_actual_id", "") ?: "") }
+    var padreActualFijado by remember { mutableStateOf(prefs.getBoolean("padre_actual_fijado", false)) }
     var registrosTiempo by remember { mutableStateOf(listOf<RegistroTiempo>()) }
     var configuracionTiempo by remember { mutableStateOf(ConfiguracionTiempo()) }
     var eventos by remember { mutableStateOf(listOf<Evento>()) }
@@ -148,7 +151,9 @@ fun NavegacionApp() {
     var mensajes by remember { mutableStateOf(listOf<Mensaje>()) }
     var pendientesLista by remember { mutableStateOf(listOf<Pendiente>()) }
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
-    var usuarioGoogle by remember { mutableStateOf<UsuarioGoogle?>(null) }
+    var edicionesRegistros by remember { mutableStateOf(mapOf<String, List<RegistroEdicion>>()) }
+    val googleAuth = remember { GoogleAuthHelper(context) }
+    var usuarioGoogle by remember { mutableStateOf(googleAuth.obtenerUsuarioActual()) }
     // Código de familia único (generado una vez, basado en IDs de padres)
     val codigoFamiliar by remember { mutableStateOf(FamilyIdManager.obtenerFamilyId(context)) }
     // Info de actualización disponible (no null = hay versión nueva)
@@ -178,18 +183,27 @@ fun NavegacionApp() {
             mensajes = db.mensajeDao().obtenerTodos()
             pendientesLista = db.pendienteDao().obtenerTodos()
             categoriasCompra = db.categoriaCompraDao().obtenerTodas()
+            edicionesRegistros = db.registroEdicionDao().obtenerTodos()
+                .groupBy { it.idRegistro }
 
             if (configuracionIntegracion.habilitarTelegram || configuracionIntegracion.habilitarEmail) {
                 SincronizacionWorker.iniciar(context)
             }
 
-            // Auto-seleccionar primer padre si no hay ninguno seleccionado
-            if (idPadreActual.isEmpty() && padres.isNotEmpty()) {
-                idPadreActual = padres.first().id
+            // Auto-seleccionar: si el ID guardado no existe en la familia actual, resetear
+            if (padres.isNotEmpty()) {
+                val idValido = padres.any { it.id == idPadreActual }
+                if (!idValido) {
+                    idPadreActual = padres.first().id
+                    padreActualFijado = false
+                    prefs.edit().remove("padre_actual_id").putBoolean("padre_actual_fijado", false).apply()
+                }
             }
 
-            // Navegar según estado guardado
-            pantallaActual = if (padres.isNotEmpty()) "principal" else "seleccionModo"
+            // Solo redirigir si todavía está en "cargando" (primera carga, no rotación)
+            if (pantallaActual == "cargando") {
+                pantallaActual = if (padres.isNotEmpty()) "principal" else "seleccionModo"
+            }
 
             // Iniciar sincronización Firestore (después de setear pantalla)
             syncManager.iniciarListeners(
@@ -199,7 +213,8 @@ fun NavegacionApp() {
                 onMensajesActualizados       = { scope.launch { mensajes        = db.mensajeDao().obtenerTodos() } },
                 onRegistrosActualizados      = { scope.launch { registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros() } },
                 onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones() } },
-                onPendientesActualizados     = { scope.launch { pendientesLista = db.pendienteDao().obtenerTodos() } }
+                onPendientesActualizados     = { scope.launch { pendientesLista = db.pendienteDao().obtenerTodos() } },
+                onEdicionesActualizadas      = { scope.launch { edicionesRegistros = db.registroEdicionDao().obtenerTodos().groupBy { it.idRegistro } } }
             )
 
             // Subir datos locales a Firestore si es la primera vez
@@ -301,7 +316,15 @@ fun NavegacionApp() {
             padres = padres,
             hijos = hijos,
             idPadreActual = idPadreActual,
-            onCambiarPadreActual = { id -> idPadreActual = id },
+            padreActualFijado = padreActualFijado,
+            onCambiarPadreActual = { id ->
+                idPadreActual = id
+                padreActualFijado = true
+                prefs.edit()
+                    .putString("padre_actual_id", id)
+                    .putBoolean("padre_actual_fijado", true)
+                    .apply()
+            },
             onTiempo = { pantallaActual = "tiempo" },
             onCalendario = { pantallaActual = "calendario" },
             onGastos = { pantallaActual = "gastos" },
@@ -358,12 +381,38 @@ fun NavegacionApp() {
                     db.pendienteDao().eliminarTodos()
                     pantallaActual = "vincular"
                 }
-            }
+            },
+            onPlanificacion = { pantallaActual = "planificacion" }
         )
+        "planificacion" -> {
+            PantallaDiasFijos(
+                padres = padres,
+                hijos = hijos,
+                onAgregarEventos = { nuevos, nuevosRegistros ->
+                    scope.launch {
+                        nuevos.forEach { syncManager.insertarEvento(it) }
+                        db.registroTiempoDao().insertarRegistros(nuevosRegistros)
+                        eventos = db.eventoDao().obtenerTodosLosEventos()
+                        registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                    }
+                },
+                onEliminarEventosActividad = { ids ->
+                    scope.launch {
+                        db.eventoDao().eliminarPorIds(ids)
+                        eventos = db.eventoDao().obtenerTodosLosEventos()
+                    }
+                },
+                onAtras = {
+                    scope.launch { syncManager.subirPlanificacion() }
+                    pantallaActual = "principal"
+                }
+            )
+        }
         "tiempo" -> PantallaTiempo(
             hijos = hijos,
             padres = padres,
             registros = registrosTiempo,
+            configuracion = configuracionTiempo,
             onAgregarRegistro = { nuevoRegistro ->
                 scope.launch {
                     syncManager.insertarRegistro(nuevoRegistro)
@@ -391,12 +440,33 @@ fun NavegacionApp() {
                     registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
                 }
             },
-            onVerResumen = {
-                pantallaActual = "resumenTiempo"
+            onVerHistorial = { pantallaActual = "historialTiempo" },
+            onAtras = { pantallaActual = "principal" }
+        )
+        "historialTiempo" -> PantallaHistorialTiempo(
+            hijos = hijos,
+            padres = padres,
+            registros = registrosTiempo,
+            ediciones = edicionesRegistros,
+            onEliminarRegistro = { id ->
+                scope.launch {
+                    val r = registrosTiempo.find { it.id == id }
+                    if (r != null) {
+                        db.registroEdicionDao().eliminarPorRegistro(id)
+                        syncManager.eliminarRegistro(r)
+                        registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                        edicionesRegistros = db.registroEdicionDao().obtenerTodos().groupBy { it.idRegistro }
+                    }
+                }
             },
-            onAtras = {
-                pantallaActual = "principal"
-            }
+            onEditarRegistro = { r ->
+                scope.launch {
+                    syncManager.actualizarRegistro(r)
+                    registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                    edicionesRegistros = db.registroEdicionDao().obtenerTodos().groupBy { it.idRegistro }
+                }
+            },
+            onAtras = { pantallaActual = "tiempo" }
         )
         "resumenTiempo" -> PantallaResumenTiempo(
             hijos = hijos,
@@ -431,6 +501,12 @@ fun NavegacionApp() {
                     }
                 }
             },
+            onEliminarEventosBulk = { ids ->
+                scope.launch {
+                    db.eventoDao().eliminarPorIds(ids)
+                    eventos = db.eventoDao().obtenerTodosLosEventos()
+                }
+            },
             onEditarEvento = { eventoEditado ->
                 scope.launch {
                     syncManager.actualizarEvento(eventoEditado)
@@ -445,6 +521,7 @@ fun NavegacionApp() {
             gastos = gastos,
             hijos = hijos,
             padres = padres,
+            idPadreActual = idPadreActual,
             onAgregarGasto = { nuevoGasto ->
                 scope.launch {
                     syncManager.insertarGasto(nuevoGasto)
@@ -502,6 +579,7 @@ fun NavegacionApp() {
                     compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
                 }
             },
+            idPadreActual = idPadreActual,
             onGuardarConfiguracion = { nuevaConfig ->
                 scope.launch {
                     db.configuracionDao().insertarConfiguracion(nuevaConfig)
@@ -579,7 +657,13 @@ fun NavegacionApp() {
             },
             onAtras = { pantallaActual = "principal" }
         )
-        "vincular", "google" -> PantallaCuentaVincular(
+        "vincular", "google" -> {
+            // Al abrir vincular: subir planificación y registrar emails de padres
+            LaunchedEffect(Unit) {
+                syncManager.subirPlanificacion()
+                syncManager.registrarEmailsPadres(padres)
+            }
+            PantallaCuentaVincular(
             usuarioActual = usuarioGoogle,
             codigoFamiliar = codigoFamiliar,
             onIniciarSesion = { user ->
@@ -595,6 +679,7 @@ fun NavegacionApp() {
             onAtras = { pantallaActual = "principal" },
             onBuscarEmail = { email -> syncManager.buscarUsuarioPorEmail(email) }
         )
+        }
         "recuerdos" -> PantallaRecuerdos(
             recuerdos = recuerdos,
             onAgregarRecuerdo = { nuevoRecuerdo ->
@@ -844,6 +929,7 @@ fun PantallaPrincipal(
     padres: List<Padre>,
     hijos: List<Hijo>,
     idPadreActual: String = "",
+    padreActualFijado: Boolean = false,
     onCambiarPadreActual: (String) -> Unit = {},
     onTiempo: () -> Unit,
     onCalendario: () -> Unit,
@@ -864,7 +950,8 @@ fun PantallaPrincipal(
     onEditarFamilia: () -> Unit,
     onGoogle: () -> Unit = {},
     onVincular: () -> Unit = {},
-    onRevincular: () -> Unit = {}
+    onRevincular: () -> Unit = {},
+    onPlanificacion: () -> Unit = {}
 ) {
     // ── Formato fecha y nombre ────────────────────────────────────────────────
     val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
@@ -1043,14 +1130,14 @@ fun PantallaPrincipal(
                 }
             }
 
-            // ── Selector padre ────────────────────────────────────────────────
-            if (padres.size >= 2) {
+            // ── Selector padre (solo si no está fijado aún) ──────────────────
+            if (padres.size >= 2 && !padreActualFijado) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Soy yo:", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
+                    Text("¿Quién sos?", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
                     padres.forEach { padre ->
                         FilterChip(
                             selected = idPadreActual == padre.id,
@@ -1071,13 +1158,9 @@ fun PantallaPrincipal(
                 }
             }
 
-            // ── Hero: Custodia ────────────────────────────────────────────────
-            if (hijos.isNotEmpty() && idPadreActual.isNotEmpty()) {
-                WidgetCustodiaRapida(
-                    activa = custodiaActiva,
-                    desde = custodiaDesde,
-                    onToggle = { if (custodiaActiva) onFinalizarCustodia() else onIniciarCustodia() }
-                )
+            // ── Hero: Planificación semanal ───────────────────────────────────
+            if (hijos.isNotEmpty() && idPadreActual.isNotEmpty() && modo != "juntos") {
+                WidgetPlanificacionSemanal(padres = padres, onEditar = onPlanificacion)
             }
 
             // ── Clima ─────────────────────────────────────────────────────────
@@ -1222,19 +1305,6 @@ fun PantallaPrincipal(
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold, color = Neutral10)
                     }
-                    if (gastosMes.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        gastosMes.take(3).forEach { gasto ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(gasto.descripcion.take(25),
-                                    style = MaterialTheme.typography.bodySmall, color = NeutralVariant30)
-                                Text("$${String.format("%,.0f", gasto.monto)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.SemiBold, color = Neutral10)
-                            }
-                        }
-                    }
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -1358,6 +1428,149 @@ fun ClimaCard() {
 }
 
 @Composable
+fun WidgetPlanificacionSemanal(
+    padres: List<Padre>,
+    onEditar: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
+    val cicloDias = prefs.getInt("dias_fijos_ciclo", 7)
+    val libresAlOtro = prefs.getBoolean("dias_libres_al_otro", false)
+    val padreActualId = prefs.getString("padre_actual_id", "") ?: ""
+    val otroPadreId = padres.firstOrNull { it.id != padreActualId }?.id ?: ""
+    val nombresDias = listOf("L", "M", "X", "J", "V", "S", "D")
+
+    val cal = remember {
+        java.util.Calendar.getInstance().also { c ->
+            val daysFromMon = (c.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+            c.add(java.util.Calendar.DAY_OF_YEAR, -daysFromMon)
+        }
+    }
+    val weekDates = remember {
+        (0..6).map { i ->
+            val c = cal.clone() as java.util.Calendar
+            c.add(java.util.Calendar.DAY_OF_YEAR, i)
+            c.get(java.util.Calendar.DAY_OF_MONTH)
+        }
+    }
+    val hoyDow = (java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+
+    val colorP1 = Teal40
+    val colorP2 = Color(0xFF8B4A20)
+
+    fun readDaySlots(schedIdx: Int): List<DaySlot> {
+        val raw = prefs.getString("dias_fijos_slots_${cicloDias}_${schedIdx}", null)
+        if (raw != null) {
+            if (raw.isBlank()) return emptyList()
+            return raw.split("|").mapNotNull { s ->
+                val ci = s.indexOf(':'); if (ci < 0) null else {
+                    val rng = s.substring(ci + 1).split("-")
+                    DaySlot(s.substring(0, ci), rng.getOrElse(0) { "" }, rng.getOrElse(1) { "" })
+                }
+            }
+        }
+        // backward compat: old single-padre format
+        val oldId = (prefs.getString("dias_fijos_schedule_$cicloDias", "") ?: "").split("|").getOrElse(schedIdx) { "" }
+        val effId = if (oldId.isBlank() && libresAlOtro) otroPadreId else oldId
+        return if (effId.isNotBlank()) listOf(DaySlot(effId, "", "")) else emptyList()
+    }
+
+    fun dayMinutes(slots: List<DaySlot>, padreId: String): Int {
+        return slots.filter { it.padreId == padreId }.sumOf { slot ->
+            val p0 = slot.inicio.trim().split(":"); val p1 = slot.fin.trim().split(":")
+            if (p0.size == 2 && p1.size == 2) {
+                val im = (p0[0].toIntOrNull() ?: -1) * 60 + (p0[1].toIntOrNull() ?: -1)
+                val fm = (p1[0].toIntOrNull() ?: -1) * 60 + (p1[1].toIntOrNull() ?: -1)
+                if (im >= 0 && fm > im) fm - im else 24 * 60
+            } else 24 * 60
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(listOf(NeutralVariant80.copy(0.18f), NeutralVariant90.copy(0.10f))))
+            .border(1.dp, Color.White.copy(0.6f), RoundedCornerShape(20.dp))
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("📅 Semana", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = NeutralVariant30)
+                IconButton(onClick = onEditar, modifier = Modifier.size(26.dp)) {
+                    Icon(Icons.Default.Edit, null, tint = NeutralVariant50, modifier = Modifier.size(14.dp))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                nombresDias.forEachIndexed { idx, nombre ->
+                    val schedIdx = idx % cicloDias
+                    val slots = readDaySlots(schedIdx)
+                    val minsP0 = dayMinutes(slots, padres.getOrNull(0)?.id ?: "")
+                    val minsP1 = dayMinutes(slots, padres.getOrNull(1)?.id ?: "")
+                    val totalM = minsP0 + minsP1
+                    val esHoy = idx == hoyDow
+                    val alpha = if (esHoy) 0.7f else 0.4f
+
+                    val circleBrush: Brush = when {
+                        totalM == 0 -> Brush.linearGradient(listOf(NeutralVariant80.copy(if (esHoy) 0.3f else 0.15f), NeutralVariant80.copy(if (esHoy) 0.3f else 0.15f)))
+                        minsP0 == 0 -> Brush.linearGradient(listOf(colorP2.copy(alpha), colorP2.copy(alpha)))
+                        minsP1 == 0 -> Brush.linearGradient(listOf(colorP1.copy(alpha), colorP1.copy(alpha)))
+                        else -> {
+                            val f = minsP0.toFloat() / totalM
+                            Brush.horizontalGradient(colorStops = arrayOf(0f to colorP1.copy(alpha), f to colorP1.copy(alpha), f to colorP2.copy(alpha), 1f to colorP2.copy(alpha)))
+                        }
+                    }
+                    val borderColor = when {
+                        totalM == 0 -> NeutralVariant80.copy(0.4f)
+                        minsP0 == 0 -> colorP2
+                        minsP1 == 0 -> colorP1
+                        else -> colorP1
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            nombre,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (esHoy) Neutral10 else NeutralVariant50,
+                            fontWeight = if (esHoy) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(circleBrush)
+                                .then(if (esHoy) Modifier.border(1.5.dp, borderColor.copy(0.9f), CircleShape) else Modifier),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                weekDates[idx].toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (totalM > 0 || esHoy) Color.White.copy(if (esHoy) 1f else 0.9f) else NeutralVariant50,
+                                fontWeight = if (esHoy) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf(padres.getOrNull(0) to colorP1, padres.getOrNull(1) to colorP2).forEach { (padre, color) ->
+                    if (padre != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+                            Text(padre.nombre, style = MaterialTheme.typography.labelSmall, color = NeutralVariant50)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun WidgetCustodiaRapida(
     activa: Boolean,
     desde: String,
@@ -1383,14 +1596,14 @@ fun WidgetCustodiaRapida(
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
         ) {
             Text(
-                "\uD83C\uDFE0 Custodia ${if (activa) "Activa" else "Inactiva"}",
+                if (activa) "\uD83C\uDFE0 Con los chicos" else "\uD83C\uDFE0 Sin los chicos",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = NeutralVariant30
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                if (activa) "Están contigo" else "Tocar para iniciar",
+                if (activa) "Están con vos" else "Tocar para registrar",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
                 color = Neutral10
@@ -1398,7 +1611,7 @@ fun WidgetCustodiaRapida(
             Spacer(Modifier.height(6.dp))
             Text(
                 if (activa) "Desde las $desde \u2022 Tocar para finalizar"
-                else "Registrar tiempo de custodia",
+                else "Registrá cuando tenés a los chicos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = NeutralVariant30
             )
