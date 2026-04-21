@@ -112,7 +112,13 @@ fun PantallaPendientes(
                             SwipeParaBorrar(onEliminar = { onEliminar(pendiente) }) {
                                 TarjetaPendiente(
                                     pendiente = pendiente,
-                                    onToggle = { onActualizar(pendiente.copy(completado = !pendiente.completado)) },
+                                    onToggle = {
+                                        val nuevo = !pendiente.completado
+                                        onActualizar(pendiente.copy(
+                                            completado = nuevo,
+                                            fechaCompletado = if (nuevo) System.currentTimeMillis() else 0L
+                                        ))
+                                    },
                                     onEditar = { pendienteEditando = pendiente },
                                     onEliminar = { onEliminar(pendiente) }
                                 )
@@ -138,7 +144,13 @@ fun PantallaPendientes(
                                     SwipeParaBorrar(onEliminar = { onEliminar(pendiente) }) {
                                         TarjetaPendiente(
                                             pendiente = pendiente,
-                                            onToggle = { onActualizar(pendiente.copy(completado = !pendiente.completado)) },
+                                            onToggle = {
+                                        val nuevo = !pendiente.completado
+                                        onActualizar(pendiente.copy(
+                                            completado = nuevo,
+                                            fechaCompletado = if (nuevo) System.currentTimeMillis() else 0L
+                                        ))
+                                    },
                                             onEditar = { pendienteEditando = pendiente },
                                             onEliminar = { onEliminar(pendiente) }
                                         )
@@ -157,15 +169,21 @@ fun PantallaPendientes(
             pendiente = pendienteEditando,
             padres = padres,
             onDismiss = { mostrarDialogo = false; pendienteEditando = null },
-            onGuardar = { titulo, fechaLimite, asignadoA ->
+            onGuardar = { titulo, fechaLimite, asignadoA, frecuenciaDias ->
                 val p = if (pendienteEditando != null) {
                     pendienteEditando!!.copy(
                         titulo = titulo,
                         fechaLimite = fechaLimite,
-                        asignadoA = asignadoA
+                        asignadoA = asignadoA,
+                        frecuenciaDias = frecuenciaDias
                     )
                 } else {
-                    Pendiente(titulo = titulo, fechaLimite = fechaLimite, asignadoA = asignadoA)
+                    Pendiente(
+                        titulo = titulo,
+                        fechaLimite = fechaLimite,
+                        asignadoA = asignadoA,
+                        frecuenciaDias = frecuenciaDias
+                    )
                 }
                 if (pendienteEditando != null) onActualizar(p) else onAgregar(p)
                 mostrarDialogo = false
@@ -242,11 +260,12 @@ fun DialogoPendiente(
     pendiente: Pendiente?,
     padres: List<Padre>,
     onDismiss: () -> Unit,
-    onGuardar: (titulo: String, fechaLimite: String, asignadoA: String) -> Unit
+    onGuardar: (titulo: String, fechaLimite: String, asignadoA: String, frecuenciaDias: Int) -> Unit
 ) {
     var titulo by remember { mutableStateOf(pendiente?.titulo ?: "") }
     var fechaLimite by remember { mutableStateOf(pendiente?.fechaLimite ?: "") }
     var asignadoA by remember { mutableStateOf(pendiente?.asignadoA ?: "") }
+    var frecuenciaDias by remember { mutableIntStateOf(pendiente?.frecuenciaDias ?: 0) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -286,11 +305,26 @@ fun DialogoPendiente(
                         }
                     }
                 }
+                Text("Se repite:", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        0 to "No",
+                        1 to "Diario",
+                        7 to "Semanal",
+                        30 to "Mensual"
+                    ).forEach { (dias, label) ->
+                        FilterChip(
+                            selected = frecuenciaDias == dias,
+                            onClick = { frecuenciaDias = dias },
+                            label = { Text(label) }
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onGuardar(titulo.trim(), fechaLimite.trim(), asignadoA) },
+                onClick = { onGuardar(titulo.trim(), fechaLimite.trim(), asignadoA, frecuenciaDias) },
                 enabled = titulo.isNotBlank()
             ) { Text("Guardar") }
         },

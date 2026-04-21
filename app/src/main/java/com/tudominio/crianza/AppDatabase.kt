@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Pendiente::class,
         RegistroEdicion::class
     ],
-    version = 17,
+    version = 19,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -59,6 +59,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pendientes ADD COLUMN frecuenciaDias INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE pendientes ADD COLUMN fechaCompletado INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_registros_tiempo_fecha ON registros_tiempo(fecha)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_registros_tiempo_idPadre ON registros_tiempo(idPadre)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_registros_tiempo_idHijo ON registros_tiempo(idHijo)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_eventos_fecha ON eventos(fecha)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_gastos_fecha ON gastos(fecha)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_gastos_idPagador ON gastos(idPagador)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_pendientes_completado ON pendientes(completado)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_pendientes_fechaLimite ON pendientes(fechaLimite)")
+            }
+        }
+
         private val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -83,7 +103,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crianza_database"
                 )
-                    .addMigrations(MIGRATION_14_15, MIGRATION_16_17)
+                    .addMigrations(MIGRATION_14_15, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

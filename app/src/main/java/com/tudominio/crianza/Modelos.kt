@@ -1,10 +1,14 @@
 package com.tudominio.crianza
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-@Entity(tableName = "registros_tiempo")
+@Entity(
+    tableName = "registros_tiempo",
+    indices = [Index("fecha"), Index("idPadre"), Index("idHijo")]
+)
 data class RegistroTiempo(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
@@ -68,7 +72,10 @@ data class ConfiguracionTiempo(
     val aprobadoTipoValor2: Boolean = false
 )
 
-@Entity(tableName = "eventos")
+@Entity(
+    tableName = "eventos",
+    indices = [Index("fecha")]
+)
 data class Evento(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
@@ -86,7 +93,10 @@ data class Evento(
     val asistenciaPadre2: String = ""
 )
 
-@Entity(tableName = "gastos")
+@Entity(
+    tableName = "gastos",
+    indices = [Index("fecha"), Index("idPagador")]
+)
 data class Gasto(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
@@ -217,14 +227,20 @@ data class ConfiguracionIntegracion(
     val notifCompras: Boolean = true
 )
 
-@Entity(tableName = "pendientes")
+@Entity(
+    tableName = "pendientes",
+    indices = [Index("completado"), Index("fechaLimite")]
+)
 data class Pendiente(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val titulo: String,
     val completado: Boolean = false,
     val fechaCreacion: Long = System.currentTimeMillis(),
     val fechaLimite: String = "", // YYYY-MM-DD opcional
-    val asignadoA: String = ""   // nombre del padre
+    val asignadoA: String = "",   // nombre del padre
+    // Recurrencia: 0 = no recurrente, 1 = diario, 7 = semanal, 30 = mensual
+    val frecuenciaDias: Int = 0,
+    val fechaCompletado: Long = 0L  // timestamp ms, para saber cuándo reactivar
 )
 
 @Entity(tableName = "filtros_email")

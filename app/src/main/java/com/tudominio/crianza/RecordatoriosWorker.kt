@@ -89,6 +89,18 @@ class RecordatoriosWorker(
             }
         }
 
+        // ── Reactivar pendientes recurrentes vencidos ───────────────────────
+        val ahoraMs = System.currentTimeMillis()
+        db.pendienteDao().obtenerTodos()
+            .filter { it.completado && it.frecuenciaDias > 0 && it.fechaCompletado > 0 }
+            .forEach { p ->
+                val tiempoPasadoMs = ahoraMs - p.fechaCompletado
+                val umbralMs = p.frecuenciaDias * 24L * 60L * 60L * 1000L
+                if (tiempoPasadoMs >= umbralMs) {
+                    db.pendienteDao().actualizar(p.copy(completado = false, fechaCompletado = 0L))
+                }
+            }
+
         // ── Pendientes vencidos o del día ────────────────────────────────────
         val pendientes = db.pendienteDao().obtenerPendientes() // solo no completados
         pendientes.forEach { pend ->
