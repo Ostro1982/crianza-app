@@ -700,9 +700,33 @@ fun NavegacionApp() {
                 }
             },
             onAtras = { pantallaActual = "principal" },
-            onVerEstadisticas = { pantallaActual = "estadisticas" }
+            onVerEstadisticas = { pantallaActual = "estadisticas" },
+            onEscanearTicket = { pantallaActual = "escanear_ticket" }
         )
         "estadisticas" -> PantallaEstadisticas(
+            onAtras = { pantallaActual = "configuracion" }
+        )
+        "escanear_ticket" -> PantallaEscanearTicket(
+            onGuardar = { desc, mon ->
+                scope.launch {
+                    val padre = padres.find { it.id == idPadreActual } ?: padres.firstOrNull()
+                    val hoy = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        .format(java.util.Date())
+                    val nuevo = Gasto(
+                        descripcion = desc,
+                        monto = mon,
+                        fecha = hoy,
+                        idPagador = padre?.id ?: "",
+                        nombrePagador = padre?.nombre ?: "",
+                        idsHijos = hijos.map { it.id },
+                        nombresHijos = hijos.joinToString(", ") { it.nombre }
+                    )
+                    syncManager.insertarGasto(nuevo)
+                    gastos = db.gastoDao().obtenerTodosLosGastos()
+                    SemillappWidget().updateAll(context)
+                    pantallaActual = "gastos"
+                }
+            },
             onAtras = { pantallaActual = "configuracion" }
         )
         "vincular", "google" -> {

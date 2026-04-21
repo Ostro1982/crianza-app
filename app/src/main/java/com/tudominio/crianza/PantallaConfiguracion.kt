@@ -46,7 +46,8 @@ fun PantallaConfiguracion(
     onAgregarFiltro: (FiltroEmail) -> Unit,
     onEliminarFiltro: (FiltroEmail) -> Unit,
     onAtras: () -> Unit,
-    onVerEstadisticas: () -> Unit = {}
+    onVerEstadisticas: () -> Unit = {},
+    onEscanearTicket: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
@@ -209,13 +210,19 @@ fun PantallaConfiguracion(
                 Text("Desvincular dispositivo")
             }
 
-            // ── Estadísticas ──────────────────────────────────────────────────
+            // ── Herramientas ──────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(
                 onClick = onVerEstadisticas,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Ver estadísticas")
+            }
+            OutlinedButton(
+                onClick = onEscanearTicket,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Escanear ticket → gasto")
             }
 
             // ── Seguridad ─────────────────────────────────────────────────────

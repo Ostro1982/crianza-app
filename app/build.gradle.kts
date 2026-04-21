@@ -108,6 +108,9 @@ dependencies {
     // Biometric — lock con huella/PIN
     implementation("androidx.biometric:biometric:1.1.0")
 
+    // ML Kit — OCR on-device (tickets)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
     // Coil — carga de imágenes (fotos en recuerdos)
     implementation("io.coil-kt:coil-compose:2.5.0")
 
