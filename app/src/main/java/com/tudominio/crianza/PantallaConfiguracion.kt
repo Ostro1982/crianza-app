@@ -45,7 +45,8 @@ fun PantallaConfiguracion(
     onGuardarConfig: (ConfiguracionIntegracion) -> Unit,
     onAgregarFiltro: (FiltroEmail) -> Unit,
     onEliminarFiltro: (FiltroEmail) -> Unit,
-    onAtras: () -> Unit
+    onAtras: () -> Unit,
+    onVerEstadisticas: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
@@ -206,6 +207,15 @@ fun PantallaConfiguracion(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Text("Desvincular dispositivo")
+            }
+
+            // ── Estadísticas ──────────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onVerEstadisticas,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Ver estadísticas")
             }
 
             // ── Seguridad ─────────────────────────────────────────────────────

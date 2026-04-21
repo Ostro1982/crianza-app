@@ -24,6 +24,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".semillapp"
+            versionNameSuffix = "-semillapp"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

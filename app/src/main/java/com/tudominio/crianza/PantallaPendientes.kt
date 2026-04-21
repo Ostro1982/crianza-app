@@ -41,9 +41,15 @@ fun PantallaPendientes(
     var mostrarDialogo by remember { mutableStateOf(false) }
     var pendienteEditando by remember { mutableStateOf<Pendiente?>(null) }
     var mostrarCompletados by remember { mutableStateOf(false) }
+    var busqueda by remember { mutableStateOf("") }
 
-    val noCompletados = pendientes.filter { !it.completado }
-    val completados = pendientes.filter { it.completado }
+    val filtrados = if (busqueda.isBlank()) pendientes
+    else pendientes.filter {
+        it.titulo.contains(busqueda, ignoreCase = true) ||
+            it.asignadoA.contains(busqueda, ignoreCase = true)
+    }
+    val noCompletados = filtrados.filter { !it.completado }
+    val completados = filtrados.filter { it.completado }
 
     Box(Modifier.fillMaxSize().background(BgGrad3)) {
         Scaffold(
@@ -71,6 +77,14 @@ fun PantallaPendientes(
                     .padding(paddingValues)
                     .padding(horizontal = 16.dp)
             ) {
+                OutlinedTextField(
+                    value = busqueda,
+                    onValueChange = { busqueda = it },
+                    placeholder = { Text("Buscar…") },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
                 if (pendientes.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -244,7 +258,10 @@ fun DialogoPendiente(
                     onValueChange = { titulo = it },
                     label = { Text("Tarea") },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Ej: Llevar al pediatra, trámite DNI…") }
+                    placeholder = { Text("Ej: Llevar al pediatra, trámite DNI…") },
+                    trailingIcon = {
+                        IconoVoz(onTexto = { titulo = it })
+                    }
                 )
                 CampoFecha(
                     value = fechaLimite,

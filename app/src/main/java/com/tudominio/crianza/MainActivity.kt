@@ -699,7 +699,11 @@ fun NavegacionApp() {
                     filtrosEmail = db.filtroEmailDao().obtenerTodos()
                 }
             },
-            onAtras = { pantallaActual = "principal" }
+            onAtras = { pantallaActual = "principal" },
+            onVerEstadisticas = { pantallaActual = "estadisticas" }
+        )
+        "estadisticas" -> PantallaEstadisticas(
+            onAtras = { pantallaActual = "configuracion" }
         )
         "vincular", "google" -> {
             // Al abrir vincular: subir planificación y registrar emails de padres

@@ -83,10 +83,16 @@ fun PantallaListaCompras(
     var mostrarDialogoAgregar by remember { mutableStateOf(false) }
     var itemEditando by remember { mutableStateOf<ItemCompra?>(null) }
     var tabSeleccionado by remember { mutableIntStateOf(0) }
+    var busqueda by remember { mutableStateOf("") }
 
     val efectivoPadreId = idPadreActual.ifEmpty { padres.firstOrNull()?.id ?: "" }
-    val compartidos = items.filter { !it.esPrivado }
-    val privados = items.filter { it.esPrivado && it.idPropietario == efectivoPadreId }
+    val itemsBase = if (busqueda.isBlank()) items
+    else items.filter {
+        it.descripcion.contains(busqueda, ignoreCase = true) ||
+            it.categoria.contains(busqueda, ignoreCase = true)
+    }
+    val compartidos = itemsBase.filter { !it.esPrivado }
+    val privados = itemsBase.filter { it.esPrivado && it.idPropietario == efectivoPadreId }
     val itemsMostrados = when (tabSeleccionado) {
         0 -> compartidos
         1 -> privados
@@ -211,6 +217,15 @@ fun PantallaListaCompras(
                     }
                 }
             }
+
+            OutlinedTextField(
+                value = busqueda,
+                onValueChange = { busqueda = it },
+                placeholder = { Text("Buscar…") },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
 
             if (itemsMostrados.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -529,7 +544,10 @@ fun DialogoAgregarItem(
                     label = { Text("Nombre del producto") },
                     placeholder = { Text("Escribí o elegí de arriba") },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    trailingIcon = {
+                        IconoVoz(onTexto = { desc = it; subcategoriaSeleccionada = "" })
+                    }
                 )
 
                 // ── 4. Cantidad + Unidad ──────────────────────────────────────
