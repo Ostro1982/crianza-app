@@ -189,6 +189,7 @@ fun NavegacionApp() {
     var pendientesLista by remember { mutableStateOf(listOf<Pendiente>()) }
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var edicionesRegistros by remember { mutableStateOf(mapOf<String, List<RegistroEdicion>>()) }
+    var textoCompartidoPendiente by remember { mutableStateOf(prefs.getString("pending_share_text", "") ?: "") }
     val googleAuth = remember { GoogleAuthHelper(context) }
     var usuarioGoogle by remember { mutableStateOf(googleAuth.obtenerUsuarioActual()) }
     // Código de familia único (generado una vez, basado en IDs de padres)
@@ -290,6 +291,60 @@ fun NavegacionApp() {
             "cargando", "seleccionModo" -> { /* No salir */ }
             else -> pantallaActual = "principal"
         }
+    }
+
+    if (textoCompartidoPendiente.isNotBlank() && pantallaActual == "principal") {
+        DialogoTextoCompartido(
+            texto = textoCompartidoPendiente,
+            onElegir = { tipo ->
+                val texto = textoCompartidoPendiente
+                scope.launch {
+                    val hoy = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        .format(java.util.Date())
+                    when (tipo) {
+                        TipoItemCompartido.GASTO -> {
+                            val padre = padres.find { it.id == idPadreActual } ?: padres.firstOrNull()
+                            val monto = extraerMonto(texto) ?: 0.0
+                            val nuevo = Gasto(
+                                descripcion = texto.take(80).trim(),
+                                monto = monto,
+                                fecha = hoy,
+                                idPagador = padre?.id ?: "",
+                                nombrePagador = padre?.nombre ?: "",
+                                idsHijos = hijos.map { it.id },
+                                nombresHijos = hijos.joinToString(", ") { it.nombre }
+                            )
+                            syncManager.insertarGasto(nuevo)
+                            gastos = db.gastoDao().obtenerTodosLosGastos()
+                            pantallaActual = "gastos"
+                        }
+                        TipoItemCompartido.COMPRA -> {
+                            val padre = padres.find { it.id == idPadreActual } ?: padres.firstOrNull()
+                            val item = ItemCompra(
+                                descripcion = texto.take(80).trim(),
+                                idPropietario = padre?.id ?: ""
+                            )
+                            syncManager.insertarItem(item)
+                            itemsCompra = db.itemCompraDao().obtenerTodos()
+                            pantallaActual = "compras"
+                        }
+                        TipoItemCompartido.PENDIENTE -> {
+                            val nuevo = Pendiente(titulo = texto.take(80).trim())
+                            syncManager.insertarPendiente(nuevo)
+                            pendientesLista = db.pendienteDao().obtenerTodos()
+                            pantallaActual = "pendientes"
+                        }
+                    }
+                    SemillappWidget().updateAll(context)
+                    limpiarTextoCompartido(context)
+                    textoCompartidoPendiente = ""
+                }
+            },
+            onDescartar = {
+                limpiarTextoCompartido(context)
+                textoCompartidoPendiente = ""
+            }
+        )
     }
 
     when (pantallaActual) {
