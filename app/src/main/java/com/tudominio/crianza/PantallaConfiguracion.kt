@@ -225,6 +225,38 @@ fun PantallaConfiguracion(
                 Text("Escanear ticket → gasto")
             }
 
+            // ── Tema ──────────────────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Tema",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            var temaModo by remember {
+                mutableStateOf(configPrefs.getString("tema_modo", "sistema") ?: "sistema")
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                listOf(
+                    "sistema" to "Sistema",
+                    "claro" to "Claro",
+                    "oscuro" to "Oscuro"
+                ).forEach { (valor, label) ->
+                    FilterChip(
+                        selected = temaModo == valor,
+                        onClick = {
+                            temaModo = valor
+                            configPrefs.edit().putString("tema_modo", valor).apply()
+                            (context as? android.app.Activity)?.recreate()
+                        },
+                        label = { Text(label) }
+                    )
+                }
+            }
+
             // ── Sync calendario ───────────────────────────────────────────────
             Spacer(modifier = Modifier.height(8.dp))
             Text(
