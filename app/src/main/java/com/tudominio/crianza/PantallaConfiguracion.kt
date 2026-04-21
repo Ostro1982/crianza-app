@@ -225,6 +225,38 @@ fun PantallaConfiguracion(
                 Text("Escanear ticket → gasto")
             }
 
+            // ── Sync calendario ───────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Calendario del sistema",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            var syncCalendar by remember {
+                mutableStateOf(configPrefs.getBoolean("sync_calendar_bidi", false))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Exportar eventos al calendario", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Al crear un evento en Crianza, también se agrega al calendario del teléfono (Google/Samsung/etc)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = syncCalendar,
+                    onCheckedChange = {
+                        syncCalendar = it
+                        configPrefs.edit().putBoolean("sync_calendar_bidi", it).apply()
+                    }
+                )
+            }
+
             // ── Seguridad ─────────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(8.dp))
             Text(

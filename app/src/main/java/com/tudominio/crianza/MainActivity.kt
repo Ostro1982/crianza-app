@@ -528,6 +528,12 @@ fun NavegacionApp() {
                     syncManager.insertarEvento(nuevoEvento)
                     eventos = db.eventoDao().obtenerTodosLosEventos()
                     SemillappWidget().updateAll(context)
+                    val syncBidi = prefs.getBoolean("sync_calendar_bidi", false)
+                    if (syncBidi) {
+                        withContext(Dispatchers.IO) {
+                            GoogleCalendarService.exportarEvento(context, nuevoEvento)
+                        }
+                    }
                 }
             },
             onEliminarEvento = { id ->
