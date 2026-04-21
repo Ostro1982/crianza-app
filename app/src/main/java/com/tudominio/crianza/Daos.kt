@@ -28,6 +28,9 @@ interface RegistroTiempoDao {
     @Query("SELECT * FROM registros_tiempo ORDER BY fecha DESC, horaInicio DESC")
     suspend fun obtenerTodosLosRegistros(): List<RegistroTiempo>
 
+    @Query("SELECT * FROM registros_tiempo WHERE id = :id LIMIT 1")
+    suspend fun obtenerPorId(id: String): RegistroTiempo?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarRegistro(registro: RegistroTiempo)
 

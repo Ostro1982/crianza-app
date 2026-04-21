@@ -21,10 +21,39 @@ import java.util.*
  *
  * El usuario debe otorgar estos permisos en runtime.
  */
+data class CalendarioDispositivo(val id: Long, val nombre: String, val cuenta: String)
+
 object GoogleCalendarService {
 
     private val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private val sdfHora = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    /**
+     * Devuelve todos los calendarios disponibles en el dispositivo.
+     */
+    fun obtenerCalendarios(context: Context): List<CalendarioDispositivo> {
+        val lista = mutableListOf<CalendarioDispositivo>()
+        val projection = arrayOf(
+            CalendarContract.Calendars._ID,
+            CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+            CalendarContract.Calendars.ACCOUNT_NAME
+        )
+        try {
+            context.contentResolver.query(
+                CalendarContract.Calendars.CONTENT_URI, projection, null, null, null
+            )?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(0)
+                    val nombre = cursor.getString(1) ?: "Calendario"
+                    val cuenta = cursor.getString(2) ?: ""
+                    lista.add(CalendarioDispositivo(id, nombre, cuenta))
+                }
+            }
+        } catch (e: SecurityException) {
+            Log.e("GoogleCalendar", "Sin permiso de calendario", e)
+        }
+        return lista
+    }
 
     /**
      * Obtiene el ID del primer calendario disponible (preferiblemente Google).
@@ -53,8 +82,9 @@ object GoogleCalendarService {
     /**
      * Importa eventos del calendario del dispositivo hacia la app.
      * Solo trae eventos de los próximos 90 días.
+     * Si calendarId != null, filtra por ese calendario específico.
      */
-    fun importarEventos(context: Context): List<Evento> {
+    fun importarEventos(context: Context, calendarId: Long? = null): List<Evento> {
         val eventos = mutableListOf<Evento>()
         val ahora = System.currentTimeMillis()
         val en90dias = ahora + (90L * 24 * 60 * 60 * 1000)
@@ -67,7 +97,10 @@ object GoogleCalendarService {
             CalendarContract.Events.DTEND,
             CalendarContract.Events.EVENT_LOCATION
         )
-        val selection = "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ?"
+        val selBase = "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ?"
+        val selection = if (calendarId != null)
+            "$selBase AND ${CalendarContract.Events.CALENDAR_ID} = $calendarId"
+        else selBase
         val selArgs = arrayOf(ahora.toString(), en90dias.toString())
 
         val cursor: Cursor? = try {

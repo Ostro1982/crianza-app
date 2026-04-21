@@ -24,9 +24,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Documento::class,
         Mensaje::class,
         CategoriaCompra::class,
-        Pendiente::class
+        Pendiente::class,
+        RegistroEdicion::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -45,6 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mensajeDao(): MensajeDao
     abstract fun categoriaCompraDao(): CategoriaCompraDao
     abstract fun pendienteDao(): PendienteDao
+    abstract fun registroEdicionDao(): RegistroEdicionDao
 
     companion object {
         @Volatile
@@ -57,6 +59,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS registros_edicion (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        idRegistro TEXT NOT NULL,
+                        fechaEdicion INTEGER NOT NULL,
+                        fechaAnterior TEXT NOT NULL,
+                        horaInicioAnterior TEXT NOT NULL,
+                        horaFinAnterior TEXT NOT NULL,
+                        nombreHijoAnterior TEXT NOT NULL,
+                        autocompensadoAnterior INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -64,7 +83,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crianza_database"
                 )
-                    .addMigrations(MIGRATION_14_15)
+                    .addMigrations(MIGRATION_14_15, MIGRATION_16_17)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

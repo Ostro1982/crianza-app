@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -46,11 +47,11 @@ import kotlin.math.abs
 private val Glass10      = Color(0x1AFFFFFF)   // 10 % blanco
 private val Glass20      = Color(0x33FFFFFF)   // 20 %
 private val Glass35      = Color(0x59FFFFFF)   // 35 %
-private val Amber        = Rose40              // ámbar cálido
+private val Amber        = Color(0xFF7A6535)   // marrón-tierra (pendiente)
 private val Mint         = Teal40              // verde salvia
-private val Coral        = Red40               // rojo suave
+private val Coral        = Color(0xFF8B4030)   // tierra oscuro (urgente)
 private val Lavender     = Indigo40            // oliva
-private val Pink         = Rose40              // ámbar
+private val Pink         = Color(0xFF7A6535)   // tierra (alias)
 
 // Gradiente de fondo compartido — warm salvia
 private val BgGradient   = Brush.verticalGradient(
@@ -70,6 +71,7 @@ fun PantallaCompensacion(
     compensaciones: List<Compensacion>,
     gastos: List<Gasto> = emptyList(),
     itemsCompra: List<ItemCompra> = emptyList(),
+    idPadreActual: String = "",
     onRegistrarCompensacion: (Compensacion) -> Unit,
     onEliminarCompensacion: (String) -> Unit,
     onEditarCompensacion: (Compensacion) -> Unit,
@@ -256,9 +258,7 @@ fun PantallaCompensacion(
                         }
                     } else {
                         items(compensaciones.sortedByDescending { it.fechaCompleta }, key = { it.id }) { comp ->
-                            SwipeParaBorrar(onEliminar = { onEliminarCompensacion(comp.id) }) {
-                                HistorialCard(comp, padres, { onEliminarCompensacion(comp.id) }, onEditarCompensacion)
-                            }
+                            HistorialCard(comp, padres, idPadreActual, { onEliminarCompensacion(comp.id) }, onEditarCompensacion)
                         }
                     }
                 }
@@ -389,9 +389,9 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
     val acreedor    = if (balNeto < 0) p2 else p1
 
     val heroBg = if (equilibrado)
-        Brush.linearGradient(listOf(Indigo30, Indigo40, Teal30))
+        Brush.linearGradient(listOf(Color(0xFFEDF5E8), Color(0xFFDDEDD8)))
     else
-        Brush.linearGradient(listOf(Teal30, Teal40, Indigo40))
+        Brush.linearGradient(listOf(Color(0xFFF5F0E8), Color(0xFFEDE5D4)))
 
     Box(
         Modifier
@@ -424,7 +424,7 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
         ) {
             Text(
                 "BALANCE TOTAL",
-                color = NeutralVariant50,
+                color = NeutralVariant30,
                 style = MaterialTheme.typography.labelSmall,
                 letterSpacing = 2.5.sp,
                 fontWeight = FontWeight.Medium
@@ -436,10 +436,10 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                     Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(Mint.copy(.2f)),
+                        .background(Teal40.copy(.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Outlined.CheckCircle, null, tint = Mint, modifier = Modifier.size(36.dp))
+                    Icon(Icons.Outlined.CheckCircle, null, tint = Teal40, modifier = Modifier.size(36.dp))
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(
@@ -448,7 +448,7 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                     fontWeight = FontWeight.Black,
                     color = Neutral10
                 )
-                Text("Sin deuda pendiente", color = Mint.copy(.85f), style = MaterialTheme.typography.bodySmall)
+                Text("Sin deuda pendiente", color = Teal40, style = MaterialTheme.typography.bodySmall)
             } else {
                 // Avatares con flecha
                 Row(
@@ -456,20 +456,20 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    AvatarHero(deudor.nombre, Coral)
+                    AvatarHero(deudor.nombre, Rose40)
                     Column(
                         Modifier.padding(horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text("debe", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
+                        Text("debe", color = NeutralVariant30, style = MaterialTheme.typography.labelSmall)
                         Text(
                             "────▶",
-                            color = NeutralVariant50,
+                            color = NeutralVariant30,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Light
                         )
                     }
-                    AvatarHero(acreedor.nombre, Mint)
+                    AvatarHero(acreedor.nombre, Teal40)
                 }
                 Spacer(Modifier.height(24.dp))
                 // Monto grande
@@ -484,7 +484,7 @@ private fun HeroCard(p1: Padre, p2: Padre, balNeto: Double) {
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50.dp))
-                        .background(GlassWhite)
+                        .background(NeutralVariant30.copy(alpha = 0.08f))
                         .padding(horizontal = 14.dp, vertical = 5.dp)
                 ) {
                     Text(
@@ -577,16 +577,16 @@ private fun TiempoCard(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Amber.copy(.12f))
+                    .background(NeutralVariant80.copy(.25f))
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Debe compensar", color = Amber.copy(.65f), style = MaterialTheme.typography.labelSmall)
+                    Text("Debe compensar", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                     Text(
                         "$quien  ·  ${String.format("%.1f", horasDeuda)} hs",
-                        color = Amber,
+                        color = NeutralVariant30,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -594,7 +594,7 @@ private fun TiempoCard(
                 }
                 Text(
                     "$${String.format("%.2f", montoTiempo)}",
-                    color = Amber,
+                    color = Neutral10,
                     fontWeight = FontWeight.Black,
                     fontSize = 22.sp,
                     letterSpacing = (-0.5).sp
@@ -755,44 +755,41 @@ private fun PagoCard(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Indigo30, Teal30, Teal40)))
+            .background(Color(0xFFF0EDE5))
+            .border(1.dp, NeutralVariant50.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
     ) {
-        // Decoración
-        Box(
-            Modifier.size(120.dp).align(Alignment.TopEnd).offset(20.dp, (-20).dp)
-                .clip(CircleShape).background(Color.White.copy(.07f))
-        )
         Column(Modifier.padding(22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(GlassWhite),
+                    Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(NeutralVariant80.copy(0.4f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Payment, null, tint = Neutral10, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Default.Payment, null, tint = NeutralVariant30, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text("Registrar compensación", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                    Text("${pagador.nombre} compensa a ${receptor.nombre}", color = NeutralVariant30, style = MaterialTheme.typography.labelSmall)
+                    Text("${pagador.nombre} compensa a ${receptor.nombre}", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 }
             }
             Spacer(Modifier.height(12.dp))
 
             // Selector tipo de compensación
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(50.dp)).background(GlassWhite.copy(.3f)).padding(3.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(50.dp))
+                    .background(NeutralVariant80.copy(0.3f)).padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 listOf("dinero" to "Dinero", "horas" to "Horas", "dias" to "Días").forEach { (tipo, label) ->
                     val active = tipoComp == tipo
                     Box(
                         Modifier.weight(1f).clip(RoundedCornerShape(50.dp))
-                            .background(if (active) GlassWhite else Color.Transparent)
+                            .background(if (active) Color.White.copy(0.85f) else Color.Transparent)
                             .clickable { tipoComp = tipo }
                             .padding(vertical = 7.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = if (active) Neutral10 else NeutralVariant30,
+                        Text(label, color = if (active) Neutral10 else NeutralVariant50,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                             style = MaterialTheme.typography.labelMedium)
                     }
@@ -830,8 +827,8 @@ private fun PagoCard(
                         )
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = GlassWhite,
-                        contentColor = Neutral10
+                        containerColor = Indigo40,
+                        contentColor = Color.White
                     ),
                     shape = RoundedCornerShape(14.dp),
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
@@ -848,6 +845,7 @@ private fun PagoCard(
 private fun HistorialCard(
     comp: Compensacion,
     padres: List<Padre>,
+    idPadreActual: String = "",
     onEliminar: () -> Unit,
     onEditar: (Compensacion) -> Unit
 ) {
@@ -858,12 +856,10 @@ private fun HistorialCard(
         (diffMs / (1000L * 60 * 60 * 24)).toInt()
     } else 0
     val pendienteLarga = !comp.confirmada && diasPendiente >= 3
-    val WarningAmber = Rose40
 
-    // Transicion de color suave segun estado
     val targetAccent = when {
         comp.confirmada -> Mint
-        pendienteLarga -> WarningAmber
+        pendienteLarga -> Coral
         else -> Amber
     }
     val accentColor by animateColorAsState(
@@ -872,8 +868,8 @@ private fun HistorialCard(
         label = "accentTransition"
     )
     val targetBg = when {
-        pendienteLarga -> Rose40.copy(.15f)    // Amber tint para urgencia
-        comp.confirmada -> Teal40.copy(.08f)  // Green tint sutil
+        pendienteLarga -> Coral.copy(.10f)
+        comp.confirmada -> Teal40.copy(.08f)
         else -> Glass10
     }
     val bgColor by animateColorAsState(
@@ -924,8 +920,8 @@ private fun HistorialCard(
                     }
                     Text(comp.fecha, color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 }
-                IconButton(onClick = onEliminar, modifier = Modifier.size(30.dp)) {
-                    Icon(Icons.Default.Delete, null, tint = Coral.copy(.7f), modifier = Modifier.size(15.dp))
+                IconButton(onClick = onEliminar, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Default.Delete, null, tint = NeutralVariant50, modifier = Modifier.size(18.dp))
                 }
             }
 
@@ -965,17 +961,18 @@ private fun HistorialCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     padres.forEachIndexed { idx, padre ->
                         val aprobado = if (idx == 0) comp.aceptadoPadre1 else comp.aceptadoPadre2
+                        val esMiPadre = padre.id == idPadreActual
                         OutlinedButton(
                             onClick = {
                                 val upd = if (idx == 0) comp.copy(aceptadoPadre1 = true) else comp.copy(aceptadoPadre2 = true)
                                 onEditar(upd)
                             },
-                            enabled = !aprobado,
+                            enabled = !aprobado && esMiPadre,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = if (aprobado) Mint else NeutralVariant30,
-                                disabledContentColor = Mint.copy(.7f)
+                                disabledContentColor = if (aprobado) Mint.copy(.7f) else NeutralVariant50.copy(.4f)
                             ),
                             border = BorderStroke(1.dp, if (aprobado) Mint.copy(.4f) else NeutralVariant50.copy(.3f))
                         ) {

@@ -3,22 +3,16 @@ package com.tudominio.crianza
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.tasks.await
 
-/**
- * IMPORTANTE: Para habilitar Google Sign-In, seguí estos pasos:
- * 1. Crear proyecto en console.cloud.google.com
- * 2. Activar la API "Google Identity"
- * 3. Crear credencial OAuth 2.0 → tipo "Aplicación Web"
- * 4. Copiar el "Client ID" y reemplazar el valor de GOOGLE_WEB_CLIENT_ID abajo.
- * 5. También crear credencial tipo "Android" con tu SHA-1 (ver: Build > Generate Signed Bundle > SHA-1)
- */
 const val GOOGLE_WEB_CLIENT_ID = "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com"
 
 data class UsuarioGoogle(
@@ -31,13 +25,28 @@ data class UsuarioGoogle(
 class GoogleAuthHelper(private val context: Context) {
 
     private val credentialManager = CredentialManager.create(context)
+    private val firebaseAuth = FirebaseAuth.getInstance()
     val configurado: Boolean get() = GOOGLE_WEB_CLIENT_ID != "TU_CLIENT_ID.apps.googleusercontent.com"
+
+    /**
+     * Devuelve el usuario Firebase actual si ya tiene sesión activa.
+     */
+    fun obtenerUsuarioActual(): UsuarioGoogle? {
+        val user = firebaseAuth.currentUser ?: return null
+        return UsuarioGoogle(
+            id = user.uid,
+            nombre = user.displayName ?: "",
+            email = user.email ?: "",
+            fotoUrl = user.photoUrl?.toString()
+        )
+    }
 
     suspend fun iniciarSesion(activity: Activity): Result<UsuarioGoogle> {
         if (!configurado) {
             return Result.failure(Exception("Google Sign-In no configurado. Ver GOOGLE_WEB_CLIENT_ID en GoogleAuthHelper.kt"))
         }
         return try {
+            // 1. Obtener credencial Google via Credential Manager
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setServerClientId(GOOGLE_WEB_CLIENT_ID)
                 .setFilterByAuthorizedAccounts(false)
@@ -48,12 +57,20 @@ class GoogleAuthHelper(private val context: Context) {
                 .build()
             val result = credentialManager.getCredential(activity, request)
             val googleCred = GoogleIdTokenCredential.createFrom(result.credential.data)
+
+            // 2. Autenticar con Firebase usando el ID token
+            val idToken = googleCred.idToken
+            val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = firebaseAuth.signInWithCredential(firebaseCredential).await()
+            val firebaseUser = authResult.user
+                ?: return Result.failure(Exception("Error al autenticar con Firebase"))
+
             Result.success(
                 UsuarioGoogle(
-                    id = googleCred.id,
-                    nombre = googleCred.displayName ?: "",
-                    email = googleCred.id,
-                    fotoUrl = googleCred.profilePictureUri?.toString()
+                    id = firebaseUser.uid,
+                    nombre = firebaseUser.displayName ?: "",
+                    email = firebaseUser.email ?: "",
+                    fotoUrl = firebaseUser.photoUrl?.toString()
                 )
             )
         } catch (e: GetCredentialCancellationException) {
@@ -65,6 +82,7 @@ class GoogleAuthHelper(private val context: Context) {
 
     suspend fun cerrarSesion() {
         try {
+            firebaseAuth.signOut()
             credentialManager.clearCredentialState(ClearCredentialStateRequest())
         } catch (e: Exception) {
             // ignorar

@@ -61,6 +61,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.tudominio.crianza.widget.SemillappWidget
+import androidx.glance.appwidget.updateAll
 
 class MainActivity : ComponentActivity() {
 
@@ -490,6 +492,7 @@ fun NavegacionApp() {
                 scope.launch {
                     syncManager.insertarEvento(nuevoEvento)
                     eventos = db.eventoDao().obtenerTodosLosEventos()
+                    SemillappWidget().updateAll(context)
                 }
             },
             onEliminarEvento = { id ->
@@ -498,6 +501,7 @@ fun NavegacionApp() {
                     if (evento != null) {
                         syncManager.eliminarEvento(evento)
                         eventos = db.eventoDao().obtenerTodosLosEventos()
+                        SemillappWidget().updateAll(context)
                     }
                 }
             },
@@ -505,12 +509,14 @@ fun NavegacionApp() {
                 scope.launch {
                     db.eventoDao().eliminarPorIds(ids)
                     eventos = db.eventoDao().obtenerTodosLosEventos()
+                    SemillappWidget().updateAll(context)
                 }
             },
             onEditarEvento = { eventoEditado ->
                 scope.launch {
                     syncManager.actualizarEvento(eventoEditado)
                     eventos = db.eventoDao().obtenerTodosLosEventos()
+                    SemillappWidget().updateAll(context)
                 }
             },
             onAtras = {
@@ -526,6 +532,7 @@ fun NavegacionApp() {
                 scope.launch {
                     syncManager.insertarGasto(nuevoGasto)
                     gastos = db.gastoDao().obtenerTodosLosGastos()
+                    SemillappWidget().updateAll(context)
                 }
             },
             onEliminarGasto = { id ->
@@ -534,6 +541,7 @@ fun NavegacionApp() {
                     if (gasto != null) {
                         syncManager.eliminarGasto(gasto)
                         gastos = db.gastoDao().obtenerTodosLosGastos()
+                        SemillappWidget().updateAll(context)
                     }
                 }
             },
@@ -541,6 +549,7 @@ fun NavegacionApp() {
                 scope.launch {
                     syncManager.actualizarGasto(gastoEditado)
                     gastos = db.gastoDao().obtenerTodosLosGastos()
+                    SemillappWidget().updateAll(context)
                 }
             },
             onAtras = {
@@ -593,10 +602,10 @@ fun NavegacionApp() {
             padres = padres,
             idPadreActual = idPadreActual,
             categoriasPersonalizadas = categoriasCompra,
-            onAgregar = { item -> scope.launch { syncManager.insertarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
-            onActualizar = { item -> scope.launch { syncManager.actualizarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
-            onEliminar = { item -> scope.launch { syncManager.eliminarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos() } },
-            onEliminarComprados = { scope.launch { db.itemCompraDao().eliminarComprados(); itemsCompra = db.itemCompraDao().obtenerTodos() } },
+            onAgregar = { item -> scope.launch { syncManager.insertarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
+            onActualizar = { item -> scope.launch { syncManager.actualizarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
+            onEliminar = { item -> scope.launch { syncManager.eliminarItem(item); itemsCompra = db.itemCompraDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
+            onEliminarComprados = { scope.launch { db.itemCompraDao().eliminarComprados(); itemsCompra = db.itemCompraDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
             onAgregarCategoria = { cat -> scope.launch { db.categoriaCompraDao().insertar(cat); categoriasCompra = db.categoriaCompraDao().obtenerTodas() } },
             onAtras = { pantallaActual = "principal" }
         )
@@ -623,9 +632,9 @@ fun NavegacionApp() {
         "pendientes" -> PantallaPendientes(
             pendientes = pendientesLista,
             padres = padres,
-            onAgregar = { p -> scope.launch { syncManager.insertarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos() } },
-            onActualizar = { p -> scope.launch { syncManager.actualizarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos() } },
-            onEliminar = { p -> scope.launch { syncManager.eliminarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos() } },
+            onAgregar = { p -> scope.launch { syncManager.insertarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
+            onActualizar = { p -> scope.launch { syncManager.actualizarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
+            onEliminar = { p -> scope.launch { syncManager.eliminarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
             onAtras = { pantallaActual = "principal" }
         )
         "configuracion" -> PantallaConfiguracion(

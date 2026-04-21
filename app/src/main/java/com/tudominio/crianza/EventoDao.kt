@@ -24,6 +24,9 @@ interface EventoDao {
     @Query("SELECT * FROM eventos WHERE fecha = :fecha ORDER BY horaInicio")
     suspend fun obtenerEventosPorFecha(fecha: String): List<Evento>
 
+    @Query("SELECT * FROM eventos WHERE fecha >= :desde AND fecha <= :hasta ORDER BY fecha, horaInicio")
+    suspend fun obtenerEventosDesde(desde: String, hasta: String): List<Evento>
+
     @Query("SELECT COUNT(*) FROM eventos WHERE titulo = :titulo AND fecha = :fecha")
     suspend fun contarDuplicado(titulo: String, fecha: String): Int
 

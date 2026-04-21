@@ -45,6 +45,11 @@ fun PantallaConfiguracion(
     onAtras: () -> Unit
 ) {
     val context = LocalContext.current
+    val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
+    var minutosAntesEvento by remember {
+        mutableIntStateOf(configPrefs.getInt("minutos_antes_evento", 0))
+    }
+
     var telegramToken by remember { mutableStateOf(config.telegramBotToken) }
     var chatIdPadre1 by remember { mutableStateOf(config.telegramChatIdPadre1) }
     var chatIdPadre2 by remember { mutableStateOf(config.telegramChatIdPadre2) }
@@ -68,6 +73,8 @@ fun PantallaConfiguracion(
 
     var mostrarDialogoFiltro by remember { mutableStateOf(false) }
     var mostrarAyuda by remember { mutableStateOf<String?>(null) } // "whatsapp" | "telegram" | "email"
+    var mostrarDialogoCambiarIdentidad by remember { mutableStateOf(false) }
+    var mostrarDialogoDesvincular by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(BgGradient)) {
     Scaffold(
@@ -150,10 +157,98 @@ fun PantallaConfiguracion(
                 Switch(checked = notifCompras, onCheckedChange = { notifCompras = it })
             }
 
+            // ── Recordatorio de eventos ──────────────────────────────────────
+            Text(
+                "Recordatorio de eventos",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Recibí una notificación antes de que empiece un evento.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(0 to "Off", 30 to "30 min", 60 to "1 h", 120 to "2 h", 1440 to "1 día").forEach { (mins, label) ->
+                    FilterChip(
+                        selected = minutosAntesEvento == mins,
+                        onClick = {
+                            minutosAntesEvento = mins
+                            configPrefs.edit().putInt("minutos_antes_evento", mins).apply()
+                        },
+                        label = { Text(label, style = MaterialTheme.typography.bodySmall) }
+                    )
+                }
+            }
+
+
+            // ── Dispositivo ──────────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Dispositivo",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            OutlinedButton(
+                onClick = { mostrarDialogoCambiarIdentidad = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cambiar quién soy")
+            }
+            OutlinedButton(
+                onClick = { mostrarDialogoDesvincular = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Desvincular dispositivo")
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
     }  // Box
+
+    if (mostrarDialogoCambiarIdentidad) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoCambiarIdentidad = false },
+            title = { Text("¿Cambiar identidad?") },
+            text = { Text("Vas a poder elegir de nuevo quién sos vos en esta familia. Los datos y la sincronización no se pierden.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    mostrarDialogoCambiarIdentidad = false
+                    context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .remove("padre_actual_id")
+                        .putBoolean("padre_actual_fijado", false)
+                        .apply()
+                    onAtras()
+                }) { Text("Confirmar", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoCambiarIdentidad = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (mostrarDialogoDesvincular) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoDesvincular = false },
+            title = { Text("¿Desvincular este dispositivo?") },
+            text = { Text("El dispositivo dejará de sincronizarse con la familia. Podés volver a vincular con el mismo código.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    mostrarDialogoDesvincular = false
+                    FamilyIdManager.desvincular(context)
+                    onAtras()
+                }) { Text("Desvincular", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoDesvincular = false }) { Text("Cancelar") }
+            }
+        )
+    }
 
     // Diálogos de ayuda removidos (integraciones WhatsApp/Telegram/Email eliminadas)
 }

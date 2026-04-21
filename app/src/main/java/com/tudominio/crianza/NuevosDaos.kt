@@ -70,6 +70,10 @@ interface MensajeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertar(mensaje: Mensaje)
 
+    // Para sincronización Firestore: no sobreescribe mensajes ya leídos localmente
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertarSiNoExiste(mensaje: Mensaje)
+
     @Query("UPDATE mensajes SET leido = 1 WHERE leido = 0")
     suspend fun marcarTodosLeidos()
 
@@ -84,6 +88,24 @@ interface MensajeDao {
 
     @Query("DELETE FROM mensajes")
     suspend fun eliminarTodos()
+}
+
+@Dao
+interface RegistroEdicionDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertar(edicion: RegistroEdicion)
+
+    @Query("SELECT * FROM registros_edicion WHERE idRegistro = :idRegistro ORDER BY fechaEdicion DESC")
+    suspend fun obtenerPorRegistro(idRegistro: String): List<RegistroEdicion>
+
+    @Query("SELECT * FROM registros_edicion ORDER BY fechaEdicion DESC")
+    suspend fun obtenerTodos(): List<RegistroEdicion>
+
+    @Query("DELETE FROM registros_edicion WHERE idRegistro = :idRegistro")
+    suspend fun eliminarPorRegistro(idRegistro: String)
+
+    @Query("DELETE FROM registros_edicion WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }
 
 @Dao

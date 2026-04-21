@@ -20,6 +20,18 @@ data class RegistroTiempo(
     val autocompensado: Boolean = false // No entra a deuda de compensación
 )
 
+@Entity(tableName = "registros_edicion")
+data class RegistroEdicion(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val idRegistro: String,
+    val fechaEdicion: Long = System.currentTimeMillis(),
+    val fechaAnterior: String,
+    val horaInicioAnterior: String,
+    val horaFinAnterior: String,
+    val nombreHijoAnterior: String,
+    val autocompensadoAnterior: Boolean = false
+)
+
 @Entity(tableName = "hijos")
 data class Hijo(
     @PrimaryKey
