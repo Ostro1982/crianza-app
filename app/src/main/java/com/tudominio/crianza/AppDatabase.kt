@@ -90,5 +90,12 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
+
+        fun resetInstance() {
+            synchronized(this) {
+                INSTANCE?.close()
+                INSTANCE = null
+            }
+        }
     }
 }

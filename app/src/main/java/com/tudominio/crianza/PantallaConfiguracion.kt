@@ -19,9 +19,12 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.tudominio.crianza.ui.theme.*
@@ -203,6 +206,121 @@ fun PantallaConfiguracion(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
                 Text("Desvincular dispositivo")
+            }
+
+            // ── Seguridad ─────────────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Seguridad",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            var lockHabilitado by remember { mutableStateOf(AppLock.estaHabilitado(context)) }
+            val soporta = remember { AppLock.dispositivoSoporta(context) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Pedir huella/PIN al abrir", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        if (soporta) "Los datos de tu familia quedan protegidos"
+                        else "Este dispositivo no tiene huella/PIN configurado",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = lockHabilitado,
+                    onCheckedChange = {
+                        lockHabilitado = it
+                        AppLock.setHabilitado(context, it)
+                    },
+                    enabled = soporta
+                )
+            }
+
+            // ── Backup ────────────────────────────────────────────────────────
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Respaldo de datos",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Guardá una copia de todos tus datos. Podés restaurarla en otro teléfono o recuperarla si algo falla.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            val scope = rememberCoroutineScope()
+            var mensajeBackup by remember { mutableStateOf<String?>(null) }
+            var mostrarConfirmarRestaurar by remember { mutableStateOf<android.net.Uri?>(null) }
+
+            val exportLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/octet-stream")
+            ) { uri ->
+                if (uri != null) {
+                    scope.launch {
+                        val r = BackupManager.exportar(context, uri)
+                        mensajeBackup = if (r.isSuccess) "Copia guardada"
+                        else "Error: ${r.exceptionOrNull()?.message}"
+                    }
+                }
+            }
+
+            val importLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) mostrarConfirmarRestaurar = uri
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedButton(
+                    onClick = { exportLauncher.launch(BackupManager.nombreSugerido()) },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Exportar") }
+                OutlinedButton(
+                    onClick = { importLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.weight(1f)
+                ) { Text("Restaurar") }
+            }
+            mensajeBackup?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (mostrarConfirmarRestaurar != null) {
+                AlertDialog(
+                    onDismissRequest = { mostrarConfirmarRestaurar = null },
+                    title = { Text("¿Restaurar copia?") },
+                    text = { Text("Esto va a REEMPLAZAR todos tus datos actuales con los de la copia. La app se cerrará y tenés que volver a abrirla.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val uri = mostrarConfirmarRestaurar!!
+                            mostrarConfirmarRestaurar = null
+                            scope.launch {
+                                val r = BackupManager.importar(context, uri)
+                                if (r.isSuccess) {
+                                    android.os.Process.killProcess(android.os.Process.myPid())
+                                } else {
+                                    mensajeBackup = "Error: ${r.exceptionOrNull()?.message}"
+                                }
+                            }
+                        }) { Text("Restaurar", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { mostrarConfirmarRestaurar = null }) { Text("Cancelar") }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

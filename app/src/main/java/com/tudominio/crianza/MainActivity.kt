@@ -5,7 +5,7 @@ package com.tudominio.crianza
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -64,7 +64,7 @@ import kotlinx.coroutines.withContext
 import com.tudominio.crianza.widget.SemillappWidget
 import androidx.glance.appwidget.updateAll
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     // Launcher para el permiso POST_NOTIFICATIONS (Android 13+)
     private val permNotifLauncher = registerForActivityResult(
@@ -83,6 +83,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Capturar texto compartido desde otra app (WhatsApp, notas, etc)
+        if (intent?.action == android.content.Intent.ACTION_SEND && intent.type == "text/plain") {
+            intent.getStringExtra(android.content.Intent.EXTRA_TEXT)?.let { texto ->
+                getSharedPreferences("crianza_prefs", MODE_PRIVATE).edit()
+                    .putString("pending_share_text", texto)
+                    .putLong("pending_share_ts", System.currentTimeMillis())
+                    .apply()
+            }
+        }
 
         // Canal de notificaciones push
         NotificacionHelper.crearCanal(this)
@@ -112,7 +122,29 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    NavegacionApp()
+                    var desbloqueado by remember {
+                        mutableStateOf(!AppLock.estaHabilitado(this@MainActivity))
+                    }
+                    if (desbloqueado) {
+                        NavegacionApp()
+                    } else {
+                        PantallaBloqueo(
+                            onAutenticar = {
+                                AppLock.prompt(
+                                    activity = this@MainActivity,
+                                    onSuccess = { desbloqueado = true },
+                                    onFailure = { }
+                                )
+                            }
+                        )
+                        LaunchedEffect(Unit) {
+                            AppLock.prompt(
+                                activity = this@MainActivity,
+                                onSuccess = { desbloqueado = true },
+                                onFailure = { }
+                            )
+                        }
+                    }
                 }
             }
         }

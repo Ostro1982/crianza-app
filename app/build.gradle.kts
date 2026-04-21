@@ -101,6 +101,9 @@ dependencies {
     // Glance — widget
     implementation("androidx.glance:glance-appwidget:1.1.0")
 
+    // Biometric — lock con huella/PIN
+    implementation("androidx.biometric:biometric:1.1.0")
+
     // Coil — carga de imágenes (fotos en recuerdos)
     implementation("io.coil-kt:coil-compose:2.5.0")
 
