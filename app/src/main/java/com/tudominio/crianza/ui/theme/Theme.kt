@@ -68,7 +68,7 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun CrianzaTheme(
-    darkTheme: Boolean = resolverDark(LocalView.current.context),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
@@ -79,7 +79,7 @@ fun CrianzaTheme(
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }
 
@@ -88,19 +88,4 @@ fun CrianzaTheme(
         typography = Typography,
         content = content
     )
-}
-
-/**
- * Modos: "sistema" (default), "claro", "oscuro". Guardado en SharedPreferences.
- */
-private fun resolverDark(context: android.content.Context): Boolean {
-    val modo = context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE)
-        .getString("tema_modo", "sistema") ?: "sistema"
-    return when (modo) {
-        "oscuro" -> true
-        "claro" -> false
-        else -> (context.resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
-    }
 }

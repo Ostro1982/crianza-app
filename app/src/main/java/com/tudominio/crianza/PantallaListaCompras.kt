@@ -336,7 +336,7 @@ fun TarjetaItemCompra(
 ) {
     val targetAlpha = if (item.comprado) 0.4f else 1f
     val animBgColor by animateColorAsState(
-        targetValue = if (item.comprado) GlassWhite.copy(alpha = 0.4f) else GlassWhite,
+        targetValue = if (item.comprado) Teal90.copy(alpha = 0.4f) else Teal90,
         animationSpec = tween(350),
         label = "cardBg"
     )

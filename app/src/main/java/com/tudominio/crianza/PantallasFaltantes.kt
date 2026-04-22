@@ -991,7 +991,7 @@ fun PantallaGastos(
                     SwipeParaBorrar(onEliminar = { onEliminarGasto(gasto.id) }) {
                         Box(
                             modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp)).background(GlassWhite)
+                                .clip(RoundedCornerShape(12.dp)).background(Rose90)
                         ) {
                             Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f)) {

@@ -27,6 +27,40 @@ class SyncManager(
 
     // ── Serialización ────────────────────────────────────────────────────────
 
+    private fun Padre.toMap() = mapOf(
+        "id" to id, "nombre" to nombre, "telefono" to telefono,
+        "email" to email, "rol" to rol, "fechaNacimiento" to fechaNacimiento
+    )
+
+    private fun Hijo.toMap() = mapOf(
+        "id" to id, "nombre" to nombre, "fechaNacimiento" to fechaNacimiento
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toPadre(): Padre? {
+        return try {
+            Padre(
+                id = this["id"] as? String ?: return null,
+                nombre = this["nombre"] as? String ?: "",
+                telefono = this["telefono"] as? String ?: "",
+                email = this["email"] as? String ?: "",
+                rol = this["rol"] as? String ?: "padre",
+                fechaNacimiento = this["fechaNacimiento"] as? String ?: ""
+            )
+        } catch (e: Exception) { null }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toHijo(): Hijo? {
+        return try {
+            Hijo(
+                id = this["id"] as? String ?: return null,
+                nombre = this["nombre"] as? String ?: "",
+                fechaNacimiento = this["fechaNacimiento"] as? String ?: ""
+            )
+        } catch (e: Exception) { null }
+    }
+
     private fun Evento.toMap() = mapOf(
         "id" to id, "titulo" to titulo, "descripcion" to descripcion,
         "fecha" to fecha, "horaInicio" to (horaInicio ?: ""), "horaFin" to (horaFin ?: ""),
@@ -612,10 +646,26 @@ class SyncManager(
         col("config").document("planificacion").set(planificacionToMap()).await()
     }
 
+    // Sube padres/hijos a Firestore (para que el otro los descargue al vincular)
+    suspend fun subirFamiliaBasica() {
+        db.familiaDao().obtenerTodosLosPadres().forEach {
+            col("padres").document(it.id).set(it.toMap()).await()
+        }
+        db.familiaDao().obtenerTodosLosHijos().forEach {
+            col("hijos").document(it.id).set(it.toMap()).await()
+        }
+    }
+
     // Descarga todos los datos de la familia actual de Firestore a Room
     suspend fun descargarDatosDeFamilia() {
         val fid = familyId()
         Log.d("SyncManager", "Descargando datos de familia: $fid")
+
+        val padresSnap = col("padres").get().await()
+        padresSnap.documents.forEach { doc -> doc.data?.toPadre()?.let { db.familiaDao().insertarPadre(it) } }
+
+        val hijosSnap = col("hijos").get().await()
+        hijosSnap.documents.forEach { doc -> doc.data?.toHijo()?.let { db.familiaDao().insertarHijo(it) } }
 
         val eventosSnap = col("eventos").get().await()
         eventosSnap.documents.forEach { doc -> doc.data?.toEvento()?.let { db.eventoDao().insertarEvento(it) } }
@@ -651,6 +701,8 @@ class SyncManager(
     // Sube datos locales a otra familia en Firestore (espera confirmación)
     suspend fun subirDatosAFamilia(otraFamilyId: String) {
         fun otraCol(nombre: String) = fs.collection("familias/$otraFamilyId/$nombre")
+        db.familiaDao().obtenerTodosLosPadres().forEach { otraCol("padres").document(it.id).set(it.toMap()).await() }
+        db.familiaDao().obtenerTodosLosHijos().forEach { otraCol("hijos").document(it.id).set(it.toMap()).await() }
         db.eventoDao().obtenerTodosLosEventos().forEach { otraCol("eventos").document(it.id).set(it.toMap()).await() }
         db.gastoDao().obtenerTodosLosGastos().forEach { otraCol("gastos").document(it.id).set(it.toMap()).await() }
         db.itemCompraDao().obtenerTodos().filter { !it.esPrivado }.forEach { otraCol("items_compra").document(it.id).set(it.toMap()).await() }

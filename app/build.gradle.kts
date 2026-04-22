@@ -24,10 +24,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            applicationIdSuffix = ".semillapp"
-            versionNameSuffix = "-semillapp"
-        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

@@ -359,7 +359,6 @@ fun NavegacionApp() {
                 prefs.edit().putString("modo", modo).apply()
                 pantallaActual = "registroFamilia"
             },
-            onGoogle = { pantallaActual = "google" },
             onVincular = { pantallaActual = "vincular" }
         )
         "registroFamilia" -> PantallaRegistroFamilia(
@@ -459,8 +458,17 @@ fun NavegacionApp() {
             onConfiguracion = { pantallaActual = "configuracion" },
             onAtras = { pantallaActual = "registroFamilia" },
             onEditarFamilia = { pantallaActual = "registroFamilia" },
-            onGoogle = { pantallaActual = "google" },
+            onGoogle = { pantallaActual = "vincular" },
             onVincular = { pantallaActual = "vincular" },
+            onIniciarGoogle = {
+                scope.launch {
+                    googleAuth.iniciarSesion(context as android.app.Activity)
+                        .onSuccess { u ->
+                            usuarioGoogle = u
+                            syncManager.registrarUsuarioGoogle(u)
+                        }
+                }
+            },
             onRevincular = {
                 scope.launch {
                     FamilyIdManager.desvincular(context)
@@ -790,9 +798,10 @@ fun NavegacionApp() {
             },
             onAtras = { pantallaActual = "configuracion" }
         )
-        "vincular", "google" -> {
-            // Al abrir vincular: subir planificación y registrar emails de padres
+        "vincular" -> {
+            // Al abrir vincular: subir familia (padres/hijos) + planificación + emails
             LaunchedEffect(Unit) {
+                try { syncManager.subirFamiliaBasica() } catch (_: Exception) {}
                 syncManager.subirPlanificacion()
                 syncManager.registrarEmailsPadres(padres)
             }
@@ -805,8 +814,26 @@ fun NavegacionApp() {
             },
             onCerrarSesion = { usuarioGoogle = null },
             onVinculado = {
-                syncManager.reiniciarListeners()
-                scope.launch { syncManager.subirDatosLocalesIfNeeded() }
+                scope.launch {
+                    padres = db.familiaDao().obtenerTodosLosPadres()
+                    hijos = db.familiaDao().obtenerTodosLosHijos()
+                    registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                    eventos = db.eventoDao().obtenerTodosLosEventos()
+                    gastos = db.gastoDao().obtenerTodosLosGastos()
+                    itemsCompra = db.itemCompraDao().obtenerTodos()
+                    mensajes = db.mensajeDao().obtenerTodos()
+                    compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
+                    pendientesLista = db.pendienteDao().obtenerTodos()
+                    val idValido = padres.any { it.id == idPadreActual }
+                    if (!idValido) {
+                        idPadreActual = padres.firstOrNull()?.id ?: ""
+                        padreActualFijado = false
+                        prefs.edit().remove("padre_actual_id")
+                            .putBoolean("padre_actual_fijado", false).apply()
+                    }
+                    syncManager.reiniciarListeners()
+                    syncManager.subirDatosLocalesIfNeeded()
+                }
                 pantallaActual = "principal"
             },
             onAtras = { pantallaActual = "principal" },
@@ -848,7 +875,6 @@ fun PantallaSeleccionModo(
     padresExisten: Boolean = false,
     onContinuar: () -> Unit = {},
     onModoSeleccionado: (String) -> Unit,
-    onGoogle: () -> Unit = {},
     onVincular: () -> Unit = {}
 ) {
     Box(
@@ -973,30 +999,15 @@ fun PantallaSeleccionModo(
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
+            OutlinedButton(
+                onClick = onVincular,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, NeutralVariant50)
             ) {
-                OutlinedButton(
-                    onClick = onGoogle,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, NeutralVariant50)
-                ) {
-                    Icon(Icons.Default.Person, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Google", fontSize = 13.sp)
-                }
-                OutlinedButton(
-                    onClick = onVincular,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, NeutralVariant50)
-                ) {
-                    Icon(Icons.Default.Sync, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Vincular", fontSize = 13.sp)
-                }
+                Icon(Icons.Default.Sync, null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Vincular con otro dispositivo", fontSize = 13.sp)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -1084,7 +1095,8 @@ fun PantallaPrincipal(
     onGoogle: () -> Unit = {},
     onVincular: () -> Unit = {},
     onRevincular: () -> Unit = {},
-    onPlanificacion: () -> Unit = {}
+    onPlanificacion: () -> Unit = {},
+    onIniciarGoogle: () -> Unit = {}
 ) {
     // ── Formato fecha y nombre ────────────────────────────────────────────────
     val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
@@ -1211,14 +1223,23 @@ fun PantallaPrincipal(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Hola, $nombrePadre",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold, color = Neutral10)
-                    Text(fechaHoy, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        fontWeight = FontWeight.Bold, color = Neutral10,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(fechaHoy, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
+                    if (usuarioGoogle == null) {
+                        IconButton(onClick = onIniciarGoogle) {
+                            Icon(Icons.Default.Person, "Iniciar con Google", tint = Indigo40)
+                        }
+                    }
                     IconButton(onClick = onConfiguracion) {
                         Icon(Icons.Default.Settings, "Configuración", tint = NeutralVariant50)
                     }
@@ -1237,14 +1258,9 @@ fun PantallaPrincipal(
                             onDismissRequest = { showUserMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Cuenta Google") },
-                                onClick = { showUserMenu = false; onGoogle() },
-                                leadingIcon = { Icon(Icons.Default.Person, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Vincular dispositivo") },
+                                text = { Text("Mi cuenta") },
                                 onClick = { showUserMenu = false; onVincular() },
-                                leadingIcon = { Icon(Icons.Default.Sync, null) }
+                                leadingIcon = { Icon(Icons.Default.Person, null) }
                             )
                             DropdownMenuItem(
                                 text = { Text("Editar familia") },

@@ -71,6 +71,56 @@ private fun generarQrBitmap(texto: String, size: Int = 512): Bitmap {
     return bmp
 }
 
+private fun compartirQrComoImagen(context: Context, codigo: String) {
+    try {
+        val bmp = generarQrBitmap(codigo, 700)
+        val file = java.io.File(context.cacheDir, "crianza_qr.png")
+        file.outputStream().use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 100, out) }
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context, "${context.packageName}.fileprovider", file
+        )
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            putExtra(
+                android.content.Intent.EXTRA_TEXT,
+                "Escanea este QR desde Crianza (Mi cuenta > Escanear QR) para vincularnos.\nCódigo: $codigo"
+            )
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(intent, "Compartir QR"))
+    } catch (_: Exception) {
+        Toast.makeText(context, "No se pudo compartir el QR", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun compartirCodigoTexto(context: Context, codigo: String) {
+    val texto = "Te invito a usar Crianza para coordinar la crianza de los hijos.\n" +
+        "Descargala: https://github.com/Ostro1982/crianza-app/releases/latest\n" +
+        "Código de familia: $codigo"
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(android.content.Intent.EXTRA_TEXT, texto)
+    }
+    context.startActivity(android.content.Intent.createChooser(intent, "Compartir código"))
+}
+
+private fun invitarPorEmail(context: Context, destinatario: String, codigo: String) {
+    val cuerpo = "Hola,\n\nTe invito a usar Crianza para coordinar la crianza de nuestros hijos.\n\n" +
+        "Descargá la app: https://github.com/Ostro1982/crianza-app/releases/latest\n\n" +
+        "Código para vincularnos: $codigo\n\nSaludos"
+    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+        data = android.net.Uri.parse("mailto:${android.net.Uri.encode(destinatario)}")
+        putExtra(android.content.Intent.EXTRA_SUBJECT, "Invitación a Crianza")
+        putExtra(android.content.Intent.EXTRA_TEXT, cuerpo)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "No se encontró app de email", Toast.LENGTH_SHORT).show()
+    }
+}
+
 // Dialogo de direccion de copia
 @Composable
 private fun DialogoDireccionSync(
@@ -80,7 +130,35 @@ private fun DialogoDireccionSync(
     onConfirmar: (modo: String) -> Unit,
     onCerrar: () -> Unit
 ) {
+    val mismaFamilia = otraFamilyId == familyId
     var modo by remember { mutableStateOf("yo_copio") }
+
+    if (mismaFamilia) {
+        AlertDialog(
+            onDismissRequest = onCerrar,
+            containerColor = Neutral99,
+            title = { Text("Re-sincronizar", color = Neutral10, fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Ya están vinculados. Voy a descargar de nuevo los datos de la familia desde la nube para este dispositivo.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeutralVariant50
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { onConfirmar("yo_copio") },
+                    shape = RoundedCornerShape(14.dp)
+                ) { Text("Re-sincronizar") }
+            },
+            dismissButton = {
+                TextButton(onClick = onCerrar) {
+                    Text("Cancelar", color = NeutralVariant30)
+                }
+            }
+        )
+        return
+    }
 
     AlertDialog(
         onDismissRequest = onCerrar,
@@ -216,8 +294,6 @@ fun PantallaCuentaVincular(
     var errorCodigo by remember { mutableStateOf<String?>(null) }
     var exitoCodigo by remember { mutableStateOf(false) }
 
-    var mostrarQr by remember { mutableStateOf(false) }
-
     // Estado para dialogo de direccion — (familyId del otro, nombre)
     var pendienteVincular by remember { mutableStateOf<Pair<String, String>?>(null) }
     var vinculadoExito by remember { mutableStateOf(false) }
@@ -232,8 +308,17 @@ fun PantallaCuentaVincular(
                 val sm = SyncManager(context, AppDatabase.getInstance(context))
                 when (modo) {
                     "yo_copio" -> {
-                        // Adopto su familyId y descargo sus datos (sin subir los mios primero)
-                        FamilyIdManager.vincularConCodigo(context, otraFamilyId)
+                        // Si es otra familia, limpio locales y adopto la nueva familyId.
+                        // Si es la misma (re-sincronizar), NO borro: solo re-descargo.
+                        if (otraFamilyId != familyId) {
+                            val dao = AppDatabase.getInstance(context).familiaDao()
+                            dao.eliminarTodosLosPadres()
+                            dao.eliminarTodosLosHijos()
+                            context.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
+                                .edit().remove("padre_actual_id")
+                                .putBoolean("padre_actual_fijado", false).apply()
+                            FamilyIdManager.vincularConCodigo(context, otraFamilyId)
+                        }
                         sm.descargarDatosDeFamilia()
                     }
                     "otro_copia" -> {
@@ -261,10 +346,9 @@ fun PantallaCuentaVincular(
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val codigo = result.contents
         if (codigo != null) {
-            if (codigo == familyId) {
-                Toast.makeText(context, "Ese es tu propio codigo", Toast.LENGTH_SHORT).show()
-            } else if (codigo.matches(Regex("[0-9a-fA-F\\-]{32,36}"))) {
-                pendienteVincular = Pair(codigo, "otro padre")
+            if (codigo.matches(Regex("[0-9a-fA-F\\-]{32,36}"))) {
+                val nombre = if (codigo == familyId) "esta familia" else "otro padre"
+                pendienteVincular = Pair(codigo, nombre)
             } else {
                 Toast.makeText(context, "QR invalido", Toast.LENGTH_SHORT).show()
             }
@@ -389,6 +473,11 @@ fun PantallaCuentaVincular(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold, color = Neutral10
             )
+            Text(
+                "Tres formas: QR, código o email.",
+                style = MaterialTheme.typography.bodySmall,
+                color = NeutralVariant50, textAlign = TextAlign.Center
+            )
 
             // ── Estado de vinculacion ────────────────────────────────────────
             if (vinculandoCargando) {
@@ -426,107 +515,131 @@ fun PantallaCuentaVincular(
                 }
             }
 
-            // ── Codigo de familia + QR ───────────────────────────────────────
+            // ── 1. QR ────────────────────────────────────────────────────────
             GlassCard {
-                Text("Tu codigo de familia", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
-                Spacer(Modifier.height(4.dp))
+                Text("QR", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
+                Spacer(Modifier.height(8.dp))
+
+                val qrBitmap = remember(familyId) { generarQrBitmap(familyId) }
+                Image(
+                    bitmap = qrBitmap.asImageBitmap(),
+                    contentDescription = "QR codigo de familia",
+                    modifier = Modifier
+                        .size(200.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
+                        .padding(8.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Este es tu QR. El otro padre lo escanea con su app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeutralVariant50, textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { compartirQrComoImagen(context, familyId) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Compartir", style = MaterialTheme.typography.labelMedium)
+                    }
+                    Button(
+                        onClick = {
+                            val options = ScanOptions().apply {
+                                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                setPrompt("Escanea el QR del otro padre/madre")
+                                setBeepEnabled(false)
+                                setOrientationLocked(true)
+                            }
+                            scanLauncher.launch(options)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Escanear", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+
+            // ── 2. Código de familia ─────────────────────────────────────────
+            GlassCard {
+                Text("Código de familia", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
+                Spacer(Modifier.height(6.dp))
                 Text(
                     familyId,
                     style = MaterialTheme.typography.bodySmall,
                     color = NeutralVariant50, textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(8.dp))
-
-                // QR
-                if (mostrarQr) {
-                    val qrBitmap = remember(familyId) { generarQrBitmap(familyId) }
-                    Image(
-                        bitmap = qrBitmap.asImageBitmap(),
-                        contentDescription = "QR codigo de familia",
-                        modifier = Modifier
-                            .size(200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                            .padding(8.dp)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "El otro padre escanea este QR desde su app",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NeutralVariant50, textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                // Botones
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Codigo familia", familyId))
-                            Toast.makeText(context, "Codigo copiado", Toast.LENGTH_SHORT).show()
-                        },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Neutral10)
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Copiar", style = MaterialTheme.typography.labelMedium)
-                    }
-                    OutlinedButton(
-                        onClick = { mostrarQr = !mostrarQr },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Neutral10)
-                    ) {
-                        Icon(Icons.Default.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(if (mostrarQr) "Ocultar QR" else "Mostrar QR", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { GoogleAuthHelper.compartirApp(context, familyId) },
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Compartir invitacion", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-
-            // ── Escanear QR ──────────────────────────────────────────────────
-            GlassCard {
-                Text("Escanear QR del otro padre", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "El otro padre muestra su QR y vos lo escaneas.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NeutralVariant50, textAlign = TextAlign.Center
-                )
                 Spacer(Modifier.height(12.dp))
+
                 Button(
-                    onClick = {
-                        val options = ScanOptions().apply {
-                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            setPrompt("Escanea el QR del otro padre/madre")
-                            setBeepEnabled(false)
-                            setOrientationLocked(true)
-                        }
-                        scanLauncher.launch(options)
-                    },
+                    onClick = { compartirCodigoTexto(context, familyId) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Escanear QR")
+                    Text("Compartir código", style = MaterialTheme.typography.labelMedium)
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = codigoIngresado,
+                    onValueChange = { codigoIngresado = it.trim(); errorCodigo = null; exitoCodigo = false },
+                    label = { Text("Código del otro padre", color = NeutralVariant50) },
+                    placeholder = { Text("ej: a1b2c3d4-...", color = NeutralVariant50.copy(alpha = 0.6f)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Neutral10,
+                        unfocusedTextColor = Neutral10,
+                        focusedBorderColor = Indigo80,
+                        unfocusedBorderColor = NeutralVariant50.copy(alpha = 0.4f),
+                        cursorColor = Indigo80
+                    )
+                )
+                Spacer(Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        val limpio = codigoIngresado.trim()
+                        if (!limpio.matches(Regex("[0-9a-fA-F\\-]{32,36}"))) {
+                            errorCodigo = "Código inválido. Debe ser un UUID."
+                        } else {
+                            val nombre = if (limpio == familyId) "esta familia" else "otro padre"
+                            pendienteVincular = Pair(limpio, nombre)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = codigoIngresado.length >= 32,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Vincular con este código", style = MaterialTheme.typography.labelMedium)
+                }
+
+                errorCodigo?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, color = Red80, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                 }
             }
 
-            // ── Buscar por email ─────────────────────────────────────────────
+            // ── 3. Email ─────────────────────────────────────────────────────
             GlassCard {
-                Text("Buscar por email", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
-                Spacer(Modifier.height(12.dp))
+                Text("Email", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
+                Spacer(Modifier.height(8.dp))
 
                 OutlinedTextField(
                     value = emailIngresado,
@@ -545,58 +658,65 @@ fun PantallaCuentaVincular(
                 )
                 Spacer(Modifier.height(12.dp))
 
-                Button(
-                    onClick = {
-                        scope.launch {
-                            buscando = true; noEncontrado = false; resultadoBusqueda = null
-                            val r = onBuscarEmail(emailIngresado)
-                            if (r == null) noEncontrado = true else resultadoBusqueda = r
-                            buscando = false
-                        }
-                    },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = emailIngresado.contains("@") && !buscando,
-                    shape = RoundedCornerShape(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (buscando) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
-                        Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                buscando = true; noEncontrado = false; resultadoBusqueda = null
+                                val r = onBuscarEmail(emailIngresado)
+                                if (r == null) noEncontrado = true else resultadoBusqueda = r
+                                buscando = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = emailIngresado.contains("@") && !buscando,
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        if (buscando) {
+                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                        } else {
+                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text("Buscar", style = MaterialTheme.typography.labelMedium)
                     }
-                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Buscar")
+                    OutlinedButton(
+                        onClick = { invitarPorEmail(context, emailIngresado, familyId) },
+                        modifier = Modifier.weight(1f),
+                        enabled = emailIngresado.contains("@"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Neutral10)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Invitar", style = MaterialTheme.typography.labelMedium)
+                    }
                 }
 
                 if (noEncontrado) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "No se encontro. El otro padre debe abrir la app e iniciar sesion con Google.",
+                        "No se encontró. Tocá Invitar para enviarle una invitación por mail.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Red80, textAlign = TextAlign.Center
+                        color = NeutralVariant50, textAlign = TextAlign.Center
                     )
                 }
-            }
 
-            // ── Resultado email encontrado ───────────────────────────────────
-            resultadoBusqueda?.let { (nombre, fid) ->
-                GlassCard {
-                    Text("Encontrado", style = MaterialTheme.typography.labelMedium, color = Indigo80)
-                    Spacer(Modifier.height(4.dp))
-                    Text(nombre, style = MaterialTheme.typography.titleMedium, color = Neutral10, fontWeight = FontWeight.Bold)
-                    Text(emailIngresado, style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
-
+                resultadoBusqueda?.let { (nombre, fid) ->
                     Spacer(Modifier.height(12.dp))
-
+                    Text("Encontrado", style = MaterialTheme.typography.labelMedium, color = Indigo80)
+                    Text(nombre, style = MaterialTheme.typography.titleMedium, color = Neutral10, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
                     if (fid == familyId) {
-                        Text("Ya estan vinculados", color = Indigo80, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             onClick = { pendienteVincular = Pair(fid, nombre) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text("Re-sincronizar datos")
-                        }
+                        ) { Text("Re-sincronizar datos") }
                     } else {
                         Button(
                             onClick = { pendienteVincular = Pair(fid, nombre) },
@@ -608,54 +728,6 @@ fun PantallaCuentaVincular(
                             Text("Vincular con $nombre")
                         }
                     }
-                }
-            }
-
-            // ── Buscar por codigo ────────────────────────────────────────────
-            GlassCard {
-                Text("Ingresar codigo manualmente", style = MaterialTheme.typography.labelMedium, color = NeutralVariant30)
-                Spacer(Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = codigoIngresado,
-                    onValueChange = { codigoIngresado = it.trim(); errorCodigo = null; exitoCodigo = false },
-                    label = { Text("Codigo de familia", color = NeutralVariant50) },
-                    placeholder = { Text("ej: a1b2c3d4-...", color = NeutralVariant50.copy(alpha = 0.6f)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Neutral10,
-                        unfocusedTextColor = Neutral10,
-                        focusedBorderColor = Indigo80,
-                        unfocusedBorderColor = NeutralVariant50.copy(alpha = 0.4f),
-                        cursorColor = Indigo80
-                    )
-                )
-                Spacer(Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        val limpio = codigoIngresado.trim()
-                        if (limpio == familyId) {
-                            errorCodigo = "Ese es tu propio codigo de familia."
-                        } else if (!limpio.matches(Regex("[0-9a-fA-F\\-]{32,36}"))) {
-                            errorCodigo = "Codigo invalido. Debe ser un UUID."
-                        } else {
-                            pendienteVincular = Pair(limpio, "otro padre")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = codigoIngresado.length >= 32,
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Vincular")
-                }
-
-                errorCodigo?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, color = Red80, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                 }
             }
 
