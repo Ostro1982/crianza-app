@@ -82,6 +82,7 @@ fun PantallaMensajes(
                     IconButton(
                         onClick = {
                             val padre = padres.find { it.id == remitenteSeleccionado }
+                                ?: padres.firstOrNull()
                             if (texto.isNotBlank() && padre != null) {
                                 onEnviar(
                                     Mensaje(
@@ -95,7 +96,7 @@ fun PantallaMensajes(
                                 texto = ""
                             }
                         },
-                        enabled = texto.isNotBlank()
+                        enabled = texto.isNotBlank() && padres.isNotEmpty()
                     ) {
                         Icon(
                             Icons.Default.Send,
