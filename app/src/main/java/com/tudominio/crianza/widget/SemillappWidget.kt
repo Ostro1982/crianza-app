@@ -145,8 +145,8 @@ class SemillappWidget : GlanceAppWidget() {
                         Spacer(GlanceModifier.width(6.dp))
                         Box(
                             modifier = GlanceModifier
-                                .size(22.dp)
-                                .cornerRadius(11.dp)
+                                .size(36.dp)
+                                .cornerRadius(18.dp)
                                 .background(colorAcento)
                                 .clickable(actionRunCallback<CicloTipoAction>()),
                             contentAlignment = Alignment.Center
@@ -155,7 +155,7 @@ class SemillappWidget : GlanceAppWidget() {
                                 "›",
                                 style = TextStyle(
                                     color = colorFondo,
-                                    fontSize = 14.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             )

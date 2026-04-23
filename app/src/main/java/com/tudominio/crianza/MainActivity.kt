@@ -19,6 +19,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -367,6 +369,8 @@ fun NavegacionApp() {
             hijosExistentes = hijos,
             onRegistroCompleto = { adultosForm, hijosForm ->
                 scope.launch {
+                    // Limpiar familia en la nube (si habia padres/hijos viejos)
+                    try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
                     db.familiaDao().eliminarTodosLosPadres()
                     db.familiaDao().eliminarTodosLosHijos()
 
@@ -394,6 +398,9 @@ fun NavegacionApp() {
                     padres = db.familiaDao().obtenerTodosLosPadres()
                     hijos = db.familiaDao().obtenerTodosLosHijos()
                     if (idPadreActual.isEmpty()) idPadreActual = padres.firstOrNull()?.id ?: ""
+
+                    // Subir nueva familia a Firestore para que otros dispositivos la vean
+                    try { syncManager.subirFamiliaBasica() } catch (_: Exception) {}
 
                     pantallaActual = "principal"
                 }
@@ -770,7 +777,21 @@ fun NavegacionApp() {
             },
             onAtras = { pantallaActual = "principal" },
             onVerEstadisticas = { pantallaActual = "estadisticas" },
-            onEscanearTicket = { pantallaActual = "escanear_ticket" }
+            onEscanearTicket = { pantallaActual = "escanear_ticket" },
+            onReiniciarFamilia = {
+                scope.launch {
+                    try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
+                    db.familiaDao().eliminarTodosLosPadres()
+                    db.familiaDao().eliminarTodosLosHijos()
+                    prefs.edit().remove("padre_actual_id")
+                        .putBoolean("padre_actual_fijado", false).apply()
+                    padres = emptyList()
+                    hijos = emptyList()
+                    idPadreActual = ""
+                    padreActualFijado = false
+                    pantallaActual = "registroFamilia"
+                }
+            }
         )
         "estadisticas" -> PantallaEstadisticas(
             onAtras = { pantallaActual = "configuracion" }
@@ -837,7 +858,8 @@ fun NavegacionApp() {
                 pantallaActual = "principal"
             },
             onAtras = { pantallaActual = "principal" },
-            onBuscarEmail = { email -> syncManager.buscarUsuarioPorEmail(email) }
+            onBuscarEmail = { email -> syncManager.buscarUsuarioPorEmail(email) },
+            onDetenerListeners = { syncManager.detenerListeners() }
         )
         }
         "recuerdos" -> PantallaRecuerdos(
@@ -1281,28 +1303,29 @@ fun PantallaPrincipal(
 
             // ── Selector padre (solo si no está fijado aún) ──────────────────
             if (padres.size >= 2 && !padreActualFijado) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Text("¿Quién sos?", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
-                    padres.forEach { padre ->
-                        FilterChip(
-                            selected = idPadreActual == padre.id,
-                            onClick = { onCambiarPadreActual(padre.id) },
-                            label = { Text(padre.nombre, fontWeight = if (idPadreActual == padre.id) FontWeight.Bold else FontWeight.Normal) },
-                            leadingIcon = if (idPadreActual == padre.id) {
-                                { Icon(Icons.Default.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Indigo40.copy(alpha = 0.15f),
-                                selectedLabelColor = Indigo30,
-                                selectedLeadingIconColor = Indigo30,
-                                containerColor = NeutralVariant80.copy(alpha = 0.3f),
-                                labelColor = NeutralVariant30
+                    Spacer(Modifier.height(4.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(padres, key = { it.id }) { padre ->
+                            FilterChip(
+                                selected = idPadreActual == padre.id,
+                                onClick = { onCambiarPadreActual(padre.id) },
+                                label = { Text(padre.nombre, fontWeight = if (idPadreActual == padre.id) FontWeight.Bold else FontWeight.Normal) },
+                                leadingIcon = if (idPadreActual == padre.id) {
+                                    { Icon(Icons.Default.Check, null, Modifier.size(FilterChipDefaults.IconSize)) }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Indigo40.copy(alpha = 0.15f),
+                                    selectedLabelColor = Indigo30,
+                                    selectedLeadingIconColor = Indigo30,
+                                    containerColor = NeutralVariant80.copy(alpha = 0.3f),
+                                    labelColor = NeutralVariant30
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }

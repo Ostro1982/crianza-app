@@ -343,6 +343,14 @@ class SyncManager(
     }
 
     suspend fun eliminarRegistro(registro: RegistroTiempo) {
+        // Borrar las ediciones asociadas en Firestore antes de borrar local,
+        // si no quedan huerfanas en la nube y reaparecen al re-vincular.
+        try {
+            val edicionesLocales = db.registroEdicionDao().obtenerPorRegistro(registro.id)
+            edicionesLocales.forEach { ed ->
+                col("registros_edicion").document(ed.id).delete()
+            }
+        } catch (_: Exception) {}
         db.registroEdicionDao().eliminarPorRegistro(registro.id)
         db.registroTiempoDao().eliminarRegistro(registro)
         col("registros_tiempo").document(registro.id).delete()
@@ -603,6 +611,15 @@ class SyncManager(
             }
         }
 
+        // Listener de planificacion semanal (config/planificacion)
+        listenerRegistrations += col("config").document("planificacion")
+            .addSnapshotListener { snap, err ->
+                if (err != null || snap == null || !snap.exists()) return@addSnapshotListener
+                // Ignorar escrituras propias pendientes
+                if (snap.metadata.hasPendingWrites()) return@addSnapshotListener
+                snap.data?.let { aplicarPlanificacionDeMap(it) }
+            }
+
         Log.d("SyncManager", "Listeners activos para familia: ${familyId()}")
     }
 
@@ -646,14 +663,31 @@ class SyncManager(
         col("config").document("planificacion").set(planificacionToMap()).await()
     }
 
-    // Sube padres/hijos a Firestore (para que el otro los descargue al vincular)
+    // Sube padres/hijos a Firestore sobreescribiendo TODO lo remoto (borra
+    // acumulacion historica de vinculaciones anteriores).
     suspend fun subirFamiliaBasica() {
-        db.familiaDao().obtenerTodosLosPadres().forEach {
-            col("padres").document(it.id).set(it.toMap()).await()
-        }
-        db.familiaDao().obtenerTodosLosHijos().forEach {
-            col("hijos").document(it.id).set(it.toMap()).await()
-        }
+        val padresLocales = db.familiaDao().obtenerTodosLosPadres()
+        val hijosLocales = db.familiaDao().obtenerTodosLosHijos()
+        // Borrar TODOS los docs remotos antes de subir los locales
+        try {
+            val padresRemotos = col("padres").get().await()
+            padresRemotos.documents.forEach { col("padres").document(it.id).delete().await() }
+            val hijosRemotos = col("hijos").get().await()
+            hijosRemotos.documents.forEach { col("hijos").document(it.id).delete().await() }
+        } catch (_: Exception) {}
+        padresLocales.forEach { col("padres").document(it.id).set(it.toMap()).await() }
+        hijosLocales.forEach { col("hijos").document(it.id).set(it.toMap()).await() }
+    }
+
+    // Borra TODOS los padres/hijos de la familia actual en Firestore.
+    // Usar al re-registrar familia para que los borrados no reaparezcan al vincular.
+    suspend fun limpiarFamiliaEnFirestore() {
+        try {
+            val padresSnap = col("padres").get().await()
+            padresSnap.documents.forEach { col("padres").document(it.id).delete().await() }
+            val hijosSnap = col("hijos").get().await()
+            hijosSnap.documents.forEach { col("hijos").document(it.id).delete().await() }
+        } catch (_: Exception) {}
     }
 
     // Descarga todos los datos de la familia actual de Firestore a Room
@@ -680,7 +714,13 @@ class SyncManager(
         mensajesSnap.documents.forEach { doc -> doc.data?.toMensaje()?.let { db.mensajeDao().insertarSiNoExiste(it) } }
 
         val registrosSnap = col("registros_tiempo").get().await()
-        registrosSnap.documents.forEach { doc -> doc.data?.toRegistroTiempo()?.let { db.registroTiempoDao().insertarRegistro(it) } }
+        val idsRegistrosValidos = mutableSetOf<String>()
+        registrosSnap.documents.forEach { doc ->
+            doc.data?.toRegistroTiempo()?.let {
+                db.registroTiempoDao().insertarRegistro(it)
+                idsRegistrosValidos += it.id
+            }
+        }
 
         val compensacionesSnap = col("compensaciones").get().await()
         compensacionesSnap.documents.forEach { doc -> doc.data?.toCompensacion()?.let { db.compensacionDao().insertarCompensacion(it) } }
@@ -689,7 +729,17 @@ class SyncManager(
         pendientesSnap.documents.forEach { doc -> doc.data?.toPendiente()?.let { db.pendienteDao().insertar(it) } }
 
         val edicionesSnap = col("registros_edicion").get().await()
-        edicionesSnap.documents.forEach { doc -> doc.data?.toRegistroEdicion()?.let { db.registroEdicionDao().insertar(it) } }
+        edicionesSnap.documents.forEach { doc ->
+            doc.data?.toRegistroEdicion()?.let { ed ->
+                // Descarto ediciones huerfanas (cuyo registro_tiempo ya no existe)
+                if (ed.idRegistro in idsRegistrosValidos) {
+                    db.registroEdicionDao().insertar(ed)
+                } else {
+                    // Limpio la huerfana de Firestore tambien
+                    try { col("registros_edicion").document(doc.id).delete() } catch (_: Exception) {}
+                }
+            }
+        }
 
         // Planificación semanal
         val planSnap = col("config").document("planificacion").get().await()

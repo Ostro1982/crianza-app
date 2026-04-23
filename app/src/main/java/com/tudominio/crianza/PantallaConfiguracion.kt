@@ -47,8 +47,28 @@ fun PantallaConfiguracion(
     onEliminarFiltro: (FiltroEmail) -> Unit,
     onAtras: () -> Unit,
     onVerEstadisticas: () -> Unit = {},
-    onEscanearTicket: () -> Unit = {}
+    onEscanearTicket: () -> Unit = {},
+    onReiniciarFamilia: () -> Unit = {}
 ) {
+    var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
+    if (mostrarDialogoReiniciar) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoReiniciar = false },
+            title = { Text("Reiniciar familia") },
+            text = {
+                Text("Se van a borrar TODOS los integrantes (aca y en la nube) y vas a registrar la familia de cero. Los gastos/eventos/mensajes se mantienen pero quedan sin persona asociada. ¿Continuar?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    mostrarDialogoReiniciar = false
+                    onReiniciarFamilia()
+                }) { Text("Reiniciar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoReiniciar = false }) { Text("Cancelar") }
+            }
+        )
+    }
     val context = LocalContext.current
     val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
     var minutosAntesEvento by remember {
@@ -201,6 +221,13 @@ fun PantallaConfiguracion(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Cambiar quién soy")
+            }
+            OutlinedButton(
+                onClick = { mostrarDialogoReiniciar = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Reiniciar familia (borrar integrantes y empezar de cero)")
             }
             OutlinedButton(
                 onClick = { mostrarDialogoDesvincular = true },

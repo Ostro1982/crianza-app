@@ -106,6 +106,9 @@ interface RegistroEdicionDao {
 
     @Query("DELETE FROM registros_edicion WHERE id = :id")
     suspend fun eliminarPorId(id: String)
+
+    @Query("DELETE FROM registros_edicion")
+    suspend fun eliminarTodos()
 }
 
 @Dao

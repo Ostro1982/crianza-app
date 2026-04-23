@@ -11,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.tudominio.crianza"
+        applicationId = "com.ostro.semillapp"
         minSdk = 24
         targetSdk = 36
         versionCode = 3

@@ -36,7 +36,9 @@ fun IconoVoz(onTexto: (String) -> Unit, modifier: Modifier = Modifier) {
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
                 )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale("es", "AR").toString())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-AR")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "es-AR")
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "es-AR")
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Decilo")
             }
             try {

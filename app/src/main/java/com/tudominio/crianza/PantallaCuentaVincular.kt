@@ -276,7 +276,8 @@ fun PantallaCuentaVincular(
     onCerrarSesion: () -> Unit,
     onVinculado: () -> Unit,
     onAtras: () -> Unit,
-    onBuscarEmail: suspend (String) -> Pair<String, String>? = { null }
+    onBuscarEmail: suspend (String) -> Pair<String, String>? = { null },
+    onDetenerListeners: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -306,14 +307,25 @@ fun PantallaCuentaVincular(
         scope.launch {
             try {
                 val sm = SyncManager(context, AppDatabase.getInstance(context))
+                // Detener listeners antes de cualquier cambio de familyId, asi los
+                // del familyId viejo no reinsertan datos mientras cambiamos.
+                onDetenerListeners()
                 when (modo) {
                     "yo_copio" -> {
-                        // Si es otra familia, limpio locales y adopto la nueva familyId.
+                        // Si es otra familia, limpio TODOS los datos locales y adopto la nueva familyId.
                         // Si es la misma (re-sincronizar), NO borro: solo re-descargo.
                         if (otraFamilyId != familyId) {
-                            val dao = AppDatabase.getInstance(context).familiaDao()
-                            dao.eliminarTodosLosPadres()
-                            dao.eliminarTodosLosHijos()
+                            val dbLocal = AppDatabase.getInstance(context)
+                            dbLocal.familiaDao().eliminarTodosLosPadres()
+                            dbLocal.familiaDao().eliminarTodosLosHijos()
+                            dbLocal.eventoDao().eliminarTodos()
+                            dbLocal.gastoDao().eliminarTodos()
+                            dbLocal.itemCompraDao().eliminarTodos()
+                            dbLocal.mensajeDao().eliminarTodos()
+                            dbLocal.registroTiempoDao().eliminarTodos()
+                            dbLocal.compensacionDao().eliminarTodos()
+                            dbLocal.pendienteDao().eliminarTodos()
+                            dbLocal.registroEdicionDao().eliminarTodos()
                             context.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
                                 .edit().remove("padre_actual_id")
                                 .putBoolean("padre_actual_fijado", false).apply()
