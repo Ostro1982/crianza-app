@@ -2,9 +2,11 @@ package com.tudominio.crianza
 
 import android.content.Context
 import android.util.Log
+import android.net.Uri
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,6 +21,7 @@ class SyncManager(
     private val db: AppDatabase
 ) {
     private val fs = Firebase.firestore
+    private val storage = Firebase.storage
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var listenerRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
 
@@ -106,6 +109,51 @@ class SyncManager(
         "montoTotal" to montoTotal, "fechaCompleta" to fechaCompleta,
         "aceptadoPadre1" to aceptadoPadre1, "aceptadoPadre2" to aceptadoPadre2
     )
+
+    private fun Recuerdo.toMap() = mapOf(
+        "id" to id, "titulo" to titulo, "descripcion" to descripcion,
+        "fecha" to fecha, "imagenUri" to (imagenUri ?: ""),
+        "fechaCompleta" to fechaCompleta
+    )
+
+    private fun Documento.toMap() = mapOf(
+        "id" to id, "titulo" to titulo, "descripcion" to descripcion,
+        "categoria" to categoria,
+        "contenidoEncriptado" to contenidoEncriptado, "iv" to iv,
+        "rutaImagen" to rutaImagen,
+        "fechaCreacion" to fechaCreacion, "fechaModificacion" to fechaModificacion
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toRecuerdo(): Recuerdo? {
+        return try {
+            Recuerdo(
+                id = this["id"] as? String ?: return null,
+                titulo = this["titulo"] as? String ?: "",
+                descripcion = this["descripcion"] as? String ?: "",
+                fecha = this["fecha"] as? String ?: "",
+                imagenUri = (this["imagenUri"] as? String)?.ifEmpty { null },
+                fechaCompleta = this["fechaCompleta"] as? Long ?: 0L
+            )
+        } catch (e: Exception) { null }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any>.toDocumento(): Documento? {
+        return try {
+            Documento(
+                id = this["id"] as? String ?: return null,
+                titulo = this["titulo"] as? String ?: "",
+                descripcion = this["descripcion"] as? String ?: "",
+                categoria = this["categoria"] as? String ?: "",
+                contenidoEncriptado = this["contenidoEncriptado"] as? String ?: "",
+                iv = this["iv"] as? String ?: "",
+                rutaImagen = this["rutaImagen"] as? String ?: "",
+                fechaCreacion = this["fechaCreacion"] as? Long ?: 0L,
+                fechaModificacion = this["fechaModificacion"] as? Long ?: 0L
+            )
+        } catch (e: Exception) { null }
+    }
 
     private fun Pendiente.toMap() = mapOf(
         "id" to id, "titulo" to titulo, "completado" to completado,
@@ -371,6 +419,67 @@ class SyncManager(
         col("compensaciones").document(compensacion.id).delete()
     }
 
+    // ── Storage helpers ───────────────────────────────────────────────────────
+
+    // Sube un archivo local a Storage y devuelve URL pública. Si la entrada
+    // ya es una URL https, la devuelve sin tocar.
+    private suspend fun subirArchivoSiEsLocal(rutaOUrl: String, subcarpeta: String): String {
+        if (rutaOUrl.isBlank()) return ""
+        if (rutaOUrl.startsWith("http://") || rutaOUrl.startsWith("https://")) return rutaOUrl
+        return try {
+            val uri = if (rutaOUrl.startsWith("content://") || rutaOUrl.startsWith("file://")) {
+                Uri.parse(rutaOUrl)
+            } else {
+                Uri.fromFile(java.io.File(rutaOUrl))
+            }
+            val nombre = "${java.util.UUID.randomUUID()}_${rutaOUrl.substringAfterLast('/').take(40)}"
+            val ref = storage.reference.child("familias/${familyId()}/$subcarpeta/$nombre")
+            ref.putFile(uri).await()
+            ref.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            Log.e("SyncManager", "Error subiendo archivo a Storage: ${e.message}", e)
+            rutaOUrl // fallback: deja el path local; otros celus no la verán
+        }
+    }
+
+    suspend fun insertarRecuerdo(recuerdo: Recuerdo) {
+        val urlRemota = subirArchivoSiEsLocal(recuerdo.imagenUri ?: "", "recuerdos")
+        val recFinal = recuerdo.copy(imagenUri = urlRemota.ifBlank { null })
+        db.recuerdoDao().insertarRecuerdo(recFinal)
+        col("recuerdos").document(recFinal.id).set(recFinal.toMap())
+    }
+
+    suspend fun actualizarRecuerdo(recuerdo: Recuerdo) {
+        val urlRemota = subirArchivoSiEsLocal(recuerdo.imagenUri ?: "", "recuerdos")
+        val recFinal = recuerdo.copy(imagenUri = urlRemota.ifBlank { null })
+        db.recuerdoDao().actualizarRecuerdo(recFinal)
+        col("recuerdos").document(recFinal.id).set(recFinal.toMap())
+    }
+
+    suspend fun eliminarRecuerdo(recuerdo: Recuerdo) {
+        db.recuerdoDao().eliminarRecuerdo(recuerdo)
+        col("recuerdos").document(recuerdo.id).delete()
+    }
+
+    suspend fun insertarDocumento(doc: Documento) {
+        val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
+        val docFinal = doc.copy(rutaImagen = urlImg)
+        db.documentoDao().insertar(docFinal)
+        col("documentos").document(docFinal.id).set(docFinal.toMap())
+    }
+
+    suspend fun actualizarDocumento(doc: Documento) {
+        val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
+        val docFinal = doc.copy(rutaImagen = urlImg)
+        db.documentoDao().actualizar(docFinal)
+        col("documentos").document(docFinal.id).set(docFinal.toMap())
+    }
+
+    suspend fun eliminarDocumento(doc: Documento) {
+        db.documentoDao().eliminar(doc)
+        col("documentos").document(doc.id).delete()
+    }
+
     suspend fun insertarPendiente(pendiente: Pendiente) {
         db.pendienteDao().insertar(pendiente)
         col("pendientes").document(pendiente.id).set(pendiente.toMap())
@@ -437,6 +546,19 @@ class SyncManager(
         db.compensacionDao().obtenerTodasLasCompensaciones().forEach { col("compensaciones").document(it.id).set(it.toMap()) }
         db.pendienteDao().obtenerTodos().forEach { col("pendientes").document(it.id).set(it.toMap()) }
         db.registroEdicionDao().obtenerTodos().forEach { col("registros_edicion").document(it.id).set(it.toMap()) }
+        // Recuerdos y documentos: subir imagen primero, luego metadata
+        db.recuerdoDao().obtenerTodosLosRecuerdos().forEach { rec ->
+            val urlRemota = subirArchivoSiEsLocal(rec.imagenUri ?: "", "recuerdos")
+            val recFinal = rec.copy(imagenUri = urlRemota.ifBlank { null })
+            if (recFinal.imagenUri != rec.imagenUri) db.recuerdoDao().insertarRecuerdo(recFinal)
+            col("recuerdos").document(recFinal.id).set(recFinal.toMap())
+        }
+        db.documentoDao().obtenerTodos().forEach { doc ->
+            val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
+            val docFinal = doc.copy(rutaImagen = urlImg)
+            if (docFinal.rutaImagen != doc.rutaImagen) db.documentoDao().insertar(docFinal)
+            col("documentos").document(docFinal.id).set(docFinal.toMap())
+        }
         FamilyIdManager.marcarSubidaInicial(context)
     }
 
@@ -452,7 +574,10 @@ class SyncManager(
         val onRegistrosActualizados: () -> Unit,
         val onCompensacionesActualizadas: () -> Unit,
         val onPendientesActualizados: () -> Unit,
-        val onEdicionesActualizadas: () -> Unit
+        val onEdicionesActualizadas: () -> Unit,
+        val onPlanificacionActualizada: () -> Unit,
+        val onRecuerdosActualizados: () -> Unit,
+        val onDocumentosActualizados: () -> Unit
     )
 
     fun detenerListeners() {
@@ -467,7 +592,9 @@ class SyncManager(
             cb.onEventosActualizados, cb.onGastosActualizados,
             cb.onItemsActualizados, cb.onMensajesActualizados,
             cb.onRegistrosActualizados, cb.onCompensacionesActualizadas,
-            cb.onPendientesActualizados, cb.onEdicionesActualizadas
+            cb.onPendientesActualizados, cb.onEdicionesActualizadas,
+            cb.onPlanificacionActualizada,
+            cb.onRecuerdosActualizados, cb.onDocumentosActualizados
         )
     }
 
@@ -479,18 +606,25 @@ class SyncManager(
         onRegistrosActualizados: () -> Unit = {},
         onCompensacionesActualizadas: () -> Unit = {},
         onPendientesActualizados: () -> Unit = {},
-        onEdicionesActualizadas: () -> Unit = {}
+        onEdicionesActualizadas: () -> Unit = {},
+        onPlanificacionActualizada: () -> Unit = {},
+        onRecuerdosActualizados: () -> Unit = {},
+        onDocumentosActualizados: () -> Unit = {}
     ) {
         detenerListeners()
         ultimosCallbacks = ListenerCallbacks(
             onEventosActualizados, onGastosActualizados,
             onItemsActualizados, onMensajesActualizados,
             onRegistrosActualizados, onCompensacionesActualizadas,
-            onPendientesActualizados, onEdicionesActualizadas
+            onPendientesActualizados, onEdicionesActualizadas,
+            onPlanificacionActualizada,
+            onRecuerdosActualizados, onDocumentosActualizados
         )
 
         listenerRegistrations += col("eventos").addSnapshotListener { snap, err ->
-            if (err != null || snap == null) return@addSnapshotListener
+            if (err != null) { Log.e("SyncManager", "Listener eventos ERROR: ${err.message}", err); return@addSnapshotListener }
+            if (snap == null) return@addSnapshotListener
+            Log.d("SyncManager", "Snap eventos: ${snap.documentChanges.size} cambios, fromCache=${snap.metadata.isFromCache}")
             scope.launch {
                 for (change in snap.documentChanges) {
                     when (change.type) {
@@ -520,7 +654,9 @@ class SyncManager(
         }
 
         listenerRegistrations += col("items_compra").addSnapshotListener { snap, err ->
-            if (err != null || snap == null) return@addSnapshotListener
+            if (err != null) { Log.e("SyncManager", "Listener items ERROR: ${err.message}", err); return@addSnapshotListener }
+            if (snap == null) return@addSnapshotListener
+            Log.d("SyncManager", "Snap items: ${snap.documentChanges.size} cambios, fromCache=${snap.metadata.isFromCache}")
             scope.launch {
                 for (change in snap.documentChanges) {
                     when (change.type) {
@@ -611,13 +747,49 @@ class SyncManager(
             }
         }
 
+        listenerRegistrations += col("recuerdos").addSnapshotListener { snap, err ->
+            if (err != null) { Log.e("SyncManager", "Listener recuerdos ERROR: ${err.message}", err); return@addSnapshotListener }
+            if (snap == null) return@addSnapshotListener
+            scope.launch {
+                for (change in snap.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                            change.document.data.toRecuerdo()?.let { db.recuerdoDao().insertarRecuerdo(it) }
+                        DocumentChange.Type.REMOVED ->
+                            db.recuerdoDao().eliminarPorId(change.document.id)
+                    }
+                }
+                onRecuerdosActualizados()
+            }
+        }
+
+        listenerRegistrations += col("documentos").addSnapshotListener { snap, err ->
+            if (err != null) { Log.e("SyncManager", "Listener documentos ERROR: ${err.message}", err); return@addSnapshotListener }
+            if (snap == null) return@addSnapshotListener
+            scope.launch {
+                for (change in snap.documentChanges) {
+                    when (change.type) {
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
+                            change.document.data.toDocumento()?.let { db.documentoDao().insertar(it) }
+                        DocumentChange.Type.REMOVED ->
+                            db.documentoDao().eliminarPorId(change.document.id)
+                    }
+                }
+                onDocumentosActualizados()
+            }
+        }
+
         // Listener de planificacion semanal (config/planificacion)
         listenerRegistrations += col("config").document("planificacion")
             .addSnapshotListener { snap, err ->
-                if (err != null || snap == null || !snap.exists()) return@addSnapshotListener
-                // Ignorar escrituras propias pendientes
+                if (err != null) { Log.e("SyncManager", "Listener planif ERROR: ${err.message}", err); return@addSnapshotListener }
+                if (snap == null || !snap.exists()) return@addSnapshotListener
+                Log.d("SyncManager", "Snap planif: pendingWrites=${snap.metadata.hasPendingWrites()}, fromCache=${snap.metadata.isFromCache}")
                 if (snap.metadata.hasPendingWrites()) return@addSnapshotListener
-                snap.data?.let { aplicarPlanificacionDeMap(it) }
+                snap.data?.let {
+                    aplicarPlanificacionDeMap(it)
+                    onPlanificacionActualizada()
+                }
             }
 
         Log.d("SyncManager", "Listeners activos para familia: ${familyId()}")
@@ -741,6 +913,12 @@ class SyncManager(
             }
         }
 
+        val recuerdosSnap = col("recuerdos").get().await()
+        recuerdosSnap.documents.forEach { doc -> doc.data?.toRecuerdo()?.let { db.recuerdoDao().insertarRecuerdo(it) } }
+
+        val documentosSnap = col("documentos").get().await()
+        documentosSnap.documents.forEach { doc -> doc.data?.toDocumento()?.let { db.documentoDao().insertar(it) } }
+
         // Planificación semanal
         val planSnap = col("config").document("planificacion").get().await()
         planSnap.data?.let { aplicarPlanificacionDeMap(it) }
@@ -761,6 +939,16 @@ class SyncManager(
         db.compensacionDao().obtenerTodasLasCompensaciones().forEach { otraCol("compensaciones").document(it.id).set(it.toMap()).await() }
         db.pendienteDao().obtenerTodos().forEach { otraCol("pendientes").document(it.id).set(it.toMap()).await() }
         db.registroEdicionDao().obtenerTodos().forEach { otraCol("registros_edicion").document(it.id).set(it.toMap()).await() }
+        db.recuerdoDao().obtenerTodosLosRecuerdos().forEach { rec ->
+            val urlRemota = subirArchivoSiEsLocal(rec.imagenUri ?: "", "recuerdos")
+            val recFinal = rec.copy(imagenUri = urlRemota.ifBlank { null })
+            otraCol("recuerdos").document(recFinal.id).set(recFinal.toMap()).await()
+        }
+        db.documentoDao().obtenerTodos().forEach { doc ->
+            val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
+            val docFinal = doc.copy(rutaImagen = urlImg)
+            otraCol("documentos").document(docFinal.id).set(docFinal.toMap()).await()
+        }
         // Planificación semanal
         fs.collection("familias/$otraFamilyId/config").document("planificacion").set(planificacionToMap()).await()
         Log.d("SyncManager", "Datos subidos a familia: $otraFamilyId")

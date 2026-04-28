@@ -381,7 +381,25 @@ fun PantallaDiasFijos(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(7 to "7 días", 14 to "14 días").forEach { (dias, label) ->
                         FilterChip(selected = cicloDias == dias,
-                            onClick = { cicloDias = dias; prefs.edit().putInt("dias_fijos_ciclo", dias).apply() },
+                            onClick = {
+                                if (dias != cicloDias) {
+                                    val cicloAnterior = cicloDias
+                                    // Copio slots del ciclo anterior al nuevo si los del destino estan vacios.
+                                    // Asi cambiar 7->14 conserva los 7 dias y rellena los 7 nuevos con copia.
+                                    // Cambiar 14->7 conserva los slots del ciclo 7 si fueron seteados antes (no machaca).
+                                    for (idx in 0 until dias) {
+                                        val keyDestino = "dias_fijos_slots_${dias}_${idx}"
+                                        val existente = prefs.getString(keyDestino, null)
+                                        if (existente == null) {
+                                            // tomo del ciclo anterior, modulando por si crece (idx % anterior)
+                                            val origen = prefs.getString("dias_fijos_slots_${cicloAnterior}_${idx % cicloAnterior}", null)
+                                            if (origen != null) prefs.edit().putString(keyDestino, origen).apply()
+                                        }
+                                    }
+                                }
+                                cicloDias = dias
+                                prefs.edit().putInt("dias_fijos_ciclo", dias).apply()
+                            },
                             label = { Text(label, style = MaterialTheme.typography.bodySmall) })
                     }
                 }

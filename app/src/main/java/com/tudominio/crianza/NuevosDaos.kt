@@ -48,6 +48,9 @@ interface DocumentoDao {
 
     @Delete
     suspend fun eliminar(documento: Documento)
+
+    @Query("DELETE FROM documentos WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }
 
 @Dao

@@ -72,4 +72,7 @@ interface RecuerdoDao {
 
     @Delete
     suspend fun eliminarRecuerdo(recuerdo: Recuerdo)
+
+    @Query("DELETE FROM recuerdos WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
 }

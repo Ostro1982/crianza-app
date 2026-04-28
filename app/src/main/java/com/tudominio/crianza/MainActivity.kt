@@ -191,6 +191,7 @@ fun NavegacionApp() {
     var pendientesLista by remember { mutableStateOf(listOf<Pendiente>()) }
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var edicionesRegistros by remember { mutableStateOf(mapOf<String, List<RegistroEdicion>>()) }
+    var planificacionVersion by remember { mutableStateOf(0) }
     var textoCompartidoPendiente by remember { mutableStateOf(prefs.getString("pending_share_text", "") ?: "") }
     val googleAuth = remember { GoogleAuthHelper(context) }
     var usuarioGoogle by remember { mutableStateOf(googleAuth.obtenerUsuarioActual()) }
@@ -254,7 +255,10 @@ fun NavegacionApp() {
                 onRegistrosActualizados      = { scope.launch { registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros() } },
                 onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones() } },
                 onPendientesActualizados     = { scope.launch { pendientesLista = db.pendienteDao().obtenerTodos() } },
-                onEdicionesActualizadas      = { scope.launch { edicionesRegistros = db.registroEdicionDao().obtenerTodos().groupBy { it.idRegistro } } }
+                onEdicionesActualizadas      = { scope.launch { edicionesRegistros = db.registroEdicionDao().obtenerTodos().groupBy { it.idRegistro } } },
+                onPlanificacionActualizada   = { planificacionVersion++ },
+                onRecuerdosActualizados      = { scope.launch { recuerdos = db.recuerdoDao().obtenerTodosLosRecuerdos() } },
+                onDocumentosActualizados     = { scope.launch { documentos = db.documentoDao().obtenerTodos() } }
             )
 
             // Subir datos locales a Firestore si es la primera vez
@@ -486,10 +490,13 @@ fun NavegacionApp() {
                     db.registroTiempoDao().eliminarTodos()
                     db.compensacionDao().eliminarTodos()
                     db.pendienteDao().eliminarTodos()
+                    db.recuerdoDao().obtenerTodosLosRecuerdos().forEach { db.recuerdoDao().eliminarRecuerdo(it) }
+                    db.documentoDao().obtenerTodos().forEach { db.documentoDao().eliminar(it) }
                     pantallaActual = "vincular"
                 }
             },
-            onPlanificacion = { pantallaActual = "planificacion" }
+            onPlanificacion = { pantallaActual = "planificacion" },
+            planificacionVersion = planificacionVersion
         )
         "planificacion" -> {
             PantallaDiasFijos(
@@ -722,9 +729,9 @@ fun NavegacionApp() {
         )
         "documentos" -> PantallaDocumentos(
             documentos = documentos,
-            onAgregar = { doc -> scope.launch { db.documentoDao().insertar(doc); documentos = db.documentoDao().obtenerTodos() } },
-            onActualizar = { doc -> scope.launch { db.documentoDao().actualizar(doc); documentos = db.documentoDao().obtenerTodos() } },
-            onEliminar = { doc -> scope.launch { db.documentoDao().eliminar(doc); documentos = db.documentoDao().obtenerTodos() } },
+            onAgregar = { doc -> scope.launch { syncManager.insertarDocumento(doc); documentos = db.documentoDao().obtenerTodos() } },
+            onActualizar = { doc -> scope.launch { syncManager.actualizarDocumento(doc); documentos = db.documentoDao().obtenerTodos() } },
+            onEliminar = { doc -> scope.launch { syncManager.eliminarDocumento(doc); documentos = db.documentoDao().obtenerTodos() } },
             onAtras = { pantallaActual = "principal" }
         )
         "mensajes" -> {
@@ -866,7 +873,7 @@ fun NavegacionApp() {
             recuerdos = recuerdos,
             onAgregarRecuerdo = { nuevoRecuerdo ->
                 scope.launch {
-                    db.recuerdoDao().insertarRecuerdo(nuevoRecuerdo)
+                    syncManager.insertarRecuerdo(nuevoRecuerdo)
                     recuerdos = db.recuerdoDao().obtenerTodosLosRecuerdos()
                 }
             },
@@ -874,14 +881,14 @@ fun NavegacionApp() {
                 scope.launch {
                     val recuerdo = recuerdos.find { it.id == id }
                     if (recuerdo != null) {
-                        db.recuerdoDao().eliminarRecuerdo(recuerdo)
+                        syncManager.eliminarRecuerdo(recuerdo)
                         recuerdos = db.recuerdoDao().obtenerTodosLosRecuerdos()
                     }
                 }
             },
             onEditarRecuerdo = { recuerdoEditado ->
                 scope.launch {
-                    db.recuerdoDao().actualizarRecuerdo(recuerdoEditado)
+                    syncManager.actualizarRecuerdo(recuerdoEditado)
                     recuerdos = db.recuerdoDao().obtenerTodosLosRecuerdos()
                 }
             },
@@ -1118,7 +1125,8 @@ fun PantallaPrincipal(
     onVincular: () -> Unit = {},
     onRevincular: () -> Unit = {},
     onPlanificacion: () -> Unit = {},
-    onIniciarGoogle: () -> Unit = {}
+    onIniciarGoogle: () -> Unit = {},
+    planificacionVersion: Int = 0
 ) {
     // ── Formato fecha y nombre ────────────────────────────────────────────────
     val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
@@ -1332,7 +1340,7 @@ fun PantallaPrincipal(
 
             // ── Hero: Planificación semanal ───────────────────────────────────
             if (hijos.isNotEmpty() && idPadreActual.isNotEmpty() && modo != "juntos") {
-                WidgetPlanificacionSemanal(padres = padres, onEditar = onPlanificacion)
+                WidgetPlanificacionSemanal(padres = padres, onEditar = onPlanificacion, version = planificacionVersion)
             }
 
             // ── Clima ─────────────────────────────────────────────────────────
@@ -1602,10 +1610,13 @@ fun ClimaCard() {
 @Composable
 fun WidgetPlanificacionSemanal(
     padres: List<Padre>,
-    onEditar: () -> Unit
+    onEditar: () -> Unit,
+    version: Int = 0
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
+    @Suppress("UNUSED_VARIABLE")
+    val planVersion = version  // forces recomposition when planificacion is updated remotely
     val cicloDias = prefs.getInt("dias_fijos_ciclo", 7)
     val libresAlOtro = prefs.getBoolean("dias_libres_al_otro", false)
     val padreActualId = prefs.getString("padre_actual_id", "") ?: ""

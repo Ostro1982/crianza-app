@@ -326,6 +326,8 @@ fun PantallaCuentaVincular(
                             dbLocal.compensacionDao().eliminarTodos()
                             dbLocal.pendienteDao().eliminarTodos()
                             dbLocal.registroEdicionDao().eliminarTodos()
+                            dbLocal.recuerdoDao().obtenerTodosLosRecuerdos().forEach { dbLocal.recuerdoDao().eliminarRecuerdo(it) }
+                            dbLocal.documentoDao().obtenerTodos().forEach { dbLocal.documentoDao().eliminar(it) }
                             context.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
                                 .edit().remove("padre_actual_id")
                                 .putBoolean("padre_actual_fijado", false).apply()

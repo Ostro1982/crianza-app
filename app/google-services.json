@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "56532389351-4q1dk3jgr3geqbogt4quf0en6b9mvkbn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ostro.familyapp",
+            "certificate_hash": "ec96fa0c3804dc9b32091841bb05166b5ab2cc5a"
+          }
+        },
+        {
           "client_id": "56532389351-ipvgbm0i7q1jh4touaki4bmcg94t71bh.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
