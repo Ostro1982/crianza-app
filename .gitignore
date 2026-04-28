@@ -14,3 +14,9 @@ app/build/
 
 # Gradle wrapper jar
 gradle/wrapper/gradle-wrapper.jar
+
+# Signing — NUNCA commitear estos archivos
+keystore.properties
+app/release.jks
+*.jks
+

@@ -7,12 +7,57 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:56532389351:android:d066a41b0926d46f7bc142",
+        "android_client_info": {
+          "package_name": "com.ostro.familyapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "56532389351-ipvgbm0i7q1jh4touaki4bmcg94t71bh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ostro.familyapp",
+            "certificate_hash": "4af549fcd1418a61b3fd2db5a94fd64e2681232f"
+          }
+        },
+        {
+          "client_id": "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCHO92khzMhekfp3rnd0aBZoT3n90oVVHI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:56532389351:android:8eb7529c50c57ac97bc142",
         "android_client_info": {
           "package_name": "com.ostro.semillapp"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "56532389351-aplnl2cp0mt8fld82bn22gte23tmj0ro.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ostro.semillapp",
+            "certificate_hash": "ec96fa0c3804dc9b32091841bb05166b5ab2cc5a"
+          }
+        },
         {
           "client_id": "56532389351-tg49bl11sliq31it39i0gmtntn3n510j.apps.googleusercontent.com",
           "client_type": 3
