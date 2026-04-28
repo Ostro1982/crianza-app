@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidad — Semillapp</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #F0EAD4;
+    color: #2D2A1E;
+    line-height: 1.7;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+  h1 { color: #2D4A1E; margin-bottom: 8px; }
+  h2 { color: #4A7A2A; margin-top: 32px; margin-bottom: 12px; }
+  p, li { margin-bottom: 12px; }
+  ul { padding-left: 24px; }
+  .meta { color: #5A5636; font-size: 0.9rem; margin-bottom: 24px; }
+  a { color: #4A7A2A; }
+</style>
+</head>
+<body>
+<h1>Política de Privacidad — Semillapp</h1>
+<p class="meta">Última actualización: 23 de abril de 2026</p>
+
+<p>Esta política describe cómo Semillapp (la "app") recolecta, usa y protege los datos de sus usuarios. Usar la app implica aceptar esta política.</p>
+
+<h2>1. Qué datos recolectamos</h2>
+<p>La app almacena los datos que vos ingresás manualmente para coordinar la crianza:</p>
+<ul>
+  <li><strong>Integrantes de la familia:</strong> nombres, fechas de nacimiento, roles (padre/madre/tutor) y, opcionalmente, teléfono y email de cada padre.</li>
+  <li><strong>Eventos de calendario:</strong> título, fecha, hora, ubicación, descripción.</li>
+  <li><strong>Gastos:</strong> descripción, monto, categoría, pagador, hijos asociados.</li>
+  <li><strong>Lista de compras:</strong> descripción del ítem, cantidad, precio, si es compartido o privado.</li>
+  <li><strong>Registros de tiempo:</strong> horas con cada padre, compensaciones calculadas.</li>
+  <li><strong>Mensajes internos</strong> entre los integrantes.</li>
+  <li><strong>Pendientes</strong> y tareas compartidas.</li>
+  <li><strong>Recuerdos:</strong> fotos y notas que decidas guardar en la app.</li>
+  <li><strong>Cuenta Google (opcional):</strong> email y nombre para identificarte si elegís iniciar sesión con Google, usado únicamente para vincularte con el otro padre/madre.</li>
+  <li><strong>Ubicación aproximada (opcional):</strong> solo si autorizás el permiso, para mostrar el pronóstico del clima en la pantalla principal. No se almacena ni se envía a nadie.</li>
+</ul>
+<p>La app NO recolecta datos de terceros, contactos del teléfono, historial de navegación ni publicidad.</p>
+
+<h2>2. Dónde se almacenan</h2>
+<ul>
+  <li><strong>En tu teléfono:</strong> todos los datos se guardan primero localmente (base de datos Room de Android).</li>
+  <li><strong>En la nube (Google Firebase / Firestore):</strong> los datos se sincronizan con el servicio Firebase de Google para que el otro padre pueda verlos en su teléfono. Cada familia se identifica con un código único (UUID) al que solo vos y los integrantes vinculados tienen acceso.</li>
+</ul>
+
+<h2>3. Con quién se comparten</h2>
+<p>Los datos se comparten <strong>solo con los integrantes que decidiste vincular</strong> a tu familia (escaneando un QR, ingresando un código, o buscando por email).</p>
+<p>Ningún dato se vende ni se comparte con terceros para publicidad, analytics de marketing o cualquier propósito ajeno al funcionamiento de la app.</p>
+
+<h2>4. Proveedores que usamos</h2>
+<ul>
+  <li><strong>Google Firebase (Firestore + Auth + Crashlytics):</strong> almacenamiento y sincronización de los datos entre dispositivos, autenticación opcional con Google, reporte de errores técnicos. Sujeto a la <a href="https://firebase.google.com/support/privacy">Política de Privacidad de Firebase</a>.</li>
+  <li><strong>AccuWeather:</strong> si activás el clima, se envía tu ubicación aproximada a sus servidores para obtener el pronóstico.</li>
+  <li><strong>Google ML Kit (reconocimiento de texto):</strong> procesamiento local (en tu dispositivo) de tickets cuando usás la función "escanear ticket". No se envían imágenes a internet.</li>
+</ul>
+
+<h2>5. Permisos del sistema</h2>
+<p>La app solicita los siguientes permisos, todos opcionales y explicados al momento de pedirlos:</p>
+<ul>
+  <li><strong>Cámara:</strong> para escanear códigos QR y fotos de tickets.</li>
+  <li><strong>Calendario:</strong> para importar/exportar eventos al calendario del sistema.</li>
+  <li><strong>Notificaciones:</strong> para recordatorios de eventos y cambios del otro padre.</li>
+  <li><strong>Ubicación aproximada:</strong> para mostrar el clima.</li>
+  <li><strong>Biometría (huella / PIN):</strong> para bloquear la app si lo activás.</li>
+  <li><strong>Almacenamiento de medios:</strong> para adjuntar fotos a los recuerdos.</li>
+</ul>
+
+<h2>6. Seguridad</h2>
+<p>La comunicación con Firebase ocurre siempre por HTTPS. Los datos en reposo están protegidos por las medidas de seguridad de Google Cloud. El acceso a los datos de tu familia requiere conocer el código único (UUID) de la familia.</p>
+
+<h2>7. Derechos del usuario</h2>
+<p>Podés en cualquier momento:</p>
+<ul>
+  <li><strong>Ver tus datos:</strong> todos están visibles dentro de la app.</li>
+  <li><strong>Editar o eliminar</strong> cualquier dato (padres, hijos, eventos, gastos, mensajes, etc.).</li>
+  <li><strong>Desvincular</strong> tu dispositivo de la familia desde Configuración.</li>
+  <li><strong>Reiniciar la familia</strong> (borrar todos los integrantes) desde Configuración.</li>
+  <li><strong>Desinstalar la app</strong>, lo cual elimina todos los datos locales. Si querés que también se borren los datos en la nube, escribinos.</li>
+</ul>
+
+<h2>8. Menores de edad</h2>
+<p>La app está pensada para adultos (padres y tutores). Los datos de los chicos (nombre, fecha de nacimiento) son ingresados y administrados por sus padres/tutores bajo su responsabilidad.</p>
+
+<h2>9. Cambios en esta política</h2>
+<p>Si modificamos esta política, publicaremos la nueva versión en esta misma URL con la fecha de actualización visible arriba. Los cambios significativos se comunicarán dentro de la app.</p>
+
+<h2>10. Contacto</h2>
+<p>Consultas, reclamos o pedidos de borrado: <a href="mailto:diegonoseencuentra@gmail.com">diegonoseencuentra@gmail.com</a></p>
+
+<p><a href="index.html">← Volver</a></p>
+</body>
+</html>
