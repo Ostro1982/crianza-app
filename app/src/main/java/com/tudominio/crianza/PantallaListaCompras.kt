@@ -129,7 +129,7 @@ fun PantallaListaCompras(
                 actions = {
                     if (comprados.isNotEmpty()) {
                         TextButton(onClick = onEliminarComprados) {
-                            Text("Limpiar ✓", color = Red40)
+                            Text("Limpiar ✓", color = NeutralVariant30)
                         }
                     }
                 },
@@ -334,9 +334,8 @@ fun TarjetaItemCompra(
     onEditar: () -> Unit = {},
     onEliminar: () -> Unit
 ) {
-    val targetAlpha = if (item.comprado) 0.4f else 1f
     val animBgColor by animateColorAsState(
-        targetValue = if (item.comprado) Teal90.copy(alpha = 0.4f) else Teal90,
+        targetValue = if (item.comprado) Neutral95 else Teal90,
         animationSpec = tween(350),
         label = "cardBg"
     )
@@ -344,7 +343,6 @@ fun TarjetaItemCompra(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(targetAlpha)
             .animateContentSize()
             .clip(RoundedCornerShape(16.dp))
             .background(animBgColor)
@@ -373,7 +371,7 @@ fun TarjetaItemCompra(
                         fontWeight = if (!item.comprado) FontWeight.SemiBold else FontWeight.Normal,
                         textDecoration = if (item.comprado) TextDecoration.LineThrough else TextDecoration.None,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (item.comprado) NeutralVariant50 else Neutral10
+                        color = if (item.comprado) Neutral10.copy(alpha = 0.55f) else Neutral10
                     )
                 }
                 val meta = listOfNotNull(
@@ -389,7 +387,7 @@ fun TarjetaItemCompra(
                     Text(
                         meta,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (item.comprado) NeutralVariant50.copy(alpha = 0.5f) else NeutralVariant50,
+                        color = if (item.comprado) NeutralVariant30.copy(alpha = 0.6f) else NeutralVariant50,
                         textDecoration = if (item.comprado) TextDecoration.LineThrough else TextDecoration.None
                     )
                 }
@@ -409,7 +407,7 @@ fun TarjetaItemCompra(
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Eliminar",
-                        tint = Red40.copy(alpha = 0.7f),
+                        tint = NeutralVariant50.copy(alpha = 0.7f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -871,7 +869,8 @@ fun DialogoSelectorCategoria(
 fun DialogoEditarItemCompra(
     item: ItemCompra,
     onDismiss: () -> Unit,
-    onGuardar: (ItemCompra) -> Unit
+    onGuardar: (ItemCompra) -> Unit,
+    onEliminar: (() -> Unit)? = null
 ) {
     var desc by remember { mutableStateOf(item.descripcion) }
     var cantidad by remember { mutableStateOf(item.cantidad) }
@@ -928,7 +927,17 @@ fun DialogoEditarItemCompra(
                 shape = RoundedCornerShape(12.dp)
             ) { Text("Guardar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onEliminar != null) {
+                    TextButton(
+                        onClick = onEliminar,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Eliminar") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancelar") }
+            }
+        },
         shape = RoundedCornerShape(20.dp)
     )
 }

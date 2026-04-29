@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -26,8 +27,15 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
+import android.graphics.Bitmap
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Image
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.*
@@ -619,8 +627,11 @@ fun DialogoEvento(
     evento: Evento?,
     padres: List<Padre> = emptyList(),
     onDismiss: () -> Unit,
-    onGuardar: (Evento) -> Unit
+    onGuardar: (Evento) -> Unit,
+    onEliminar: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
     var titulo by remember { mutableStateOf(evento?.titulo ?: "") }
     var fecha by remember { mutableStateOf(evento?.fecha ?: obtenerFechaActual()) }
     var desc by remember { mutableStateOf(evento?.descripcion ?: "") }
@@ -629,6 +640,9 @@ fun DialogoEvento(
     var horaFin by remember { mutableStateOf(evento?.horaFin ?: "") }
     var asistencia1 by remember { mutableStateOf(evento?.asistenciaPadre1 ?: "") }
     var asistencia2 by remember { mutableStateOf(evento?.asistenciaPadre2 ?: "") }
+    var recordatorioMin by remember {
+        mutableIntStateOf(evento?.id?.let { prefs.getInt("recordatorio_evento_$it", 0) } ?: 0)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -667,6 +681,24 @@ fun DialogoEvento(
                     label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth()
                 )
 
+                // Recordatorio
+                Divider()
+                Text(
+                    "Recordatorio",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    listOf(0 to "Sin", 30 to "30 min", 60 to "1 h", 120 to "2 h", 1440 to "1 día").forEach { (mins, label) ->
+                        FilterChip(
+                            selected = recordatorioMin == mins,
+                            onClick = { recordatorioMin = mins },
+                            label = { Text(label, style = MaterialTheme.typography.bodySmall) }
+                        )
+                    }
+                }
+
                 // Asistencia (solo al editar o si hay padres)
                 if (padres.size >= 2) {
                     Divider()
@@ -698,8 +730,11 @@ fun DialogoEvento(
                 onClick = {
                     val hIni = if (horaInicio.isNotBlank()) normalizarHora(horaInicio) else null
                     val hFin = if (horaFin.isNotBlank()) normalizarHora(horaFin) else null
+                    val nuevoId = evento?.id?.takeIf { it.isNotBlank() } ?: UUID.randomUUID().toString()
+                    if (recordatorioMin > 0) prefs.edit().putInt("recordatorio_evento_$nuevoId", recordatorioMin).apply()
+                    else prefs.edit().remove("recordatorio_evento_$nuevoId").apply()
                     onGuardar(Evento(
-                        id = evento?.id ?: UUID.randomUUID().toString(),
+                        id = nuevoId,
                         titulo = titulo, fecha = fecha, descripcion = desc,
                         ubicacion = ubicacion, horaInicio = hIni, horaFin = hFin,
                         origenEmail = evento?.origenEmail ?: false,
@@ -709,7 +744,17 @@ fun DialogoEvento(
                 enabled = titulo.isNotBlank() && fecha.isNotBlank()
             ) { Text("Guardar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (evento != null && onEliminar != null) {
+                    TextButton(
+                        onClick = onEliminar,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Eliminar") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancelar") }
+            }
+        }
     )
 }
 
@@ -1038,9 +1083,39 @@ fun DialogoGasto(
     onDismiss: () -> Unit,
     onGuardar: (Gasto) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     var desc by remember { mutableStateOf(gasto?.descripcion ?: "") }
     var monto by remember { mutableStateOf(gasto?.monto?.toString() ?: "") }
     var fecha by remember { mutableStateOf(gasto?.fecha ?: obtenerFechaActual()) }
+    var procesandoOcr by remember { mutableStateOf(false) }
+    var ocrError by remember { mutableStateOf<String?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap == null) return@rememberLauncherForActivityResult
+        procesandoOcr = true
+        ocrError = null
+        scope.launch {
+            try {
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                val image = InputImage.fromBitmap(bitmap, 0)
+                val result = recognizer.process(image).await()
+                val (d, m) = parsearTicket(result.text)
+                if (d.isNotBlank()) desc = d
+                if (m.isNotBlank()) monto = m
+                if (d.isBlank() && m.isBlank()) ocrError = "No detecté datos. Cargá manual."
+            } catch (e: Exception) {
+                ocrError = "Error: ${e.message ?: "OCR falló"}"
+            } finally {
+                procesandoOcr = false
+            }
+        }
+    }
+    val camPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) cameraLauncher.launch(null) else ocrError = "Permiso de cámara denegado" }
+    val context = LocalContext.current
     // Para nuevo gasto: defaultea al usuario actual si está configurado, si no al primero
     val defaultPagador = gasto?.idPagador
         ?: idPadreActual.ifEmpty { padres.firstOrNull()?.id ?: "" }
@@ -1057,6 +1132,20 @@ fun DialogoGasto(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                OutlinedButton(
+                    onClick = {
+                        val granted = context.checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (granted) cameraLauncher.launch(null) else camPermLauncher.launch(Manifest.permission.CAMERA)
+                    },
+                    enabled = !procesandoOcr,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.CameraAlt, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (procesandoOcr) "Leyendo ticket…" else "Foto del ticket (auto)")
+                }
+                ocrError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+
                 OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     value = monto,
@@ -1313,4 +1402,29 @@ fun DialogoRecuerdo(recuerdo: Recuerdo?, onDismiss: () -> Unit, onGuardar: (Recu
             }
         }
     )
+}
+
+private fun parsearTicket(texto: String): Pair<String, String> {
+    val lineas = texto.lines().filter { it.isNotBlank() }
+    val regexMonto = Regex("""\$?\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+[.,]?\d*)""")
+    val candidatos = mutableListOf<Double>()
+    lineas.forEach { linea ->
+        val baja = linea.lowercase()
+        val esTotal = "total" in baja || "importe" in baja || "pagar" in baja
+        regexMonto.findAll(linea).forEach { m ->
+            val raw = m.groupValues[1].replace(".", "").replace(",", ".")
+            raw.toDoubleOrNull()?.let { n ->
+                if (n >= 100 || esTotal) candidatos.add(n)
+            }
+        }
+    }
+    val monto = candidatos.maxOrNull()?.let {
+        if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+    } ?: ""
+    val desc = lineas
+        .firstOrNull { l -> l.count { it.isLetter() } >= 3 }
+        ?.take(40)
+        ?.trim()
+        ?: ""
+    return desc to monto
 }

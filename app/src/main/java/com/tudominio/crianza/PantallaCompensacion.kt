@@ -1086,7 +1086,8 @@ fun DialogoValorHora(
 fun DialogoEditarCompensacion(
     compensacion: Compensacion,
     onDismiss: () -> Unit,
-    onGuardar: (Compensacion) -> Unit
+    onGuardar: (Compensacion) -> Unit,
+    onEliminar: (() -> Unit)? = null
 ) {
     var monto by remember { mutableStateOf(compensacion.montoTotal.toString()) }
 
@@ -1110,6 +1111,14 @@ fun DialogoEditarCompensacion(
             )
         )
         Spacer(Modifier.height(24.dp))
+        if (onEliminar != null) {
+            TextButton(
+                onClick = onEliminar,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) { Text("Eliminar") }
+            Spacer(Modifier.height(8.dp))
+        }
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) {
             OutlinedButton(
                 onClick = onDismiss, modifier = Modifier.weight(1f),

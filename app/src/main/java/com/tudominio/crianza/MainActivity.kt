@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.tudominio.crianza
 
@@ -17,6 +17,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyRow
@@ -67,6 +68,11 @@ import com.tudominio.crianza.widget.SemillappWidget
 import androidx.glance.appwidget.updateAll
 
 class MainActivity : FragmentActivity() {
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        moveTaskToBack(true)
+    }
 
     // Launcher para el permiso POST_NOTIFICATIONS (Android 13+)
     private val permNotifLauncher = registerForActivityResult(
@@ -192,6 +198,10 @@ fun NavegacionApp() {
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var edicionesRegistros by remember { mutableStateOf(mapOf<String, List<RegistroEdicion>>()) }
     var planificacionVersion by remember { mutableStateOf(0) }
+    var dashboardVersion by remember { mutableStateOf(0) }
+    var eventoEditando by remember { mutableStateOf<Evento?>(null) }
+    var itemCompraEditando by remember { mutableStateOf<ItemCompra?>(null) }
+    var compensacionEditando by remember { mutableStateOf<Compensacion?>(null) }
     var textoCompartidoPendiente by remember { mutableStateOf(prefs.getString("pending_share_text", "") ?: "") }
     val googleAuth = remember { GoogleAuthHelper(context) }
     var usuarioGoogle by remember { mutableStateOf(googleAuth.obtenerUsuarioActual()) }
@@ -248,13 +258,13 @@ fun NavegacionApp() {
 
             // Iniciar sincronización Firestore (después de setear pantalla)
             syncManager.iniciarListeners(
-                onEventosActualizados        = { scope.launch { eventos         = db.eventoDao().obtenerTodosLosEventos() } },
-                onGastosActualizados         = { scope.launch { gastos          = db.gastoDao().obtenerTodosLosGastos() } },
-                onItemsActualizados          = { scope.launch { itemsCompra     = db.itemCompraDao().obtenerTodos() } },
-                onMensajesActualizados       = { scope.launch { mensajes        = db.mensajeDao().obtenerTodos() } },
+                onEventosActualizados        = { scope.launch { eventos         = db.eventoDao().obtenerTodosLosEventos(); dashboardVersion++ } },
+                onGastosActualizados         = { scope.launch { gastos          = db.gastoDao().obtenerTodosLosGastos(); dashboardVersion++ } },
+                onItemsActualizados          = { scope.launch { itemsCompra     = db.itemCompraDao().obtenerTodos(); dashboardVersion++ } },
+                onMensajesActualizados       = { scope.launch { mensajes        = db.mensajeDao().obtenerTodos(); dashboardVersion++ } },
                 onRegistrosActualizados      = { scope.launch { registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros() } },
-                onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones() } },
-                onPendientesActualizados     = { scope.launch { pendientesLista = db.pendienteDao().obtenerTodos() } },
+                onCompensacionesActualizadas = { scope.launch { compensaciones  = db.compensacionDao().obtenerTodasLasCompensaciones(); dashboardVersion++ } },
+                onPendientesActualizados     = { scope.launch { pendientesLista = db.pendienteDao().obtenerTodos(); dashboardVersion++ } },
                 onEdicionesActualizadas      = { scope.launch { edicionesRegistros = db.registroEdicionDao().obtenerTodos().groupBy { it.idRegistro } } },
                 onPlanificacionActualizada   = { planificacionVersion++ },
                 onRecuerdosActualizados      = { scope.launch { recuerdos = db.recuerdoDao().obtenerTodosLosRecuerdos() } },
@@ -496,7 +506,35 @@ fun NavegacionApp() {
                 }
             },
             onPlanificacion = { pantallaActual = "planificacion" },
-            planificacionVersion = planificacionVersion
+            planificacionVersion = planificacionVersion,
+            dashboardVersion = dashboardVersion,
+            onActualizarPendiente = { p ->
+                scope.launch { syncManager.actualizarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); dashboardVersion++; SemillappWidget().updateAll(context) }
+            },
+            onEliminarPendiente = { p ->
+                scope.launch { syncManager.eliminarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); dashboardVersion++; SemillappWidget().updateAll(context) }
+            },
+            onActualizarEvento = { ev ->
+                scope.launch { syncManager.actualizarEvento(ev); eventos = db.eventoDao().obtenerTodosLosEventos(); dashboardVersion++ }
+            },
+            onEliminarEvento = { ev ->
+                scope.launch { syncManager.eliminarEvento(ev); eventos = db.eventoDao().obtenerTodosLosEventos(); dashboardVersion++ }
+            },
+            onActualizarItemCompra = { item ->
+                scope.launch { syncManager.actualizarItem(item); dashboardVersion++ }
+            },
+            onEliminarItemCompra = { item ->
+                scope.launch { syncManager.eliminarItem(item); dashboardVersion++ }
+            },
+            onActualizarCompensacion = { c ->
+                scope.launch { syncManager.actualizarCompensacion(c); compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones(); dashboardVersion++ }
+            },
+            onEliminarCompensacion = { c ->
+                scope.launch { syncManager.eliminarCompensacion(c); compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones(); dashboardVersion++ }
+            },
+            onEditarEvento = { eventoEditando = it },
+            onEditarItemCompra = { itemCompraEditando = it },
+            onEditarCompensacion = { compensacionEditando = it }
         )
         "planificacion" -> {
             PantallaDiasFijos(
@@ -784,7 +822,6 @@ fun NavegacionApp() {
             },
             onAtras = { pantallaActual = "principal" },
             onVerEstadisticas = { pantallaActual = "estadisticas" },
-            onEscanearTicket = { pantallaActual = "escanear_ticket" },
             onReiniciarFamilia = {
                 scope.launch {
                     try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
@@ -801,29 +838,6 @@ fun NavegacionApp() {
             }
         )
         "estadisticas" -> PantallaEstadisticas(
-            onAtras = { pantallaActual = "configuracion" }
-        )
-        "escanear_ticket" -> PantallaEscanearTicket(
-            onGuardar = { desc, mon ->
-                scope.launch {
-                    val padre = padres.find { it.id == idPadreActual } ?: padres.firstOrNull()
-                    val hoy = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                        .format(java.util.Date())
-                    val nuevo = Gasto(
-                        descripcion = desc,
-                        monto = mon,
-                        fecha = hoy,
-                        idPagador = padre?.id ?: "",
-                        nombrePagador = padre?.nombre ?: "",
-                        idsHijos = hijos.map { it.id },
-                        nombresHijos = hijos.joinToString(", ") { it.nombre }
-                    )
-                    syncManager.insertarGasto(nuevo)
-                    gastos = db.gastoDao().obtenerTodosLosGastos()
-                    SemillappWidget().updateAll(context)
-                    pantallaActual = "gastos"
-                }
-            },
             onAtras = { pantallaActual = "configuracion" }
         )
         "vincular" -> {
@@ -894,6 +908,74 @@ fun NavegacionApp() {
             },
             onAtras = {
                 pantallaActual = "principal"
+            }
+        )
+    }
+
+    eventoEditando?.let { ev ->
+        DialogoEvento(
+            evento = ev,
+            padres = padres,
+            onDismiss = { eventoEditando = null },
+            onGuardar = { actualizado ->
+                eventoEditando = null
+                scope.launch {
+                    syncManager.actualizarEvento(actualizado)
+                    eventos = db.eventoDao().obtenerTodosLosEventos()
+                    dashboardVersion++
+                }
+            },
+            onEliminar = {
+                eventoEditando = null
+                scope.launch {
+                    syncManager.eliminarEvento(ev)
+                    eventos = db.eventoDao().obtenerTodosLosEventos()
+                    dashboardVersion++
+                }
+            }
+        )
+    }
+
+    itemCompraEditando?.let { item ->
+        DialogoEditarItemCompra(
+            item = item,
+            onDismiss = { itemCompraEditando = null },
+            onGuardar = { actualizado ->
+                itemCompraEditando = null
+                scope.launch {
+                    syncManager.actualizarItem(actualizado)
+                    dashboardVersion++
+                }
+            },
+            onEliminar = {
+                itemCompraEditando = null
+                scope.launch {
+                    syncManager.eliminarItem(item)
+                    dashboardVersion++
+                }
+            }
+        )
+    }
+
+    compensacionEditando?.let { c ->
+        DialogoEditarCompensacion(
+            compensacion = c,
+            onDismiss = { compensacionEditando = null },
+            onGuardar = { actualizado ->
+                compensacionEditando = null
+                scope.launch {
+                    syncManager.actualizarCompensacion(actualizado)
+                    compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
+                    dashboardVersion++
+                }
+            },
+            onEliminar = {
+                compensacionEditando = null
+                scope.launch {
+                    syncManager.eliminarCompensacion(c)
+                    compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
+                    dashboardVersion++
+                }
             }
         )
     }
@@ -1126,7 +1208,19 @@ fun PantallaPrincipal(
     onRevincular: () -> Unit = {},
     onPlanificacion: () -> Unit = {},
     onIniciarGoogle: () -> Unit = {},
-    planificacionVersion: Int = 0
+    planificacionVersion: Int = 0,
+    dashboardVersion: Int = 0,
+    onActualizarPendiente: (Pendiente) -> Unit = {},
+    onEliminarPendiente: (Pendiente) -> Unit = {},
+    onActualizarEvento: (Evento) -> Unit = {},
+    onEliminarEvento: (Evento) -> Unit = {},
+    onActualizarItemCompra: (ItemCompra) -> Unit = {},
+    onEliminarItemCompra: (ItemCompra) -> Unit = {},
+    onActualizarCompensacion: (Compensacion) -> Unit = {},
+    onEliminarCompensacion: (Compensacion) -> Unit = {},
+    onEditarEvento: (Evento) -> Unit = {},
+    onEditarItemCompra: (ItemCompra) -> Unit = {},
+    onEditarCompensacion: (Compensacion) -> Unit = {}
 ) {
     // ── Formato fecha y nombre ────────────────────────────────────────────────
     val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
@@ -1147,6 +1241,8 @@ fun PantallaPrincipal(
     var ultimoMensaje by remember { mutableStateOf<Mensaje?>(null) }
     var gastosMes by remember { mutableStateOf<List<Gasto>>(emptyList()) }
     var totalGastosMes by remember { mutableStateOf(0.0) }
+    var pendienteEditando by remember { mutableStateOf<Pendiente?>(null) }
+    var compensacionesPendientesList by remember { mutableStateOf<List<Compensacion>>(emptyList()) }
 
     // Custodia rápida: detectar si hay registros abiertos hoy para el padre actual
     val hoyStr = remember { obtenerFechaActual() }
@@ -1156,7 +1252,7 @@ fun PantallaPrincipal(
     val custodiaActiva = registrosAbiertos.isNotEmpty()
     val custodiaDesde = registrosAbiertos.firstOrNull()?.horaInicio ?: ""
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(dashboardVersion) {
         val db = AppDatabase.getInstance(context)
         val hoy = obtenerFechaActual()
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
@@ -1183,6 +1279,7 @@ fun PantallaPrincipal(
             db.compensacionDao().obtenerTodasLasCompensaciones()
         }
         compensacionesPendientes = todasCompensaciones.count { !it.confirmada }
+        compensacionesPendientesList = todasCompensaciones.filter { !it.confirmada }
 
         mensajesNoLeidos = withContext(Dispatchers.IO) { db.mensajeDao().contarNoLeidos() }
 
@@ -1339,7 +1436,7 @@ fun PantallaPrincipal(
             }
 
             // ── Hero: Planificación semanal ───────────────────────────────────
-            if (hijos.isNotEmpty() && idPadreActual.isNotEmpty() && modo != "juntos") {
+            if (hijos.isNotEmpty() && idPadreActual.isNotEmpty()) {
                 WidgetPlanificacionSemanal(padres = padres, onEditar = onPlanificacion, version = planificacionVersion)
             }
 
@@ -1387,9 +1484,12 @@ fun PantallaPrincipal(
                 // ── Próximamente + Compras ────────────────────────────────────
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     GlassCard(onClick = onCalendario, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
-                        Text("\uD83D\uDCC5", fontSize = 22.sp)
-                        Text("Próximamente", style = MaterialTheme.typography.labelLarge,
-                            color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text("\uD83D\uDCC5", fontSize = 22.sp)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Próximamente", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        }
                         Spacer(Modifier.height(4.dp))
                         val sdfIn = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
                         val sdfShort = java.text.SimpleDateFormat("EEE", java.util.Locale("es"))
@@ -1401,22 +1501,29 @@ fun PantallaPrincipal(
                                     sdfShort.format(sdfIn.parse(fecha)!!).uppercase()
                                 } catch (_: Exception) { fecha }
                                 eventos.take(1).forEach { ev ->
-                                    Text("$label ${ev.horaInicio ?: ""}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold, color = Neutral10)
-                                    Text(ev.titulo, style = MaterialTheme.typography.bodySmall,
-                                        color = NeutralVariant30, lineHeight = 16.sp)
-                                    Spacer(Modifier.height(2.dp))
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onEditarEvento(ev) }
+                                            .padding(vertical = 2.dp)
+                                    ) {
+                                        Text("$label ${ev.horaInicio ?: ""}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold, color = Neutral10)
+                                        Text(ev.titulo, style = MaterialTheme.typography.bodySmall,
+                                            color = NeutralVariant30, lineHeight = 16.sp, maxLines = 1)
+                                    }
                                 }
                             }
                         }
                     }
                     GlassCard(onClick = onListaCompras, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()) {
                             Text("\uD83D\uDED2", fontSize = 22.sp)
                             Text("Lista de compras", style = MaterialTheme.typography.labelLarge,
-                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                             if (comprasPendientes.isNotEmpty()) WarmBadge("${comprasPendientes.size}")
                         }
                         Spacer(Modifier.height(4.dp))
@@ -1424,8 +1531,18 @@ fun PantallaPrincipal(
                             Text("Lista vacía", style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
                         } else {
                             comprasPendientes.take(3).forEach { item ->
-                                Text("\u2610 ${item.descripcion}",
-                                    style = MaterialTheme.typography.bodySmall, color = Neutral10)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onEditarItemCompra(item) }
+                                        .padding(vertical = 2.dp)
+                                ) {
+                                    Text(if (item.comprado) "\u2611 " else "\u2610 ",
+                                        style = MaterialTheme.typography.bodySmall, color = Neutral10)
+                                    Text(item.descripcion,
+                                        style = MaterialTheme.typography.bodySmall, color = Neutral10, maxLines = 1)
+                                }
                             }
                         }
                     }
@@ -1434,24 +1551,67 @@ fun PantallaPrincipal(
                 // ── Pendientes + Compensación ─────────────────────────────────
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     GlassCard(onClick = onPendientes, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
-                        Text("\u2611", fontSize = 22.sp)
-                        Text("Pendientes", style = MaterialTheme.typography.labelLarge,
-                            color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
-                        Text("${tareasPendientes.size}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold, color = Neutral10)
-                        if (totalTareas > 0) {
-                            Text("de $totalTareas", style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text("\u2611", fontSize = 22.sp)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Pendientes", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text("${tareasPendientes.size}", fontWeight = FontWeight.Bold,
+                                color = Neutral10, style = MaterialTheme.typography.titleMedium)
                         }
-                        tareasPendientes.firstOrNull()?.let {
-                            Text(it.titulo, style = MaterialTheme.typography.bodySmall, color = NeutralVariant30)
+                        if (tareasPendientes.isEmpty()) {
+                            Text("Todo al d\u00eda", style = MaterialTheme.typography.bodySmall,
+                                color = NeutralVariant50, modifier = Modifier.padding(top = 8.dp))
+                        } else {
+                            tareasPendientes.take(5).forEach { p ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { pendienteEditando = p }
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = p.completado,
+                                        onCheckedChange = { onActualizarPendiente(p.copy(completado = it, fechaCompletado = if (it) System.currentTimeMillis() else 0L)) },
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(p.titulo, style = MaterialTheme.typography.bodySmall, color = NeutralVariant30, maxLines = 1)
+                                }
+                            }
+                            if (tareasPendientes.size > 5) {
+                                Text("+${tareasPendientes.size - 5} m\u00e1s", style = MaterialTheme.typography.bodySmall,
+                                    color = NeutralVariant50, modifier = Modifier.padding(top = 4.dp).clickable { onPendientes() })
+                            }
                         }
                     }
                     GlassCard(onClick = onCompensacion, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
-                        Text("\u2696", fontSize = 22.sp)
-                        Text("Compensación", style = MaterialTheme.typography.labelLarge,
-                            color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
-                        if (kotlin.math.abs(balNetoCompensacion) > 0.01) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text("\u2696", fontSize = 22.sp)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Compensación", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        }
+                        if (compensacionesPendientesList.isNotEmpty()) {
+                            compensacionesPendientesList.take(2).forEach { c ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onEditarCompensacion(c) }
+                                        .padding(vertical = 2.dp)
+                                ) {
+                                    Text("$ ${String.format("%,.0f", c.montoTotal)}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold, color = Neutral10, maxLines = 1)
+                                }
+                            }
+                            if (compensacionesPendientesList.size > 2) {
+                                Text("+${compensacionesPendientesList.size - 2} más",
+                                    style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                            }
+                        } else if (kotlin.math.abs(balNetoCompensacion) > 0.01) {
                             Text("$${String.format("%,.0f", kotlin.math.abs(balNetoCompensacion))}",
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold, color = Neutral10)
@@ -1500,6 +1660,26 @@ fun PantallaPrincipal(
             onGastos = onGastos
         )
     }
+
+    // Dialog editar pendiente desde long-press en home
+    pendienteEditando?.let { p ->
+        DialogoPendiente(
+            pendiente = p,
+            padres = padres,
+            onDismiss = { pendienteEditando = null },
+            onGuardar = { titulo, fechaLimite, asignadoA, frecuencia ->
+                onActualizarPendiente(p.copy(
+                    titulo = titulo,
+                    fechaLimite = fechaLimite,
+                    asignadoA = asignadoA,
+                    frecuenciaDias = frecuencia
+                ))
+                pendienteEditando = null
+            },
+            onEliminar = { onEliminarPendiente(p); pendienteEditando = null }
+        )
+    }
+
 }
 
 @Composable

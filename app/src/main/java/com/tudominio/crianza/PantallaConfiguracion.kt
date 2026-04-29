@@ -47,7 +47,6 @@ fun PantallaConfiguracion(
     onEliminarFiltro: (FiltroEmail) -> Unit,
     onAtras: () -> Unit,
     onVerEstadisticas: () -> Unit = {},
-    onEscanearTicket: () -> Unit = {},
     onReiniciarFamilia: () -> Unit = {}
 ) {
     var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
@@ -71,9 +70,6 @@ fun PantallaConfiguracion(
     }
     val context = LocalContext.current
     val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
-    var minutosAntesEvento by remember {
-        mutableIntStateOf(configPrefs.getInt("minutos_antes_evento", 0))
-    }
 
     var telegramToken by remember { mutableStateOf(config.telegramBotToken) }
     var chatIdPadre1 by remember { mutableStateOf(config.telegramChatIdPadre1) }
@@ -182,32 +178,6 @@ fun PantallaConfiguracion(
                 Switch(checked = notifCompras, onCheckedChange = { notifCompras = it })
             }
 
-            // ── Recordatorio de eventos ──────────────────────────────────────
-            Text(
-                "Recordatorio de eventos",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "Recibí una notificación antes de que empiece un evento.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(0 to "Off", 30 to "30 min", 60 to "1 h", 120 to "2 h", 1440 to "1 día").forEach { (mins, label) ->
-                    FilterChip(
-                        selected = minutosAntesEvento == mins,
-                        onClick = {
-                            minutosAntesEvento = mins
-                            configPrefs.edit().putInt("minutos_antes_evento", mins).apply()
-                        },
-                        label = { Text(label, style = MaterialTheme.typography.bodySmall) }
-                    )
-                }
-            }
-
-
             // ── Dispositivo ──────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -244,12 +214,6 @@ fun PantallaConfiguracion(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Ver estadísticas")
-            }
-            OutlinedButton(
-                onClick = onEscanearTicket,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Escanear ticket → gasto")
             }
 
             // ── Sync calendario ───────────────────────────────────────────────

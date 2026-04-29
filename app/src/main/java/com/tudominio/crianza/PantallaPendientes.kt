@@ -5,7 +5,9 @@ package com.tudominio.crianza
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -188,7 +190,8 @@ fun PantallaPendientes(
                 if (pendienteEditando != null) onActualizar(p) else onAgregar(p)
                 mostrarDialogo = false
                 pendienteEditando = null
-            }
+            },
+            onEliminar = pendienteEditando?.let { p -> { onEliminar(p); pendienteEditando = null } }
         )
     }
 }
@@ -260,7 +263,8 @@ fun DialogoPendiente(
     pendiente: Pendiente?,
     padres: List<Padre>,
     onDismiss: () -> Unit,
-    onGuardar: (titulo: String, fechaLimite: String, asignadoA: String, frecuenciaDias: Int) -> Unit
+    onGuardar: (titulo: String, fechaLimite: String, asignadoA: String, frecuenciaDias: Int) -> Unit,
+    onEliminar: (() -> Unit)? = null
 ) {
     var titulo by remember { mutableStateOf(pendiente?.titulo ?: "") }
     var fechaLimite by remember { mutableStateOf(pendiente?.fechaLimite ?: "") }
@@ -306,7 +310,10 @@ fun DialogoPendiente(
                     }
                 }
                 Text("Se repite:", style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
                     listOf(
                         0 to "No",
                         1 to "Diario",
@@ -316,7 +323,7 @@ fun DialogoPendiente(
                         FilterChip(
                             selected = frecuenciaDias == dias,
                             onClick = { frecuenciaDias = dias },
-                            label = { Text(label) }
+                            label = { Text(label, style = MaterialTheme.typography.bodySmall) }
                         )
                     }
                 }
@@ -328,6 +335,16 @@ fun DialogoPendiente(
                 enabled = titulo.isNotBlank()
             ) { Text("Guardar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (pendiente != null && onEliminar != null) {
+                    TextButton(
+                        onClick = onEliminar,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Eliminar") }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancelar") }
+            }
+        }
     )
 }

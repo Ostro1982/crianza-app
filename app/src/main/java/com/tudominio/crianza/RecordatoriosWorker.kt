@@ -35,7 +35,6 @@ class RecordatoriosWorker(
 
         // ── Eventos del día ──────────────────────────────────────────────────
         val configPrefs = applicationContext.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
-        val minutosAntes = configPrefs.getInt("minutos_antes_evento", 0)
         val ahora = System.currentTimeMillis()
 
         if (config.notifEventos) {
@@ -54,37 +53,39 @@ class RecordatoriosWorker(
                 }
             }
 
-            // ── Recordatorio configurable antes del evento ───────────────────
-            if (minutosAntes > 0) {
-                val mañana = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
-                    Date(ahora + 24 * 60 * 60 * 1000L)
-                )
-                todosEventos.filter { it.fecha == hoy || it.fecha == mañana }.forEach { evento ->
-                    val horaStr = evento.horaInicio ?: return@forEach
-                    val partes = horaStr.split(":").map { it.toIntOrNull() ?: 0 }
-                    val cal = Calendar.getInstance().apply {
-                        if (evento.fecha == mañana) add(Calendar.DAY_OF_YEAR, 1)
-                        set(Calendar.HOUR_OF_DAY, partes.getOrElse(0) { 0 })
-                        set(Calendar.MINUTE, partes.getOrElse(1) { 0 })
-                        set(Calendar.SECOND, 0)
+            // ── Recordatorio por evento ──────────────────────────────────────
+            // Lee override individual `recordatorio_evento_<id>` (minutos antes).
+            // 0 o ausente = sin recordatorio anticipado.
+            val mañana = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                Date(ahora + 24 * 60 * 60 * 1000L)
+            )
+            todosEventos.filter { it.fecha == hoy || it.fecha == mañana }.forEach { evento ->
+                val minutosAntes = configPrefs.getInt("recordatorio_evento_${evento.id}", 0)
+                if (minutosAntes <= 0) return@forEach
+                val horaStr = evento.horaInicio ?: return@forEach
+                val partes = horaStr.split(":").map { it.toIntOrNull() ?: 0 }
+                val cal = Calendar.getInstance().apply {
+                    if (evento.fecha == mañana) add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, partes.getOrElse(0) { 0 })
+                    set(Calendar.MINUTE, partes.getOrElse(1) { 0 })
+                    set(Calendar.SECOND, 0)
+                }
+                val notifyAt = cal.timeInMillis - minutosAntes * 60 * 1000L
+                val workerInterval = 4 * 60 * 60 * 1000L
+                val key = "rec_${evento.id}_${evento.fecha}"
+                if (key !in notificadosHoy && notifyAt in (ahora - workerInterval)..ahora) {
+                    val label = when {
+                        minutosAntes < 60 -> "en $minutosAntes min"
+                        minutosAntes == 60 -> "en 1 hora"
+                        minutosAntes < 1440 -> "en ${minutosAntes / 60} horas"
+                        else -> "mañana"
                     }
-                    val notifyAt = cal.timeInMillis - minutosAntes * 60 * 1000L
-                    val workerInterval = 4 * 60 * 60 * 1000L
-                    val key = "rec_${evento.id}_${evento.fecha}"
-                    if (key !in notificadosHoy && notifyAt in (ahora - workerInterval)..ahora) {
-                        val label = when {
-                            minutosAntes < 60 -> "en $minutosAntes min"
-                            minutosAntes == 60 -> "en 1 hora"
-                            minutosAntes < 1440 -> "en ${minutosAntes / 60} horas"
-                            else -> "mañana"
-                        }
-                        NotificacionHelper.notificar(
-                            applicationContext,
-                            "⏰ ${evento.titulo} — $label",
-                            evento.ubicacion.ifBlank { evento.descripcion.ifBlank { "Sin detalles" } }
-                        )
-                        notificadosHoy.add(key)
-                    }
+                    NotificacionHelper.notificar(
+                        applicationContext,
+                        "⏰ ${evento.titulo} — $label",
+                        evento.ubicacion.ifBlank { evento.descripcion.ifBlank { "Sin detalles" } }
+                    )
+                    notificadosHoy.add(key)
                 }
             }
         }

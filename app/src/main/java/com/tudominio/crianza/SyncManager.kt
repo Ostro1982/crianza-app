@@ -330,6 +330,8 @@ class SyncManager(
     suspend fun eliminarEvento(evento: Evento) {
         db.eventoDao().eliminarEvento(evento)
         col("eventos").document(evento.id).delete()
+        context.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
+            .edit().remove("recordatorio_evento_${evento.id}").apply()
     }
 
     suspend fun insertarGasto(gasto: Gasto) {
