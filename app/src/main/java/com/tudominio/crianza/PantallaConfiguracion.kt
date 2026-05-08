@@ -47,7 +47,9 @@ fun PantallaConfiguracion(
     onEliminarFiltro: (FiltroEmail) -> Unit,
     onAtras: () -> Unit,
     onVerEstadisticas: () -> Unit = {},
-    onReiniciarFamilia: () -> Unit = {}
+    onReiniciarFamilia: () -> Unit = {},
+    onVerTutorial: () -> Unit = {},
+    onVerTourGuiado: () -> Unit = {}
 ) {
     var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
     if (mostrarDialogoReiniciar) {
@@ -214,6 +216,18 @@ fun PantallaConfiguracion(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Ver estadísticas")
+            }
+            OutlinedButton(
+                onClick = onVerTutorial,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Ver tutorial (slides)")
+            }
+            OutlinedButton(
+                onClick = onVerTourGuiado,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Tour guiado en pantalla")
             }
 
             // ── Sync calendario ───────────────────────────────────────────────

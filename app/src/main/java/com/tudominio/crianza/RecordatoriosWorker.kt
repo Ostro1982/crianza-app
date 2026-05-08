@@ -71,7 +71,7 @@ class RecordatoriosWorker(
                     set(Calendar.SECOND, 0)
                 }
                 val notifyAt = cal.timeInMillis - minutosAntes * 60 * 1000L
-                val workerInterval = 4 * 60 * 60 * 1000L
+                val workerInterval = 20 * 60 * 1000L
                 val key = "rec_${evento.id}_${evento.fecha}"
                 if (key !in notificadosHoy && notifyAt in (ahora - workerInterval)..ahora) {
                     val label = when {
@@ -145,13 +145,13 @@ class RecordatoriosWorker(
         private const val WORK_NAME = "crianza_recordatorios"
 
         fun iniciar(context: Context) {
-            val request = PeriodicWorkRequestBuilder<RecordatoriosWorker>(4, TimeUnit.HOURS)
+            val request = PeriodicWorkRequestBuilder<RecordatoriosWorker>(15, TimeUnit.MINUTES)
                 .setInitialDelay(1, TimeUnit.MINUTES)
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.REPLACE,
                 request
             )
         }

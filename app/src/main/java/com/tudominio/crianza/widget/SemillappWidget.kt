@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionRunCallback
@@ -33,7 +32,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.tudominio.crianza.MainActivity
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -120,7 +118,7 @@ class SemillappWidget : GlanceAppWidget() {
                     .background(colorFondo)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
                     .cornerRadius(16.dp)
-                    .clickable(actionStartActivity<MainActivity>()),
+                    .clickable(actionRunCallback<OpenAppAction>()),
                 contentAlignment = Alignment.TopStart
             ) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {

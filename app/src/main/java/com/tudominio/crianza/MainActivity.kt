@@ -5,6 +5,8 @@ package com.tudominio.crianza
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -202,6 +204,7 @@ fun NavegacionApp() {
     var eventoEditando by remember { mutableStateOf<Evento?>(null) }
     var itemCompraEditando by remember { mutableStateOf<ItemCompra?>(null) }
     var compensacionEditando by remember { mutableStateOf<Compensacion?>(null) }
+    var coachmarkActivo by remember { mutableStateOf(false) }
     var textoCompartidoPendiente by remember { mutableStateOf(prefs.getString("pending_share_text", "") ?: "") }
     val googleAuth = remember { GoogleAuthHelper(context) }
     var usuarioGoogle by remember { mutableStateOf(googleAuth.obtenerUsuarioActual()) }
@@ -253,7 +256,12 @@ fun NavegacionApp() {
 
             // Solo redirigir si todavía está en "cargando" (primera carga, no rotación)
             if (pantallaActual == "cargando") {
-                pantallaActual = if (padres.isNotEmpty()) "principal" else "seleccionModo"
+                val onboardingDone = prefs.getBoolean("onboarding_completado", false)
+                pantallaActual = when {
+                    !onboardingDone -> "onboarding"
+                    padres.isNotEmpty() -> "principal"
+                    else -> "seleccionModo"
+                }
             }
 
             // Iniciar sincronización Firestore (después de setear pantalla)
@@ -367,6 +375,16 @@ fun NavegacionApp() {
         "cargando" -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
+        "onboarding" -> PantallaOnboarding(onTerminar = {
+            prefs.edit().putBoolean("onboarding_completado", true).apply()
+            val coachmarkVisto = prefs.getBoolean("coachmark_visto", false)
+            if (padres.isNotEmpty()) {
+                if (!coachmarkVisto) coachmarkActivo = true
+                pantallaActual = "principal"
+            } else {
+                pantallaActual = "seleccionModo"
+            }
+        })
         "seleccionModo" -> PantallaSeleccionModo(
             padresExisten = padres.isNotEmpty(),
             onContinuar = { pantallaActual = "principal" },
@@ -534,7 +552,12 @@ fun NavegacionApp() {
             },
             onEditarEvento = { eventoEditando = it },
             onEditarItemCompra = { itemCompraEditando = it },
-            onEditarCompensacion = { compensacionEditando = it }
+            onEditarCompensacion = { compensacionEditando = it },
+            coachmarkActivo = coachmarkActivo,
+            onTerminarCoachmark = {
+                coachmarkActivo = false
+                prefs.edit().putBoolean("coachmark_visto", true).apply()
+            }
         )
         "planificacion" -> {
             PantallaDiasFijos(
@@ -835,8 +858,14 @@ fun NavegacionApp() {
                     padreActualFijado = false
                     pantallaActual = "registroFamilia"
                 }
+            },
+            onVerTutorial = { pantallaActual = "tutorial" },
+            onVerTourGuiado = {
+                coachmarkActivo = true
+                pantallaActual = "principal"
             }
         )
+        "tutorial" -> PantallaOnboarding(onTerminar = { pantallaActual = "configuracion" })
         "estadisticas" -> PantallaEstadisticas(
             onAtras = { pantallaActual = "configuracion" }
         )
@@ -1006,14 +1035,14 @@ fun PantallaSeleccionModo(
             Text("👨‍👩‍👧‍👦", style = MaterialTheme.typography.displayMedium)
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                "Crianza",
+                "Nesty",
                 style = MaterialTheme.typography.displaySmall.copy(
                     color = Neutral10,
                     fontWeight = FontWeight.ExtraBold
                 )
             )
             Text(
-                "Compartida",
+                "Criando en conjunto",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     color = NeutralVariant30,
                     fontWeight = FontWeight.Light
@@ -1220,7 +1249,9 @@ fun PantallaPrincipal(
     onEliminarCompensacion: (Compensacion) -> Unit = {},
     onEditarEvento: (Evento) -> Unit = {},
     onEditarItemCompra: (ItemCompra) -> Unit = {},
-    onEditarCompensacion: (Compensacion) -> Unit = {}
+    onEditarCompensacion: (Compensacion) -> Unit = {},
+    coachmarkActivo: Boolean = false,
+    onTerminarCoachmark: () -> Unit = {}
 ) {
     // ── Formato fecha y nombre ────────────────────────────────────────────────
     val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
@@ -1243,6 +1274,7 @@ fun PantallaPrincipal(
     var totalGastosMes by remember { mutableStateOf(0.0) }
     var pendienteEditando by remember { mutableStateOf<Pendiente?>(null) }
     var compensacionesPendientesList by remember { mutableStateOf<List<Compensacion>>(emptyList()) }
+    var coachmarkRects by remember { mutableStateOf(mapOf<String, androidx.compose.ui.geometry.Rect>()) }
 
     // Custodia rápida: detectar si hay registros abiertos hoy para el padre actual
     val hoyStr = remember { obtenerFechaActual() }
@@ -1454,7 +1486,7 @@ fun PantallaPrincipal(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // ── Inbox (ancho completo) ────────────────────────────────────
-                GlassCard(onClick = onMensajes) {
+                GlassCard(onClick = onMensajes, modifier = Modifier.onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("inbox" to c.boundsInWindow()) }) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
@@ -1483,12 +1515,14 @@ fun PantallaPrincipal(
 
                 // ── Próximamente + Compras ────────────────────────────────────
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GlassCard(onClick = onCalendario, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                    GlassCard(onClick = onCalendario, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("eventos" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("\uD83D\uDCC5", fontSize = 22.sp)
                             Spacer(Modifier.width(6.dp))
-                            Text("Próximamente", style = MaterialTheme.typography.labelLarge,
-                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text("Eventos", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, softWrap = false,
+                                modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(4.dp))
                         val sdfIn = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
@@ -1517,13 +1551,15 @@ fun PantallaPrincipal(
                             }
                         }
                     }
-                    GlassCard(onClick = onListaCompras, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                    GlassCard(onClick = onListaCompras, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("compras" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.fillMaxWidth()) {
                             Text("\uD83D\uDED2", fontSize = 22.sp)
-                            Text("Lista de compras", style = MaterialTheme.typography.labelLarge,
-                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text("Compras", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, softWrap = false,
+                                modifier = Modifier.weight(1f))
                             if (comprasPendientes.isNotEmpty()) WarmBadge("${comprasPendientes.size}")
                         }
                         Spacer(Modifier.height(4.dp))
@@ -1550,12 +1586,14 @@ fun PantallaPrincipal(
 
                 // ── Pendientes + Compensación ─────────────────────────────────
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GlassCard(onClick = onPendientes, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                    GlassCard(onClick = onPendientes, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("tareas" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("\u2611", fontSize = 22.sp)
                             Spacer(Modifier.width(6.dp))
-                            Text("Pendientes", style = MaterialTheme.typography.labelLarge,
-                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text("Tareas", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, softWrap = false,
+                                modifier = Modifier.weight(1f))
                             Text("${tareasPendientes.size}", fontWeight = FontWeight.Bold,
                                 color = Neutral10, style = MaterialTheme.typography.titleMedium)
                         }
@@ -1586,12 +1624,14 @@ fun PantallaPrincipal(
                             }
                         }
                     }
-                    GlassCard(onClick = onCompensacion, modifier = Modifier.weight(1f).heightIn(min = 140.dp)) {
+                    GlassCard(onClick = onCompensacion, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("cuentas" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("\u2696", fontSize = 22.sp)
                             Spacer(Modifier.width(6.dp))
-                            Text("Compensación", style = MaterialTheme.typography.labelLarge,
-                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            Text("Cuentas", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, softWrap = false,
+                                modifier = Modifier.weight(1f))
                         }
                         if (compensacionesPendientesList.isNotEmpty()) {
                             compensacionesPendientesList.take(2).forEach { c ->
@@ -1631,15 +1671,16 @@ fun PantallaPrincipal(
                 }
 
                 // ── Finanzas Mes (ancho completo) ─────────────────────────────
-                GlassCard(onClick = onGastos) {
+                GlassCard(onClick = onGastos, modifier = Modifier.onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("finanzas" to c.boundsInWindow()) }) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("\uD83D\uDCB0", fontSize = 22.sp)
-                            Text("Finanzas Mes", style = MaterialTheme.typography.labelLarge,
-                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold)
+                            Text("Finanzas", style = MaterialTheme.typography.labelLarge,
+                                color = NeutralVariant50, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, softWrap = false)
                         }
                         Text("$${String.format("%,.0f", totalGastosMes)}",
                             style = MaterialTheme.typography.headlineSmall,
@@ -1659,6 +1700,10 @@ fun PantallaPrincipal(
             onDocumentos = onDocumentos,
             onGastos = onGastos
         )
+
+        if (coachmarkActivo) {
+            CoachmarkHome(rects = coachmarkRects, onTerminar = onTerminarCoachmark)
+        }
     }
 
     // Dialog editar pendiente desde long-press en home

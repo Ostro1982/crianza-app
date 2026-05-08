@@ -1,0 +1,118 @@
+═══════════════════════════════════════════════
+SEMILLAPP — Play Store Listing (es-419)
+═══════════════════════════════════════════════
+
+NOMBRE DE APP (max 30 chars)
+───────────────────────────
+Semillapp
+
+DESCRIPCIÓN CORTA (max 80 chars)
+─────────────────────────────────
+Coordinación de crianza compartida sin caos de WhatsApp.
+
+DESCRIPCIÓN LARGA (max 4000 chars)
+──────────────────────────────────
+Semillapp es la app que dos o más personas que cuidan a los mismos chicos pueden usar para coordinarse sin perder el hilo.
+
+Calendario, gastos, lista de compras, mensajes, registros de tiempo y recuerdos: todo sincronizado entre los teléfonos, en tiempo real.
+
+¿QUÉ INCLUYE?
+
+• Calendario compartido — eventos, escuela, médicos, cumpleaños. Cada padre ve los eventos del otro al instante.
+
+• Gastos — quién pagó qué, con compensación automática. Olvidate de la planilla de Excel.
+
+• Lista de compras — compartida o privada por padre. Sumás algo en tu celu y aparece en el del otro.
+
+• Registro de tiempo — horas de cuidado con cada padre. Equidad transparente.
+
+• Mensajes internos — conversación organizada, sin mezclarse con el resto del WhatsApp.
+
+• Pendientes — tareas con recordatorios y asignación.
+
+• Recuerdos — fotos y notas de los chicos, sincronizadas entre los celus.
+
+• Documentos — partidas, libretas, recetas. Encriptados localmente.
+
+• Planificación semanal — horarios fijos de custodia visibles en la pantalla principal.
+
+VINCULACIÓN
+
+Vincular dos celulares es un escaneo de QR. No hay grupos, no hay invitaciones por email obligatorias. Funciona desde el primer minuto.
+
+PRIVACIDAD
+
+Los datos se sincronizan a través de Firebase con autenticación. Solo los miembros vinculados a tu familia ven tus datos. Documentos sensibles se encriptan en el dispositivo.
+
+Ideal para padres separados, familias con cuidado compartido, abuelos que ayudan, o cualquier dúo que se reparte el día a día con los chicos.
+
+═══════════════════════════════════════════════
+
+RELEASE NOTES (max 500 chars)
+─────────────────────────────
+Versión 3.0 — Primera versión pública.
+• Calendario, gastos, mensajes y compras sincronizados entre celus.
+• Registro de tiempo y compensación automática.
+• Recuerdos con fotos y documentos encriptados.
+• Planificación semanal fija en la pantalla principal.
+• Login con Google, vinculación por QR.
+
+═══════════════════════════════════════════════
+
+CATEGORÍA: Estilo de vida (Lifestyle) — alternativa: Productividad
+ETIQUETAS: familia, crianza, calendario, gastos
+PÚBLICO: 13+ (mayores de edad que cuidan menores)
+PAÍS: Argentina (default), expandir LATAM después
+
+═══════════════════════════════════════════════
+
+DATA SAFETY (Play Console form)
+───────────────────────────────
+Datos recolectados:
+
+1. Personal info
+   - Email (login Google) — REQUIRED — for app functionality (account)
+   - Name (de Google) — OPTIONAL — for app functionality (display)
+
+2. Photos and videos
+   - Photos — OPTIONAL — for app functionality (recuerdos feature)
+   - Encrypted: yes (in transit + at rest in Firebase Storage)
+
+3. Files and docs
+   - Documents — OPTIONAL — for app functionality (documentos feature)
+   - Encrypted with user-side key before upload: yes
+
+4. App activity
+   - In-app actions — OPTIONAL — for analytics (Firebase Analytics)
+
+5. Device or other IDs
+   - Device ID — REQUIRED — for app functionality
+
+Data sharing: NO se comparten datos con terceros (excepto procesadores: Google Firebase).
+Data deletion: usuario puede borrar cuenta desvinculando familia (revincular reset).
+Encryption in transit: SI (HTTPS/TLS Firebase).
+
+═══════════════════════════════════════════════
+
+CONTENT RATING
+──────────────
+Tipo de app: Productivity / Lifestyle (no juego)
+Violencia: No
+Sexual: No
+Profanidad: No
+Drogas/alcohol: No
+Apuestas: No
+Generación user-generated content: SI (mensajes internos entre padres)
+Lokalización: SI usa
+Personal info: SI recolecta (email Google)
+
+Resultado esperado: PEGI 3 / IARC General audiences.
+
+═══════════════════════════════════════════════
+
+TARGET AUDIENCE
+───────────────
+Mayores de 13 años (intended audience: adultos cuidadores)
+NO designed for children.
+
+═══════════════════════════════════════════════
