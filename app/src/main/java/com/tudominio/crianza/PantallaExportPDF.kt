@@ -41,7 +41,7 @@ fun PantallaExportPDF(
     var mensaje by remember { mutableStateOf<String?>(null) }
     var generando by remember { mutableStateOf(false) }
 
-    val titulo = if (tipo == TipoExportPDF.CUSTODIA) "Exportar PDF custodia" else "Exportar PDF gastos"
+    val titulo = if (tipo == TipoExportPDF.CUSTODIA) "Resumen días con los chicos" else "Resumen de gastos"
     val nombreArchivo: () -> String = {
         val pref = if (tipo == TipoExportPDF.CUSTODIA) "custodia" else "gastos"
         val ts = SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())
@@ -105,9 +105,9 @@ fun PantallaExportPDF(
             ) {
                 Text(
                     if (tipo == TipoExportPDF.CUSTODIA)
-                        "El PDF incluye días de custodia de cada padre, porcentajes del período y detalle cronológico. Lleva un hash SHA-256 al pie para validar la autenticidad ante el juzgado."
+                        "Resumen ordenado de los días que tuvo a los chicos cada uno, porcentajes del período y detalle día por día. Lleva una firma técnica al pie por si necesitás validar el archivo más adelante."
                     else
-                        "El PDF incluye lista de gastos del período, recibos adjuntos (cuando hay), compensaciones registradas y total acumulado. Hash SHA-256 al pie.",
+                        "Resumen ordenado de gastos del período, recibos adjuntos (cuando hay), compensaciones registradas y total acumulado. Lleva una firma técnica al pie.",
                     style = MaterialTheme.typography.bodySmall,
                     color = NeutralVariant30
                 )

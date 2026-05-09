@@ -23,8 +23,8 @@ android {
         applicationId = "com.ostro.familyapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 13
-        versionName = "13.0"
+        versionCode = 20
+        versionName = "20.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

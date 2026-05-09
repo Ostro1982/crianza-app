@@ -33,7 +33,8 @@ fun PantallaConfiguracion(
     onVerTourGuiado: () -> Unit = {},
     onVerHistorialCambios: () -> Unit = {},
     onExportarPDFCustodia: () -> Unit = {},
-    onExportarPDFGastos: () -> Unit = {}
+    onExportarPDFGastos: () -> Unit = {},
+    onCustodyScheduler: () -> Unit = {}
 ) {
     var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
     var mostrarDialogoCambiarIdentidad by remember { mutableStateOf(false) }
@@ -128,14 +129,14 @@ fun PantallaConfiguracion(
             SwitchRow("Lista de compras", notifCompras) { notifCompras = it }
             SwitchRow("Recordatorios de custodia", notifCustodia) { notifCustodia = it }
 
-            // ── Co-parenting (moneda + modo frozen) ──────────────────────────
+            // ── Preferencias familia ─────────────────────────────────────────
             Spacer(Modifier.height(8.dp))
-            Text("Co-parenting",
+            Text("Preferencias",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
-            // Moneda
+            // Moneda — dropdown
             Column {
                 Text("Moneda", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Text(
@@ -144,24 +145,53 @@ fun PantallaConfiguracion(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
-                val opciones = listOf("ARS", "MXN", "CLP", "COP", "PEN", "UYU", "USD", "EUR")
-                FlowRowCompat(opciones) { op ->
-                    val sel = moneda == op
-                    FilterChip(
-                        selected = sel,
-                        onClick = { moneda = op },
-                        label = { Text(op) }
+                var monedaExpandida by remember { mutableStateOf(false) }
+                val opciones = listOf(
+                    "ARS" to "Pesos argentinos (ARS)",
+                    "MXN" to "Pesos mexicanos (MXN)",
+                    "CLP" to "Pesos chilenos (CLP)",
+                    "COP" to "Pesos colombianos (COP)",
+                    "PEN" to "Soles peruanos (PEN)",
+                    "UYU" to "Pesos uruguayos (UYU)",
+                    "USD" to "Dólares (USD)",
+                    "EUR" to "Euros (EUR)"
+                )
+                val labelActual = opciones.firstOrNull { it.first == moneda }?.second ?: moneda
+                ExposedDropdownMenuBox(
+                    expanded = monedaExpandida,
+                    onExpandedChange = { monedaExpandida = it }
+                ) {
+                    OutlinedTextField(
+                        value = labelActual,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monedaExpandida) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
+                    ExposedDropdownMenu(
+                        expanded = monedaExpandida,
+                        onDismissRequest = { monedaExpandida = false }
+                    ) {
+                        opciones.forEach { (codigo, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    moneda = codigo
+                                    monedaExpandida = false
+                                }
+                            )
+                        }
+                    }
                 }
             }
-            // Frozen
+            // Frozen — opcional, lenguaje suave
             Column {
-                Text("Bloquear edición de registros pasados",
+                Text("Bloquear cambios viejos",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    "Después de N días, los gastos/eventos/registros no se pueden editar (evidencia inalterable). 0 = desactivado.",
+                    "Después de N días los gastos y registros quedan fijos. Útil si necesitás dejar el historial estable. 0 = siempre se pueden editar.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -173,23 +203,39 @@ fun PantallaConfiguracion(
                 )
             }
 
-            // ── Evidencia / PDF legal ────────────────────────────────────────
+            // ── Plan de custodia ─────────────────────────────────────────────
             Spacer(Modifier.height(8.dp))
-            Text("Evidencia legal",
+            Text("Plan de custodia",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                "Documentos firmados con hash, presentables en mediación o juzgado de familia.",
+                "Elegí un patrón (2-2-3, semana on/off, etc) y la app crea los registros de día por día. Después podés tocar cualquier día para ajustarlo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(onClick = onCustodyScheduler, modifier = Modifier.fillMaxWidth()) {
+                Text("Configurar plan de custodia")
+            }
+
+            // ── Reportes y resumen ───────────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text("Reportes y resumen",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Generá un PDF ordenado de gastos o días con los chicos. Sirve para repasar el mes, mandar a la otra persona o, si hace falta, presentar en una mediación.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             OutlinedButton(onClick = onExportarPDFCustodia, modifier = Modifier.fillMaxWidth()) {
-                Text("Exportar PDF custodia")
+                Text("Resumen de días con los chicos (PDF)")
             }
             OutlinedButton(onClick = onExportarPDFGastos, modifier = Modifier.fillMaxWidth()) {
-                Text("Exportar PDF gastos")
+                Text("Resumen de gastos (PDF)")
             }
             OutlinedButton(onClick = onVerHistorialCambios, modifier = Modifier.fillMaxWidth()) {
                 Text("Ver historial de cambios")

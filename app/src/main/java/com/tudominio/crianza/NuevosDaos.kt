@@ -137,3 +137,21 @@ interface PendienteDao {
     @Query("DELETE FROM pendientes")
     suspend fun eliminarTodos()
 }
+
+@Dao
+interface CustodyScheduleDao {
+    @Query("SELECT * FROM custody_schedules ORDER BY fechaCreacion DESC")
+    suspend fun obtenerTodos(): List<CustodySchedule>
+
+    @Query("SELECT * FROM custody_schedules WHERE id = :id")
+    suspend fun obtenerPorId(id: String): CustodySchedule?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertar(schedule: CustodySchedule)
+
+    @Delete
+    suspend fun eliminar(schedule: CustodySchedule)
+
+    @Query("DELETE FROM custody_schedules WHERE id = :id")
+    suspend fun eliminarPorId(id: String)
+}

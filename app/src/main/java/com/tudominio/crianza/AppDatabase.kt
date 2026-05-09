@@ -24,9 +24,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Mensaje::class,
         CategoriaCompra::class,
         Pendiente::class,
-        RegistroEdicion::class
+        RegistroEdicion::class,
+        CustodySchedule::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -45,6 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoriaCompraDao(): CategoriaCompraDao
     abstract fun pendienteDao(): PendienteDao
     abstract fun registroEdicionDao(): RegistroEdicionDao
+    abstract fun custodyScheduleDao(): CustodyScheduleDao
 
     companion object {
         @Volatile
@@ -118,6 +120,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v20 → v21: custody scheduler. Agrega tabla custody_schedules y marca de
+        // origen en registros_tiempo para poder regenerar/borrar batch.
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE registros_tiempo ADD COLUMN origenSchedule TEXT NOT NULL DEFAULT ''")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS custody_schedules (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        patron TEXT NOT NULL,
+                        fechaInicio TEXT NOT NULL,
+                        mesesGenerados INTEGER NOT NULL DEFAULT 6,
+                        idPadreA TEXT NOT NULL,
+                        idPadreB TEXT NOT NULL,
+                        idsHijos TEXT NOT NULL DEFAULT '',
+                        horaInicio TEXT NOT NULL DEFAULT '00:00',
+                        horaFin TEXT NOT NULL DEFAULT '23:59',
+                        fechaCreacion INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
         private val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -144,7 +168,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     .addMigrations(
                         MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
-                        MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20
+                        MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
+                        MIGRATION_20_21
                     )
                     // Solo destruye en downgrade (improbable). Upgrade requiere migration explícita.
                     .fallbackToDestructiveMigrationOnDowngrade()

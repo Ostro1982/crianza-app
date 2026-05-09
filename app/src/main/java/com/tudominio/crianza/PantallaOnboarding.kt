@@ -36,8 +36,8 @@ private val slides = listOf(
     ),
     OnboardingSlide(
         "📑",
-        "Evidencia legal lista",
-        "Tus gastos, días de custodia y cambios quedan registrados con hash. Exportás PDF firmado para mediación o juzgado."
+        "Resúmenes ordenados",
+        "Exportás un PDF de gastos o días con los chicos para repasar el mes, mandar a la otra persona o guardar para tu tranquilidad."
     )
 )
 

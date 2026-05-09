@@ -73,7 +73,7 @@ object PDFExporter {
         val pHead = Paint().apply { color = Color.BLACK; textSize = 10f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
         val pFooter = Paint().apply { color = Color.GRAY; textSize = 8f }
 
-        canvas.drawText("Reporte de custodia — Nesty", MARGEN.toFloat(), (y + 14).toFloat(), pTitulo); y += 24
+        canvas.drawText("Resumen de días con los chicos — Nesty", MARGEN.toFloat(), (y + 14).toFloat(), pTitulo); y += 24
         canvas.drawText("Familia: $familyId", MARGEN.toFloat(), y.toFloat(), pSubt); y += 14
         canvas.drawText("Período: ${rango.desde} a ${rango.hasta}", MARGEN.toFloat(), y.toFloat(), pSubt); y += 18
 
@@ -112,8 +112,8 @@ object PDFExporter {
         // Footer con hash en la última página
         val genTime = sdfDoc.format(Date())
         canvas.drawText("Generado: $genTime", MARGEN.toFloat(), (PAGE_H - 30).toFloat(), pFooter)
-        canvas.drawText("Hash SHA-256 del contenido: $hash", MARGEN.toFloat(), (PAGE_H - 18).toFloat(), pFooter)
-        canvas.drawText("Verificable contra registro Firestore mediante oficio al proveedor (Nesty).",
+        canvas.drawText("Firma SHA-256: $hash", MARGEN.toFloat(), (PAGE_H - 18).toFloat(), pFooter)
+        canvas.drawText("Generado por Nesty. La firma SHA-256 permite verificar el contenido.",
             MARGEN.toFloat(), (PAGE_H - 8).toFloat(), pFooter)
         doc.finishPage(page)
 
@@ -164,7 +164,7 @@ object PDFExporter {
         val pHead = Paint().apply { color = Color.BLACK; textSize = 10f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
         val pFooter = Paint().apply { color = Color.GRAY; textSize = 8f }
 
-        canvas.drawText("Reporte de gastos — Nesty", MARGEN.toFloat(), (y + 14).toFloat(), pTitulo); y += 24
+        canvas.drawText("Resumen de gastos — Nesty", MARGEN.toFloat(), (y + 14).toFloat(), pTitulo); y += 24
         canvas.drawText("Familia: $familyId", MARGEN.toFloat(), y.toFloat(), pSubt); y += 14
         canvas.drawText("Período: ${rango.desde} a ${rango.hasta}    Moneda: $moneda", MARGEN.toFloat(), y.toFloat(), pSubt); y += 18
 
@@ -226,8 +226,8 @@ object PDFExporter {
         // Footer
         val genTime = sdfDoc.format(Date())
         canvas.drawText("Generado: $genTime", MARGEN.toFloat(), (PAGE_H - 30).toFloat(), pFooter)
-        canvas.drawText("Hash SHA-256 del contenido: $hash", MARGEN.toFloat(), (PAGE_H - 18).toFloat(), pFooter)
-        canvas.drawText("Verificable contra registro Firestore mediante oficio al proveedor (Nesty).",
+        canvas.drawText("Firma SHA-256: $hash", MARGEN.toFloat(), (PAGE_H - 18).toFloat(), pFooter)
+        canvas.drawText("Generado por Nesty. La firma SHA-256 permite verificar el contenido.",
             MARGEN.toFloat(), (PAGE_H - 8).toFloat(), pFooter)
         doc.finishPage(page)
 

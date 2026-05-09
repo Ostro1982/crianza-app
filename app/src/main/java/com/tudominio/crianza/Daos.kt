@@ -48,6 +48,9 @@ interface RegistroTiempoDao {
 
     @Query("DELETE FROM registros_tiempo")
     suspend fun eliminarTodos()
+
+    @Query("DELETE FROM registros_tiempo WHERE origenSchedule = :scheduleId")
+    suspend fun eliminarPorOrigenSchedule(scheduleId: String)
 }
 
 @Dao

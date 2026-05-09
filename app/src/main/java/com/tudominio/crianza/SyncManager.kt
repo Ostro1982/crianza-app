@@ -49,6 +49,14 @@ class SyncManager(
     private fun familyId() = FamilyIdManager.obtenerFamilyId(context)
     private fun col(nombre: String) = fs.collection("familias/${familyId()}/$nombre")
 
+    // Silencia rechazos async de Firestore (PERMISSION_DENIED, etc.) para que no
+    // crasheen la app. Los rejects de fire-and-forget writes que no tengan listener
+    // adjunto van al UncaughtExceptionHandler. Esta extension log + descarta.
+    private fun <T> com.google.android.gms.tasks.Task<T>.q(): com.google.android.gms.tasks.Task<T> {
+        addOnFailureListener { e -> Log.w("SyncManager", "Firestore write rechazado: ${e.message}") }
+        return this
+    }
+
     // ── Serialización ────────────────────────────────────────────────────────
 
     private fun Padre.toMap() = mapOf(
@@ -120,7 +128,8 @@ class SyncManager(
         "idPadre" to idPadre, "nombrePadre" to nombrePadre,
         "fecha" to fecha, "horaInicio" to horaInicio, "horaFin" to horaFin,
         "fechaCompleta" to fechaCompleta, "esTodosLosHijos" to esTodosLosHijos,
-        "autocompensado" to autocompensado
+        "autocompensado" to autocompensado,
+        "origenSchedule" to origenSchedule
     )
 
     private fun Compensacion.toMap() = mapOf(
@@ -299,7 +308,8 @@ class SyncManager(
                 horaFin = this["horaFin"] as? String ?: "",
                 fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
                 esTodosLosHijos = this["esTodosLosHijos"] as? Boolean ?: false,
-                autocompensado = this["autocompensado"] as? Boolean ?: false
+                autocompensado = this["autocompensado"] as? Boolean ?: false,
+                origenSchedule = this["origenSchedule"] as? String ?: ""
             )
         } catch (e: Exception) { null }
     }
@@ -342,12 +352,12 @@ class SyncManager(
 
     suspend fun insertarEvento(evento: Evento) {
         db.eventoDao().insertarEvento(evento)
-        col("eventos").document(evento.id).set(evento.toMap())
+        col("eventos").document(evento.id).set(evento.toMap()).q()
     }
 
     suspend fun actualizarEvento(evento: Evento) {
         db.eventoDao().actualizarEvento(evento)
-        col("eventos").document(evento.id).set(evento.toMap())
+        col("eventos").document(evento.id).set(evento.toMap()).q()
     }
 
     suspend fun eliminarEvento(evento: Evento) {
@@ -359,12 +369,12 @@ class SyncManager(
 
     suspend fun insertarGasto(gasto: Gasto) {
         db.gastoDao().insertarGasto(gasto)
-        col("gastos").document(gasto.id).set(gasto.toMap())
+        col("gastos").document(gasto.id).set(gasto.toMap()).q()
     }
 
     suspend fun actualizarGasto(gasto: Gasto) {
         db.gastoDao().actualizarGasto(gasto)
-        col("gastos").document(gasto.id).set(gasto.toMap())
+        col("gastos").document(gasto.id).set(gasto.toMap()).q()
     }
 
     suspend fun eliminarGasto(gasto: Gasto) {
@@ -374,12 +384,12 @@ class SyncManager(
 
     suspend fun insertarItem(item: ItemCompra) {
         db.itemCompraDao().insertar(item)
-        if (!item.esPrivado) col("items_compra").document(item.id).set(item.toMap())
+        if (!item.esPrivado) col("items_compra").document(item.id).set(item.toMap()).q()
     }
 
     suspend fun actualizarItem(item: ItemCompra) {
         db.itemCompraDao().actualizar(item)
-        if (!item.esPrivado) col("items_compra").document(item.id).set(item.toMap())
+        if (!item.esPrivado) col("items_compra").document(item.id).set(item.toMap()).q()
     }
 
     suspend fun eliminarItem(item: ItemCompra) {
@@ -389,12 +399,12 @@ class SyncManager(
 
     suspend fun insertarMensaje(mensaje: Mensaje) {
         db.mensajeDao().insertar(mensaje)
-        col("mensajes").document(mensaje.id).set(mensaje.toMap())
+        col("mensajes").document(mensaje.id).set(mensaje.toMap()).q()
     }
 
     suspend fun insertarRegistro(registro: RegistroTiempo) {
         db.registroTiempoDao().insertarRegistro(registro)
-        col("registros_tiempo").document(registro.id).set(registro.toMap())
+        col("registros_tiempo").document(registro.id).set(registro.toMap()).q()
     }
 
     suspend fun actualizarRegistro(registro: RegistroTiempo) {
@@ -409,10 +419,10 @@ class SyncManager(
                 autocompensadoAnterior = anterior.autocompensado
             )
             db.registroEdicionDao().insertar(edicion)
-            col("registros_edicion").document(edicion.id).set(edicion.toMap())
+            col("registros_edicion").document(edicion.id).set(edicion.toMap()).q()
         }
         db.registroTiempoDao().actualizarRegistro(registro)
-        col("registros_tiempo").document(registro.id).set(registro.toMap())
+        col("registros_tiempo").document(registro.id).set(registro.toMap()).q()
     }
 
     suspend fun eliminarRegistro(registro: RegistroTiempo) {
@@ -431,12 +441,12 @@ class SyncManager(
 
     suspend fun insertarCompensacion(compensacion: Compensacion) {
         db.compensacionDao().insertarCompensacion(compensacion)
-        col("compensaciones").document(compensacion.id).set(compensacion.toMap())
+        col("compensaciones").document(compensacion.id).set(compensacion.toMap()).q()
     }
 
     suspend fun actualizarCompensacion(compensacion: Compensacion) {
         db.compensacionDao().actualizarCompensacion(compensacion)
-        col("compensaciones").document(compensacion.id).set(compensacion.toMap())
+        col("compensaciones").document(compensacion.id).set(compensacion.toMap()).q()
     }
 
     suspend fun eliminarCompensacion(compensacion: Compensacion) {
@@ -471,14 +481,14 @@ class SyncManager(
         val urlRemota = subirArchivoSiEsLocal(recuerdo.imagenUri ?: "", "recuerdos")
         val recFinal = recuerdo.copy(imagenUri = urlRemota.ifBlank { null })
         db.recuerdoDao().insertarRecuerdo(recFinal)
-        col("recuerdos").document(recFinal.id).set(recFinal.toMap())
+        col("recuerdos").document(recFinal.id).set(recFinal.toMap()).q()
     }
 
     suspend fun actualizarRecuerdo(recuerdo: Recuerdo) {
         val urlRemota = subirArchivoSiEsLocal(recuerdo.imagenUri ?: "", "recuerdos")
         val recFinal = recuerdo.copy(imagenUri = urlRemota.ifBlank { null })
         db.recuerdoDao().actualizarRecuerdo(recFinal)
-        col("recuerdos").document(recFinal.id).set(recFinal.toMap())
+        col("recuerdos").document(recFinal.id).set(recFinal.toMap()).q()
     }
 
     suspend fun eliminarRecuerdo(recuerdo: Recuerdo) {
@@ -490,14 +500,14 @@ class SyncManager(
         val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
         val docFinal = doc.copy(rutaImagen = urlImg)
         db.documentoDao().insertar(docFinal)
-        col("documentos").document(docFinal.id).set(docFinal.toMap())
+        col("documentos").document(docFinal.id).set(docFinal.toMap()).q()
     }
 
     suspend fun actualizarDocumento(doc: Documento) {
         val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
         val docFinal = doc.copy(rutaImagen = urlImg)
         db.documentoDao().actualizar(docFinal)
-        col("documentos").document(docFinal.id).set(docFinal.toMap())
+        col("documentos").document(docFinal.id).set(docFinal.toMap()).q()
     }
 
     suspend fun eliminarDocumento(doc: Documento) {
@@ -507,12 +517,12 @@ class SyncManager(
 
     suspend fun insertarPendiente(pendiente: Pendiente) {
         db.pendienteDao().insertar(pendiente)
-        col("pendientes").document(pendiente.id).set(pendiente.toMap())
+        col("pendientes").document(pendiente.id).set(pendiente.toMap()).q()
     }
 
     suspend fun actualizarPendiente(pendiente: Pendiente) {
         db.pendienteDao().actualizar(pendiente)
-        col("pendientes").document(pendiente.id).set(pendiente.toMap())
+        col("pendientes").document(pendiente.id).set(pendiente.toMap()).q()
     }
 
     suspend fun eliminarPendiente(pendiente: Pendiente) {
@@ -540,19 +550,22 @@ class SyncManager(
             "nombre" to usuario.nombre,
             "fotoUrl" to (usuario.fotoUrl ?: ""),
             "familyId" to fid
-        ))
+        )).q()
         // Lookup público mínimo: permite invite-by-email sin exponer PII.
         if (usuario.email.isNotBlank()) {
             fs.collection("lookup_emails").document(emailKey(usuario.email)).set(mapOf(
                 "familyId" to fid,
                 "nombre" to usuario.nombre,
                 "uid" to usuario.id
-            ))
+            )).q()
         }
     }
 
     // Registra emails de padres locales para que otros puedan encontrarlos sin Google Sign-In
     fun registrarEmailsPadres(padres: List<Padre>) {
+        // Si el usuario aún no tiene auth (Google login), las reglas niegan el write.
+        // Saltear silenciosamente para evitar excepciones uncaught.
+        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) return
         val fid = familyId()
         padres.filter { it.email.isNotBlank() }.forEach { padre ->
             // Ghost user dentro de la familia (sin PII fuera de miembros).
@@ -561,13 +574,13 @@ class SyncManager(
                 "nombre" to padre.nombre,
                 "fotoUrl" to "",
                 "familyId" to fid
-            ))
+            )).q()
             // Lookup público mínimo.
             fs.collection("lookup_emails").document(emailKey(padre.email)).set(mapOf(
                 "familyId" to fid,
                 "nombre" to padre.nombre,
                 "uid" to "padre_${padre.id}"
-            ))
+            )).q()
         }
     }
 
@@ -589,26 +602,26 @@ class SyncManager(
 
     suspend fun subirDatosLocalesIfNeeded() {
         if (!FamilyIdManager.necesitaSubidaInicial(context)) return
-        db.eventoDao().obtenerTodosLosEventos().forEach { col("eventos").document(it.id).set(it.toMap()) }
-        db.gastoDao().obtenerTodosLosGastos().forEach { col("gastos").document(it.id).set(it.toMap()) }
-        db.itemCompraDao().obtenerTodos().filter { !it.esPrivado }.forEach { col("items_compra").document(it.id).set(it.toMap()) }
-        db.mensajeDao().obtenerTodos().forEach { col("mensajes").document(it.id).set(it.toMap()) }
-        db.registroTiempoDao().obtenerTodosLosRegistros().forEach { col("registros_tiempo").document(it.id).set(it.toMap()) }
-        db.compensacionDao().obtenerTodasLasCompensaciones().forEach { col("compensaciones").document(it.id).set(it.toMap()) }
-        db.pendienteDao().obtenerTodos().forEach { col("pendientes").document(it.id).set(it.toMap()) }
-        db.registroEdicionDao().obtenerTodos().forEach { col("registros_edicion").document(it.id).set(it.toMap()) }
+        db.eventoDao().obtenerTodosLosEventos().forEach { col("eventos").document(it.id).set(it.toMap()).q() }
+        db.gastoDao().obtenerTodosLosGastos().forEach { col("gastos").document(it.id).set(it.toMap()).q() }
+        db.itemCompraDao().obtenerTodos().filter { !it.esPrivado }.forEach { col("items_compra").document(it.id).set(it.toMap()).q() }
+        db.mensajeDao().obtenerTodos().forEach { col("mensajes").document(it.id).set(it.toMap()).q() }
+        db.registroTiempoDao().obtenerTodosLosRegistros().forEach { col("registros_tiempo").document(it.id).set(it.toMap()).q() }
+        db.compensacionDao().obtenerTodasLasCompensaciones().forEach { col("compensaciones").document(it.id).set(it.toMap()).q() }
+        db.pendienteDao().obtenerTodos().forEach { col("pendientes").document(it.id).set(it.toMap()).q() }
+        db.registroEdicionDao().obtenerTodos().forEach { col("registros_edicion").document(it.id).set(it.toMap()).q() }
         // Recuerdos y documentos: subir imagen primero, luego metadata
         db.recuerdoDao().obtenerTodosLosRecuerdos().forEach { rec ->
             val urlRemota = subirArchivoSiEsLocal(rec.imagenUri ?: "", "recuerdos")
             val recFinal = rec.copy(imagenUri = urlRemota.ifBlank { null })
             if (recFinal.imagenUri != rec.imagenUri) db.recuerdoDao().insertarRecuerdo(recFinal)
-            col("recuerdos").document(recFinal.id).set(recFinal.toMap())
+            col("recuerdos").document(recFinal.id).set(recFinal.toMap()).q()
         }
         db.documentoDao().obtenerTodos().forEach { doc ->
             val urlImg = subirArchivoSiEsLocal(doc.rutaImagen, "documentos")
             val docFinal = doc.copy(rutaImagen = urlImg)
             if (docFinal.rutaImagen != doc.rutaImagen) db.documentoDao().insertar(docFinal)
-            col("documentos").document(docFinal.id).set(docFinal.toMap())
+            col("documentos").document(docFinal.id).set(docFinal.toMap()).q()
         }
         FamilyIdManager.marcarSubidaInicial(context)
     }

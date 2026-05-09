@@ -198,6 +198,7 @@ fun NavegacionApp() {
     var pendientesLista by remember { mutableStateOf(listOf<Pendiente>()) }
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var edicionesRegistros by remember { mutableStateOf(mapOf<String, List<RegistroEdicion>>()) }
+    var custodyScheduleActivo by remember { mutableStateOf<CustodySchedule?>(null) }
     var planificacionVersion by remember { mutableStateOf(0) }
     var dashboardVersion by remember { mutableStateOf(0) }
     var eventoEditando by remember { mutableStateOf<Evento?>(null) }
@@ -239,6 +240,7 @@ fun NavegacionApp() {
             categoriasCompra = db.categoriaCompraDao().obtenerTodas()
             edicionesRegistros = db.registroEdicionDao().obtenerTodos()
                 .groupBy { it.idRegistro }
+            custodyScheduleActivo = db.custodyScheduleDao().obtenerTodos().firstOrNull()
 
             // Auto-seleccionar: si el ID guardado no existe en la familia actual, resetear
             if (padres.isNotEmpty()) {
@@ -550,6 +552,8 @@ fun NavegacionApp() {
             onEditarItemCompra = { itemCompraEditando = it },
             onEditarCompensacion = { compensacionEditando = it },
             coachmarkActivo = coachmarkActivo,
+            custodySchedule = custodyScheduleActivo,
+            eventosSemanaList = eventos,
             onTerminarCoachmark = {
                 coachmarkActivo = false
                 prefs.edit().putBoolean("coachmark_visto", true).apply()
@@ -827,6 +831,7 @@ fun NavegacionApp() {
             onVerHistorialCambios = { pantallaActual = "historial" },
             onExportarPDFCustodia = { pantallaActual = "pdf_custodia" },
             onExportarPDFGastos = { pantallaActual = "pdf_gastos" },
+            onCustodyScheduler = { pantallaActual = "custody_scheduler" },
             onReiniciarFamilia = {
                 scope.launch {
                     try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
@@ -862,12 +867,28 @@ fun NavegacionApp() {
             tipo = TipoExportPDF.GASTOS,
             onAtras = { pantallaActual = "configuracion" }
         )
+        "custody_scheduler" -> {
+            PantallaCustodyScheduler(
+                padres = padres,
+                hijos = hijos,
+                onAtras = {
+                    scope.launch {
+                        registrosTiempo = db.registroTiempoDao().obtenerTodosLosRegistros()
+                        custodyScheduleActivo = db.custodyScheduleDao().obtenerTodos().firstOrNull()
+                        planificacionVersion++ // fuerza recomposición widget Semana
+                        dashboardVersion++
+                    }
+                    pantallaActual = "configuracion"
+                }
+            )
+        }
         "vincular" -> {
-            // Al abrir vincular: subir familia (padres/hijos) + planificación + emails
+            // Al abrir vincular: subir familia (padres/hijos) + planificación + emails.
+            // Sin login Google las reglas Firestore rechazan; envolvemos todo para no crashear.
             LaunchedEffect(Unit) {
                 try { syncManager.subirFamiliaBasica() } catch (_: Exception) {}
-                syncManager.subirPlanificacion()
-                syncManager.registrarEmailsPadres(padres)
+                try { syncManager.subirPlanificacion() } catch (_: Exception) {}
+                try { syncManager.registrarEmailsPadres(padres) } catch (_: Exception) {}
             }
             PantallaCuentaVincular(
             usuarioActual = usuarioGoogle,
@@ -1244,7 +1265,9 @@ fun PantallaPrincipal(
     onEditarItemCompra: (ItemCompra) -> Unit = {},
     onEditarCompensacion: (Compensacion) -> Unit = {},
     coachmarkActivo: Boolean = false,
-    onTerminarCoachmark: () -> Unit = {}
+    onTerminarCoachmark: () -> Unit = {},
+    custodySchedule: CustodySchedule? = null,
+    eventosSemanaList: List<Evento> = emptyList()
 ) {
     // ── Formato fecha y nombre ────────────────────────────────────────────────
     val sdfDisplay = remember { java.text.SimpleDateFormat("EEEE, d 'de' MMMM", java.util.Locale("es")) }
@@ -1462,7 +1485,13 @@ fun PantallaPrincipal(
 
             // ── Hero: Planificación semanal ───────────────────────────────────
             if (hijos.isNotEmpty() && idPadreActual.isNotEmpty()) {
-                WidgetPlanificacionSemanal(padres = padres, onEditar = onPlanificacion, version = planificacionVersion)
+                WidgetPlanificacionSemanal(
+                    padres = padres,
+                    onEditar = onPlanificacion,
+                    version = planificacionVersion,
+                    custodySchedule = custodySchedule,
+                    eventos = eventosSemanaList
+                )
             }
 
             // ── Clima ─────────────────────────────────────────────────────────
@@ -1829,7 +1858,9 @@ fun ClimaCard() {
 fun WidgetPlanificacionSemanal(
     padres: List<Padre>,
     onEditar: () -> Unit,
-    version: Int = 0
+    version: Int = 0,
+    custodySchedule: CustodySchedule? = null,
+    eventos: List<Evento> = emptyList()
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
@@ -1841,6 +1872,7 @@ fun WidgetPlanificacionSemanal(
     val otroPadreId = padres.firstOrNull { it.id != padreActualId }?.id ?: ""
     val nombresDias = listOf("L", "M", "X", "J", "V", "S", "D")
 
+    val sdfDia = remember { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()) }
     val cal = remember {
         java.util.Calendar.getInstance().also { c ->
             val daysFromMon = (c.get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
@@ -1854,7 +1886,40 @@ fun WidgetPlanificacionSemanal(
             c.get(java.util.Calendar.DAY_OF_MONTH)
         }
     }
+    val weekDateStrings = remember(custodySchedule) {
+        (0..6).map { i ->
+            val c = cal.clone() as java.util.Calendar
+            c.add(java.util.Calendar.DAY_OF_YEAR, i)
+            sdfDia.format(c.time)
+        }
+    }
     val hoyDow = (java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) + 5) % 7
+
+    // Padre asignado por día según custody schedule (si hay).
+    fun padreIdSegunSchedule(idx: Int): String? {
+        val sched = custodySchedule ?: return null
+        val fechaInicio = sdfDia.parse(sched.fechaInicio) ?: return null
+        val cDia = (cal.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, idx) }
+        val offsetDias = ((cDia.timeInMillis - fechaInicio.time) / (24L * 60L * 60L * 1000L)).toInt()
+        if (offsetDias < 0) return null  // antes del inicio del plan
+        val cuál = CustodyScheduleGenerator.Patrones.padreEnDia(sched.patron, offsetDias)
+        return if (cuál == CustodyScheduleGenerator.PadreEnCiclo.A) sched.idPadreA else sched.idPadreB
+    }
+
+    // Minutos restados por eventos en una fecha (cualquier evento con horario en ese día
+    // se asume que el chico está fuera de la "custodia" en ese rango).
+    fun minutosRestadosPorEventos(fechaStr: String): Int {
+        return eventos.filter { it.fecha == fechaStr && !it.horaInicio.isNullOrBlank() && !it.horaFin.isNullOrBlank() }
+            .sumOf { ev ->
+                val ini = ev.horaInicio?.split(":")?.mapNotNull { it.toIntOrNull() } ?: emptyList()
+                val fin = ev.horaFin?.split(":")?.mapNotNull { it.toIntOrNull() } ?: emptyList()
+                if (ini.size == 2 && fin.size == 2) {
+                    val im = ini[0] * 60 + ini[1]
+                    val fm = fin[0] * 60 + fin[1]
+                    (fm - im).coerceAtLeast(0)
+                } else 0
+            }
+    }
 
     val colorP1 = Teal40
     val colorP2 = Color(0xFF8B4A20)
@@ -1906,10 +1971,22 @@ fun WidgetPlanificacionSemanal(
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 nombresDias.forEachIndexed { idx, nombre ->
-                    val schedIdx = idx % cicloDias
-                    val slots = readDaySlots(schedIdx)
-                    val minsP0 = dayMinutes(slots, padres.getOrNull(0)?.id ?: "")
-                    val minsP1 = dayMinutes(slots, padres.getOrNull(1)?.id ?: "")
+                    // Si hay custody schedule activo, sobreescribe el cálculo legacy.
+                    val padreScheduleId = padreIdSegunSchedule(idx)
+                    val (rawMinsP0, rawMinsP1) = if (padreScheduleId != null) {
+                        // Día completo (24h = 1440 min) al padre asignado por el plan
+                        val p0Id = padres.getOrNull(0)?.id ?: ""
+                        if (padreScheduleId == p0Id) Pair(1440, 0) else Pair(0, 1440)
+                    } else {
+                        val schedIdx = idx % cicloDias
+                        val slots = readDaySlots(schedIdx)
+                        Pair(dayMinutes(slots, padres.getOrNull(0)?.id ?: ""),
+                             dayMinutes(slots, padres.getOrNull(1)?.id ?: ""))
+                    }
+                    // Restar minutos de eventos del día (actividades fijas: el chico está fuera).
+                    val resta = minutosRestadosPorEventos(weekDateStrings[idx])
+                    val minsP0 = (rawMinsP0 - if (rawMinsP0 > 0) resta else 0).coerceAtLeast(0)
+                    val minsP1 = (rawMinsP1 - if (rawMinsP1 > 0 && rawMinsP0 == 0) resta else 0).coerceAtLeast(0)
                     val totalM = minsP0 + minsP1
                     val esHoy = idx == hoyDow
                     val alpha = if (esHoy) 0.7f else 0.4f

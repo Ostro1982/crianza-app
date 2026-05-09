@@ -21,7 +21,8 @@ data class RegistroTiempo(
     val horaFin: String, // HH:MM
     val fechaCompleta: Long = System.currentTimeMillis(),
     val esTodosLosHijos: Boolean = false,
-    val autocompensado: Boolean = false // No entra a deuda de compensación
+    val autocompensado: Boolean = false, // No entra a deuda de compensación
+    val origenSchedule: String = ""      // ID del CustodySchedule que lo generó. "" = manual.
 )
 
 @Entity(tableName = "registros_edicion")
@@ -230,6 +231,29 @@ data class Pendiente(
     // Recurrencia: 0 = no recurrente, 1 = diario, 7 = semanal, 30 = mensual
     val frecuenciaDias: Int = 0,
     val fechaCompletado: Long = 0L  // timestamp ms, para saber cuándo reactivar
+)
+
+/**
+ * Plantilla de custodia que genera registros de tiempo en lote.
+ * Patrones soportados:
+ *  "223"        — 2-2-3 (clásico de coparenting)
+ *  "5050"       — semana on / semana off
+ *  "5225"       — 5-2-2-5
+ *  "2255"       — 2-2-5-5
+ *  "wknd_alt"   — fines de semana alternos (Lun-Vie A; Sáb-Dom alterna)
+ */
+@Entity(tableName = "custody_schedules")
+data class CustodySchedule(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val patron: String,
+    val fechaInicio: String,        // YYYY-MM-DD del Día 0 del ciclo
+    val mesesGenerados: Int = 6,
+    val idPadreA: String,
+    val idPadreB: String,
+    val idsHijos: String = "",      // CSV de IDs hijos. "" = todos.
+    val horaInicio: String = "00:00",
+    val horaFin: String = "23:59",
+    val fechaCreacion: Long = System.currentTimeMillis()
 )
 
 // Modelo para solicitudes de vinculación entre familias (no persistido en Room)
