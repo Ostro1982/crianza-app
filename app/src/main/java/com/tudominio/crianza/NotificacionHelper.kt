@@ -85,10 +85,10 @@ object NotificacionHelper {
         notificar(context, "📅 Nuevo evento: $titulo", "Fecha: $fecha")
 
     fun notificarGasto(context: Context, descripcion: String, monto: Double) =
-        notificar(context, "💳 Nuevo gasto registrado", "$descripcion — $${"%.2f".format(monto)}")
+        notificar(context, "💳 Nuevo gasto registrado", "$descripcion — ${Moneda.formatear(monto, MonedaConfig.actual)}")
 
     fun notificarCompensacion(context: Context, monto: Double) =
-        notificar(context, "⚖️ Nueva compensación", "Se ha registrado una compensación de $${"%.2f".format(monto)}")
+        notificar(context, "⚖️ Nueva compensación", "Se ha registrado una compensación de ${Moneda.formatear(monto, MonedaConfig.actual)}")
 
     fun notificarItemCompra(context: Context, descripcion: String) =
         notificar(context, "🛒 Nuevo ítem en compras", descripcion)

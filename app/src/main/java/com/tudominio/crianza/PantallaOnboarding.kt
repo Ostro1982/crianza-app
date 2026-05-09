@@ -26,63 +26,18 @@ private data class OnboardingSlide(
 private val slides = listOf(
     OnboardingSlide(
         "🌱",
-        "Bienvenido a Nesty",
-        "Coordinación de crianza compartida sin caos. Todos los adultos a cargo, en sincronía."
-    ),
-    OnboardingSlide(
-        "🏠",
-        "Inicio",
-        "El dashboard te muestra resumen del día: próximos eventos, compras pendientes, tareas y cuentas. Tocá una tarjeta para entrar a su sección."
-    ),
-    OnboardingSlide(
-        "📅",
-        "Eventos",
-        "Calendario compartido. Cumpleaños, médico, escuela, vacaciones. Todos los adultos ven los mismos eventos. Tocá + para crear, tocá un evento para editarlo."
-    ),
-    OnboardingSlide(
-        "🛒",
-        "Lista de compras",
-        "Lo que falta en casa, sin duplicados. Cualquier adulto puede agregar items. Cuando comprás, lo marcás y se actualiza para todos."
-    ),
-    OnboardingSlide(
-        "✅",
-        "Tareas",
-        "Pendientes con responsable: pagar el cole, comprar útiles, llevar al médico. Quien lo hace, lo marca. Tareas recurrentes se reactivan solas."
-    ),
-    OnboardingSlide(
-        "💰",
-        "Gastos y Cuentas",
-        "Cargá lo que gastás en los chicos. La app calcula automáticamente cuánto debe cada uno y la compensación final."
-    ),
-    OnboardingSlide(
-        "💬",
-        "Mensajes",
-        "Chat interno entre los adultos. Mensajes cortos sobre el día a día sin tener que abrir WhatsApp."
-    ),
-    OnboardingSlide(
-        "📸",
-        "Recuerdos",
-        "Subí fotos y notas de momentos importantes. Compartido con todos los adultos. Los chicos crecen sin que se pierda nada."
-    ),
-    OnboardingSlide(
-        "⏱",
-        "Tiempo",
-        "Registro de custodia: quién tuvo a los chicos cada día. Se calcula porcentaje automático del mes."
+        "Co-parenting sin caos",
+        "Nesty ordena la crianza compartida entre dos hogares: calendario, gastos, tareas y compensaciones automáticas."
     ),
     OnboardingSlide(
         "👪",
         "Conectá a tu familia",
-        "En Configuración encontrás el código familiar. Compartilo con el otro adulto a cargo y se sincroniza todo en tiempo real."
+        "En Configuración tenés un código familiar. Compartilo con el otro adulto y todo se sincroniza en tiempo real."
     ),
     OnboardingSlide(
-        "🔔",
-        "Notificaciones",
-        "Activalas para recibir avisos de eventos próximos, pendientes vencidos y mensajes nuevos. Andá a Settings → Apps → Nesty si no las viste."
-    ),
-    OnboardingSlide(
-        "✨",
-        "Listo para empezar",
-        "Agregá tu primer evento, gasto o registro. Podés ver este tutorial de nuevo desde Configuración → Ver tutorial."
+        "📑",
+        "Evidencia legal lista",
+        "Tus gastos, días de custodia y cambios quedan registrados con hash. Exportás PDF firmado para mediación o juzgado."
     )
 )
 

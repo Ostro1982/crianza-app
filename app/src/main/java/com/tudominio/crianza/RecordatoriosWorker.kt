@@ -119,6 +119,37 @@ class RecordatoriosWorker(
             }
         }
 
+        // ── Recordatorio de custodia (mañana me toca) ───────────────────────
+        // Si hay un registro de tiempo programado para mañana asignado a mi padre actual,
+        // notifica una sola vez por día. Toggle: notifCustodia.
+        if (config.notifCustodia) {
+            val miIdPadre = configPrefs.getString("padre_actual_id", "") ?: ""
+            if (miIdPadre.isNotBlank()) {
+                val mañana = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                    Date(ahoraMs + 24 * 60 * 60 * 1000L)
+                )
+                val registrosMañana = db.registroTiempoDao().obtenerTodosLosRegistros()
+                    .filter { it.fecha == mañana && it.idPadre == miIdPadre }
+                if (registrosMañana.isNotEmpty()) {
+                    val key = "custodia_$mañana"
+                    if (key !in notificadosHoy) {
+                        val hijos = registrosMañana
+                            .map { it.nombreHijo }
+                            .distinct()
+                            .joinToString(", ")
+                        val rangos = registrosMañana
+                            .joinToString(" • ") { "${it.horaInicio}–${it.horaFin}" }
+                        NotificacionHelper.notificar(
+                            applicationContext,
+                            "👶 Mañana te toca: $hijos",
+                            rangos
+                        )
+                        notificadosHoy.add(key)
+                    }
+                }
+            }
+        }
+
         // ── Compras sin comprar hace más de 3 días ──────────────────────────
         val tresDiasMs = 3 * 24 * 60 * 60 * 1000L
         val comprasViejas = db.itemCompraDao().obtenerCompartidos()

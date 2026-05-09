@@ -19,7 +19,6 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Compensacion::class,
         Recuerdo::class,
         ConfiguracionIntegracion::class,
-        FiltroEmail::class,
         ItemCompra::class,
         Documento::class,
         Mensaje::class,
@@ -27,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Pendiente::class,
         RegistroEdicion::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -40,7 +39,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun compensacionDao(): CompensacionDao
     abstract fun recuerdoDao(): RecuerdoDao
     abstract fun configuracionIntegracionDao(): ConfiguracionIntegracionDao
-    abstract fun filtroEmailDao(): FiltroEmailDao
     abstract fun itemCompraDao(): ItemCompraDao
     abstract fun documentoDao(): DocumentoDao
     abstract fun mensajeDao(): MensajeDao
@@ -56,6 +54,15 @@ abstract class AppDatabase : RoomDatabase() {
         private val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE gastos ADD COLUMN categoria TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // v15 → v16: agregar autocompensado a registros_tiempo/gastos y tipoCompensacion a compensaciones
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE registros_tiempo ADD COLUMN autocompensado INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE gastos ADD COLUMN autocompensado INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE compensaciones ADD COLUMN tipoCompensacion TEXT NOT NULL DEFAULT 'dinero'")
             }
         }
 
@@ -76,6 +83,38 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_gastos_idPagador ON gastos(idPagador)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_pendientes_completado ON pendientes(completado)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_pendientes_fechaLimite ON pendientes(fechaLimite)")
+            }
+        }
+
+        // v19 → v20: cleanup integraciones (Telegram/Email/WhatsApp) y nuevos campos co-parenting.
+        // Recrea configuracion_integracion (SQLite no soporta DROP COLUMN en versiones < 3.35).
+        // Borra tabla filtros_email completa (entidad eliminada).
+        // Agrega columnas: idPagoFotoUri (gastos) — foto recibo. esEvidencia (mensajes) — para futuro lock.
+        private val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS filtros_email")
+
+                db.execSQL("""
+                    CREATE TABLE configuracion_integracion_new (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        notifEventos INTEGER NOT NULL DEFAULT 1,
+                        notifGastos INTEGER NOT NULL DEFAULT 1,
+                        notifCompensaciones INTEGER NOT NULL DEFAULT 1,
+                        notifCompras INTEGER NOT NULL DEFAULT 1,
+                        notifCustodia INTEGER NOT NULL DEFAULT 1,
+                        frozenDias INTEGER NOT NULL DEFAULT 0,
+                        moneda TEXT NOT NULL DEFAULT 'ARS'
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO configuracion_integracion_new (id, notifEventos, notifGastos, notifCompensaciones, notifCompras, notifCustodia, frozenDias, moneda)
+                    SELECT id, notifEventos, notifGastos, notifCompensaciones, notifCompras, 1, 0, 'ARS' FROM configuracion_integracion
+                """.trimIndent())
+                db.execSQL("DROP TABLE configuracion_integracion")
+                db.execSQL("ALTER TABLE configuracion_integracion_new RENAME TO configuracion_integracion")
+
+                // Foto recibo gasto (Tier 2 #7)
+                db.execSQL("ALTER TABLE gastos ADD COLUMN reciboFotoUri TEXT NOT NULL DEFAULT ''")
             }
         }
 
@@ -103,8 +142,12 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "crianza_database"
                 )
-                    .addMigrations(MIGRATION_14_15, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(
+                        MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
+                        MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20
+                    )
+                    // Solo destruye en downgrade (improbable). Upgrade requiere migration explícita.
+                    .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
                 instance

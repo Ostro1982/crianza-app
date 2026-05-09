@@ -12,8 +12,30 @@
 -keep @androidx.room.Database class * { *; }
 -dontwarn androidx.room.paging.**
 
-# Entidades del proyecto (reflection via Room)
--keep class com.tudominio.crianza.** { *; }
+# Entidades del proyecto (reflection via Room) — solo lo necesario, no todo el package.
+# Las anotaciones @Entity / @Dao / @Database ya están preservadas en las reglas Room arriba,
+# pero las data classes con propiedades inicializadas requieren preservar constructores.
+-keep @androidx.room.Entity class com.tudominio.crianza.** { <init>(...); *; }
+-keep @androidx.room.Dao class com.tudominio.crianza.** { *; }
+-keep @androidx.room.Database class com.tudominio.crianza.** { *; }
+-keep @androidx.room.TypeConverter class com.tudominio.crianza.** { *; }
+-keep class com.tudominio.crianza.Converters { *; }
+
+# Workers: WorkManager los instancia por className.
+-keep class com.tudominio.crianza.RecordatoriosWorker { <init>(...); }
+-keep class com.tudominio.crianza.SincronizacionWorker { <init>(...); }
+-keep class com.tudominio.crianza.ResumenSemanalWorker { <init>(...); }
+
+# Glance ActionCallbacks: instanciados por reflection desde el widget host.
+-keep class com.tudominio.crianza.widget.OpenAppAction { <init>(...); *; }
+-keep class com.tudominio.crianza.widget.CicloTipoAction { <init>(...); *; }
+-keep class com.tudominio.crianza.widget.SemillappWidget { <init>(...); *; }
+-keep class com.tudominio.crianza.widget.SemillappWidgetReceiver { <init>(...); *; }
+
+# Componentes declarados en manifest: AGP los preserva, pero hacemos explícito.
+-keep class com.tudominio.crianza.MainActivity { *; }
+-keep class com.tudominio.crianza.WhatsAppListenerService { *; }
+-keep class com.tudominio.crianza.widget.SemillappWidgetConfigActivity { *; }
 
 # ── Firebase / Google Services ──────────────────────────────────────────────
 -keep class com.google.firebase.** { *; }

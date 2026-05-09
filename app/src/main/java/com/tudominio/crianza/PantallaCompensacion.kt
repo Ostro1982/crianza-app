@@ -593,7 +593,7 @@ private fun TiempoCard(
                     Text("$${String.format("%.2f", valorHora)} / $tipoTxt", color = NeutralVariant50, style = MaterialTheme.typography.labelSmall)
                 }
                 Text(
-                    "$${String.format("%.2f", montoTiempo)}",
+                    Moneda.formatear(montoTiempo, MonedaConfig.actual),
                     color = Neutral10,
                     fontWeight = FontWeight.Black,
                     fontSize = 22.sp,
@@ -712,7 +712,7 @@ private fun SeccionGastos(
         Spacer(Modifier.width(10.dp))
         Text(titulo, color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.weight(1f))
-        Text("$${String.format("%,.2f", total)}", color = accentColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+        Text(Moneda.formatear(total, MonedaConfig.actual), color = accentColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
     }
     Spacer(Modifier.height(12.dp))
     FilaProporcional(p1.nombre, v1, total, accentColor)
@@ -801,7 +801,7 @@ private fun PagoCard(
                 val displayText = when (tipoComp) {
                     "horas" -> "${String.format("%.1f", horasDeuda)} hs"
                     "dias" -> "${String.format("%.1f", horasDeuda / 24)} días"
-                    else -> "$${String.format("%,.2f", monto)}"
+                    else -> Moneda.formatear(monto, MonedaConfig.actual)
                 }
                 Text(
                     displayText,
@@ -941,7 +941,7 @@ private fun HistorialCard(
                 val montoDisplay = when (comp.tipoCompensacion) {
                     "horas" -> "${String.format("%.1f", comp.horasCompensadas)} hs"
                     "dias" -> "${String.format("%.1f", comp.horasCompensadas / 24)} días"
-                    else -> "$${String.format("%,.2f", comp.montoTotal)}"
+                    else -> Moneda.formatear(comp.montoTotal, MonedaConfig.actual)
                 }
                 Text(
                     montoDisplay,

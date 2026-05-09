@@ -192,7 +192,6 @@ fun NavegacionApp() {
     var compensaciones by remember { mutableStateOf(listOf<Compensacion>()) }
     var recuerdos by remember { mutableStateOf(listOf<Recuerdo>()) }
     var configuracionIntegracion by remember { mutableStateOf(ConfiguracionIntegracion()) }
-    var filtrosEmail by remember { mutableStateOf(listOf<FiltroEmail>()) }
     var itemsCompra by remember { mutableStateOf(listOf<ItemCompra>()) }
     var documentos by remember { mutableStateOf(listOf<Documento>()) }
     var mensajes by remember { mutableStateOf(listOf<Mensaje>()) }
@@ -231,7 +230,8 @@ fun NavegacionApp() {
             compensaciones = db.compensacionDao().obtenerTodasLasCompensaciones()
             recuerdos = db.recuerdoDao().obtenerTodosLosRecuerdos()
             configuracionIntegracion = db.configuracionIntegracionDao().obtener() ?: ConfiguracionIntegracion()
-            filtrosEmail = db.filtroEmailDao().obtenerTodos()
+            MonedaConfig.actual = configuracionIntegracion.moneda
+            Frozen.diasActuales = configuracionIntegracion.frozenDias
             itemsCompra = db.itemCompraDao().obtenerTodos()
             documentos = db.documentoDao().obtenerTodos()
             mensajes = db.mensajeDao().obtenerTodos()
@@ -239,10 +239,6 @@ fun NavegacionApp() {
             categoriasCompra = db.categoriaCompraDao().obtenerTodas()
             edicionesRegistros = db.registroEdicionDao().obtenerTodos()
                 .groupBy { it.idRegistro }
-
-            if (configuracionIntegracion.habilitarTelegram || configuracionIntegracion.habilitarEmail) {
-                SincronizacionWorker.iniciar(context)
-            }
 
             // Auto-seleccionar: si el ID guardado no existe en la familia actual, resetear
             if (padres.isNotEmpty()) {
@@ -818,33 +814,19 @@ fun NavegacionApp() {
         )
         "configuracion" -> PantallaConfiguracion(
             config = configuracionIntegracion,
-            filtros = filtrosEmail,
-            padres = padres,
             onGuardarConfig = { nueva ->
                 scope.launch {
                     db.configuracionIntegracionDao().guardar(nueva)
                     configuracionIntegracion = nueva
-                    if (nueva.habilitarTelegram || nueva.habilitarEmail) {
-                        SincronizacionWorker.iniciar(context)
-                    } else {
-                        SincronizacionWorker.detener(context)
-                    }
-                }
-            },
-            onAgregarFiltro = { filtro ->
-                scope.launch {
-                    db.filtroEmailDao().insertar(filtro)
-                    filtrosEmail = db.filtroEmailDao().obtenerTodos()
-                }
-            },
-            onEliminarFiltro = { filtro ->
-                scope.launch {
-                    db.filtroEmailDao().eliminar(filtro)
-                    filtrosEmail = db.filtroEmailDao().obtenerTodos()
+                    MonedaConfig.actual = nueva.moneda
+                    Frozen.diasActuales = nueva.frozenDias
                 }
             },
             onAtras = { pantallaActual = "principal" },
             onVerEstadisticas = { pantallaActual = "estadisticas" },
+            onVerHistorialCambios = { pantallaActual = "historial" },
+            onExportarPDFCustodia = { pantallaActual = "pdf_custodia" },
+            onExportarPDFGastos = { pantallaActual = "pdf_gastos" },
             onReiniciarFamilia = {
                 scope.launch {
                     try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
@@ -867,6 +849,17 @@ fun NavegacionApp() {
         )
         "tutorial" -> PantallaOnboarding(onTerminar = { pantallaActual = "configuracion" })
         "estadisticas" -> PantallaEstadisticas(
+            onAtras = { pantallaActual = "configuracion" }
+        )
+        "historial" -> PantallaHistorialCambios(
+            onAtras = { pantallaActual = "configuracion" }
+        )
+        "pdf_custodia" -> PantallaExportPDF(
+            tipo = TipoExportPDF.CUSTODIA,
+            onAtras = { pantallaActual = "configuracion" }
+        )
+        "pdf_gastos" -> PantallaExportPDF(
+            tipo = TipoExportPDF.GASTOS,
             onAtras = { pantallaActual = "configuracion" }
         )
         "vincular" -> {
@@ -1642,7 +1635,7 @@ fun PantallaPrincipal(
                                         .clickable { onEditarCompensacion(c) }
                                         .padding(vertical = 2.dp)
                                 ) {
-                                    Text("$ ${String.format("%,.0f", c.montoTotal)}",
+                                    Text(Moneda.formatearCorto(c.montoTotal, MonedaConfig.actual),
                                         style = MaterialTheme.typography.bodySmall,
                                         fontWeight = FontWeight.Bold, color = Neutral10, maxLines = 1)
                                 }
@@ -1652,7 +1645,7 @@ fun PantallaPrincipal(
                                     style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
                             }
                         } else if (kotlin.math.abs(balNetoCompensacion) > 0.01) {
-                            Text("$${String.format("%,.0f", kotlin.math.abs(balNetoCompensacion))}",
+                            Text(Moneda.formatearCorto(kotlin.math.abs(balNetoCompensacion), MonedaConfig.actual),
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold, color = Neutral10)
                             Text("$deudorNombre debe",
@@ -1682,7 +1675,7 @@ fun PantallaPrincipal(
                                 color = NeutralVariant50, fontWeight = FontWeight.SemiBold,
                                 maxLines = 1, softWrap = false)
                         }
-                        Text("$${String.format("%,.0f", totalGastosMes)}",
+                        Text(Moneda.formatearCorto(totalGastosMes, MonedaConfig.actual),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold, color = Neutral10)
                     }

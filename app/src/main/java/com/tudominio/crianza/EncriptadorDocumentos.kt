@@ -63,4 +63,32 @@ object EncriptadorDocumentos {
             null
         }
     }
+
+    private const val SEPARADOR_SECRETO = "::"
+    private const val PREFIJO_SECRETO = "enc1::"
+
+    /**
+     * Encripta un secreto pequeño (token, password) y lo serializa en un solo string
+     * "enc1::iv::contenido". Si el plano está vacío, devuelve "".
+     */
+    fun encriptarSecreto(plano: String): String {
+        if (plano.isEmpty()) return ""
+        val (contenido, iv) = encriptar(plano)
+        return PREFIJO_SECRETO + iv.replace("\n", "") + SEPARADOR_SECRETO + contenido.replace("\n", "")
+    }
+
+    /**
+     * Desencripta un secreto serializado con encriptarSecreto().
+     * Si el string no tiene el prefijo "enc1::" se asume legado en plano y se devuelve tal cual
+     * (permite migración gradual: la próxima vez que se guarde, quedará cifrado).
+     * Devuelve null si el formato es inválido o falla la desencriptación.
+     */
+    fun desencriptarSecreto(serializado: String): String? {
+        if (serializado.isEmpty()) return ""
+        if (!serializado.startsWith(PREFIJO_SECRETO)) return serializado // legado plano
+        val resto = serializado.removePrefix(PREFIJO_SECRETO)
+        val partes = resto.split(SEPARADOR_SECRETO, limit = 2)
+        if (partes.size != 2) return null
+        return desencriptar(partes[1], partes[0])
+    }
 }

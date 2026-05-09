@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
     <!-- Excluir la base de datos completa (contiene token Telegram, contraseña email) -->
-    <exclude domain="database" path="crianza_db" />
+    <exclude domain="database" path="crianza_database" />
 
     <!-- Excluir SharedPreferences con el familyId y sesión Google -->
     <exclude domain="sharedpref" path="crianza_family" />

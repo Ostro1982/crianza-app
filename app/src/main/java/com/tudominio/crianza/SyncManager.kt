@@ -25,6 +25,27 @@ class SyncManager(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var listenerRegistrations = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
 
+    // ── Notificación cross al otro adulto ────────────────────────────────────
+    // Se setea al arrancar la suscripción de Firestore. Solo se notifica por docs
+    // creados DESPUÉS de este timestamp (evita disparar 50 push al sincronizar al
+    // abrir la app).
+    private var tiempoSubscripcion: Long = 0L
+    @Volatile private var notifConfigCache: ConfiguracionIntegracion? = null
+    private fun idPadreActualLocal(): String =
+        context.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
+            .getString("padre_actual_id", "") ?: ""
+
+    private fun esCambioReciente(fechaCompleta: Long): Boolean =
+        tiempoSubscripcion > 0 && fechaCompleta >= (tiempoSubscripcion - 5_000L)
+
+    private fun notifConfigOk(activo: Boolean): Boolean {
+        return activo
+    }
+
+    private fun notificarCross(titulo: String, cuerpo: String) {
+        try { NotificacionHelper.notificar(context, titulo, cuerpo) } catch (_: Exception) {}
+    }
+
     private fun familyId() = FamilyIdManager.obtenerFamilyId(context)
     private fun col(nombre: String) = fs.collection("familias/${familyId()}/$nombre")
 
@@ -77,7 +98,8 @@ class SyncManager(
         "idPagador" to idPagador, "nombrePagador" to nombrePagador,
         "idsHijos" to idsHijos, "nombresHijos" to nombresHijos,
         "dividirAutomatico" to dividirAutomatico, "fechaCompleta" to fechaCompleta,
-        "categoria" to categoria, "autocompensado" to autocompensado
+        "categoria" to categoria, "autocompensado" to autocompensado,
+        "reciboFotoUri" to reciboFotoUri
     )
 
     private fun ItemCompra.toMap() = mapOf(
@@ -222,7 +244,8 @@ class SyncManager(
                 dividirAutomatico = this["dividirAutomatico"] as? Boolean ?: true,
                 fechaCompleta = this["fechaCompleta"] as? Long ?: 0L,
                 categoria = this["categoria"] as? String ?: "",
-                autocompensado = this["autocompensado"] as? Boolean ?: false
+                autocompensado = this["autocompensado"] as? Boolean ?: false,
+                reciboFotoUri = this["reciboFotoUri"] as? String ?: ""
             )
         } catch (e: Exception) { null }
     }
@@ -499,35 +522,61 @@ class SyncManager(
 
     // ── Usuarios Google ───────────────────────────────────────────────────────
 
+    // Encode de email para usar como docId de Firestore (no admite '/', '.', '#', '$', '[', ']').
+    private fun emailKey(email: String): String =
+        email.lowercase().trim()
+            .replace(".", "_dot_")
+            .replace("#", "_hash_")
+            .replace("$", "_usd_")
+            .replace("[", "_lb_")
+            .replace("]", "_rb_")
+            .replace("/", "_sl_")
+
     fun registrarUsuarioGoogle(usuario: UsuarioGoogle) {
+        val fid = familyId()
+        // Doc principal: solo legible por miembros de la familia (PII dentro).
         fs.collection("usuarios").document(usuario.id).set(mapOf(
             "email" to usuario.email,
             "nombre" to usuario.nombre,
             "fotoUrl" to (usuario.fotoUrl ?: ""),
-            "familyId" to familyId()
+            "familyId" to fid
         ))
+        // Lookup público mínimo: permite invite-by-email sin exponer PII.
+        if (usuario.email.isNotBlank()) {
+            fs.collection("lookup_emails").document(emailKey(usuario.email)).set(mapOf(
+                "familyId" to fid,
+                "nombre" to usuario.nombre,
+                "uid" to usuario.id
+            ))
+        }
     }
 
     // Registra emails de padres locales para que otros puedan encontrarlos sin Google Sign-In
     fun registrarEmailsPadres(padres: List<Padre>) {
         val fid = familyId()
         padres.filter { it.email.isNotBlank() }.forEach { padre ->
+            // Ghost user dentro de la familia (sin PII fuera de miembros).
             fs.collection("usuarios").document("padre_${padre.id}").set(mapOf(
                 "email" to padre.email.lowercase().trim(),
                 "nombre" to padre.nombre,
                 "fotoUrl" to "",
                 "familyId" to fid
             ))
+            // Lookup público mínimo.
+            fs.collection("lookup_emails").document(emailKey(padre.email)).set(mapOf(
+                "familyId" to fid,
+                "nombre" to padre.nombre,
+                "uid" to "padre_${padre.id}"
+            ))
         }
     }
 
     suspend fun buscarUsuarioPorEmail(email: String): Pair<String, String>? =
         suspendCoroutine { cont ->
-            fs.collection("usuarios").whereEqualTo("email", email).get()
-                .addOnSuccessListener { snap ->
-                    if (snap.isEmpty) cont.resume(null)
+            fs.collection("lookup_emails").document(emailKey(email)).get()
+                .addOnSuccessListener { doc ->
+                    if (!doc.exists()) cont.resume(null)
                     else {
-                        val doc = snap.documents.first()
                         val nombre = doc.getString("nombre") ?: email
                         val fid = doc.getString("familyId")
                         cont.resume(if (fid != null) Pair(nombre, fid) else null)
@@ -622,6 +671,11 @@ class SyncManager(
             onPlanificacionActualizada,
             onRecuerdosActualizados, onDocumentosActualizados
         )
+        // Marca de inicio: lo que llegue antes (replay de Firestore) NO genera notif cross.
+        tiempoSubscripcion = System.currentTimeMillis()
+        scope.launch {
+            notifConfigCache = db.configuracionIntegracionDao().obtener()
+        }
 
         listenerRegistrations += col("eventos").addSnapshotListener { snap, err ->
             if (err != null) { Log.e("SyncManager", "Listener eventos ERROR: ${err.message}", err); return@addSnapshotListener }
@@ -630,8 +684,16 @@ class SyncManager(
             scope.launch {
                 for (change in snap.documentChanges) {
                     when (change.type) {
-                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
-                            change.document.data.toEvento()?.let { db.eventoDao().insertarEvento(it) }
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED -> {
+                            val ev = change.document.data.toEvento() ?: continue
+                            db.eventoDao().insertarEvento(ev)
+                            if (change.type == DocumentChange.Type.ADDED &&
+                                esCambioReciente(ev.fechaCompleta) &&
+                                notifConfigOk(notifConfigCache?.notifEventos ?: true)
+                            ) {
+                                notificarCross("📅 Nuevo evento", "${ev.titulo} — ${ev.fecha}")
+                            }
+                        }
                         DocumentChange.Type.REMOVED ->
                             db.eventoDao().eliminarPorId(change.document.id)
                     }
@@ -643,10 +705,23 @@ class SyncManager(
         listenerRegistrations += col("gastos").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
+                val miId = idPadreActualLocal()
                 for (change in snap.documentChanges) {
                     when (change.type) {
-                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
-                            change.document.data.toGasto()?.let { db.gastoDao().insertarGasto(it) }
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED -> {
+                            val g = change.document.data.toGasto() ?: continue
+                            db.gastoDao().insertarGasto(g)
+                            if (change.type == DocumentChange.Type.ADDED &&
+                                esCambioReciente(g.fechaCompleta) &&
+                                g.idPagador != miId &&
+                                notifConfigOk(notifConfigCache?.notifGastos ?: true)
+                            ) {
+                                notificarCross(
+                                    "💰 Nuevo gasto: ${g.nombrePagador}",
+                                    "${g.descripcion} — ${Moneda.formatearCorto(g.monto, MonedaConfig.actual)}"
+                                )
+                            }
+                        }
                         DocumentChange.Type.REMOVED ->
                             db.gastoDao().eliminarPorId(change.document.id)
                     }
@@ -660,10 +735,21 @@ class SyncManager(
             if (snap == null) return@addSnapshotListener
             Log.d("SyncManager", "Snap items: ${snap.documentChanges.size} cambios, fromCache=${snap.metadata.isFromCache}")
             scope.launch {
+                val miId = idPadreActualLocal()
                 for (change in snap.documentChanges) {
                     when (change.type) {
-                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
-                            change.document.data.toItemCompra()?.let { db.itemCompraDao().insertar(it) }
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED -> {
+                            val item = change.document.data.toItemCompra() ?: continue
+                            db.itemCompraDao().insertar(item)
+                            if (change.type == DocumentChange.Type.ADDED &&
+                                esCambioReciente(item.fechaCompleta) &&
+                                item.agregadoPor != miId &&
+                                !item.esPrivado &&
+                                notifConfigOk(notifConfigCache?.notifCompras ?: true)
+                            ) {
+                                notificarCross("🛒 Nueva compra", item.descripcion)
+                            }
+                        }
                         DocumentChange.Type.REMOVED ->
                             db.itemCompraDao().eliminarPorId(change.document.id)
                     }
@@ -720,10 +806,25 @@ class SyncManager(
         listenerRegistrations += col("pendientes").addSnapshotListener { snap, err ->
             if (err != null || snap == null) return@addSnapshotListener
             scope.launch {
+                val miNombre = run {
+                    val miId = idPadreActualLocal()
+                    db.familiaDao().obtenerTodosLosPadres().firstOrNull { it.id == miId }?.nombre ?: ""
+                }
                 for (change in snap.documentChanges) {
                     when (change.type) {
-                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED ->
-                            change.document.data.toPendiente()?.let { db.pendienteDao().insertar(it) }
+                        DocumentChange.Type.ADDED, DocumentChange.Type.MODIFIED -> {
+                            val p = change.document.data.toPendiente() ?: continue
+                            db.pendienteDao().insertar(p)
+                            // Notificar si me asignaron una tarea (asignadoA == mi nombre).
+                            if (change.type == DocumentChange.Type.ADDED &&
+                                esCambioReciente(p.fechaCreacion) &&
+                                p.asignadoA == miNombre &&
+                                miNombre.isNotBlank() &&
+                                notifConfigOk(notifConfigCache?.notifEventos ?: true)
+                            ) {
+                                notificarCross("📋 Te asignaron una tarea", p.titulo)
+                            }
+                        }
                         DocumentChange.Type.REMOVED ->
                             db.pendienteDao().eliminarPorId(change.document.id)
                     }

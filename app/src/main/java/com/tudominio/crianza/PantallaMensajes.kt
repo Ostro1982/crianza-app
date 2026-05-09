@@ -109,8 +109,7 @@ fun PantallaMensajes(
             }
         }
     ) { paddingValues ->
-        val waActivo = configuracion.habilitarWhatsApp &&
-            (configuracion.whatsappTelefonoPadre1.isNotEmpty() || configuracion.whatsappTelefonoPadre2.isNotEmpty())
+        val waActivo = false
 
         LazyColumn(
             state = listState,
@@ -121,48 +120,7 @@ fun PantallaMensajes(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            // Card de ayuda WhatsApp
-            if (waActivo) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                            .background(GlassWhite)
-                            .padding(14.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("📱 Comandos por WhatsApp",
-                                fontWeight = FontWeight.Bold, color = Neutral10)
-                            if (configuracion.whatsappTelefonoPadre1.isNotEmpty())
-                                Text("Padre 1: +${configuracion.whatsappTelefonoPadre1}",
-                                    color = NeutralVariant30,
-                                    style = MaterialTheme.typography.bodySmall)
-                            if (configuracion.whatsappTelefonoPadre2.isNotEmpty())
-                                Text("Padre 2: +${configuracion.whatsappTelefonoPadre2}",
-                                    color = NeutralVariant30,
-                                    style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(2.dp))
-                            val comandos = listOf(
-                                "/gasto 1500 farmacia",
-                                "/evento Cita médica 2025-06-15",
-                                "/tiempo Sofia 8 16",
-                                "/compra leche #alimentos",
-                                "/recuerdo Primer paso: descripción",
-                                "/lista  •  /estado"
-                            )
-                            comandos.forEach {
-                                Text("  $it",
-                                    color = NeutralVariant30,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (mensajes.isEmpty() && !waActivo) {
+            if (mensajes.isEmpty()) {
                 item {
                     Box(Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No hay mensajes. ¡Empezá la conversación!", color = Neutral10)

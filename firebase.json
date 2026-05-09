@@ -3,6 +3,7 @@
     "rules": "firestore.rules"
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "storage.rules",
+    "bucket": "crianza-d65d3.firebasestorage.app"
   }
 }

@@ -5,12 +5,12 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="database" path="crianza_db" />
+        <exclude domain="database" path="crianza_database" />
         <exclude domain="sharedpref" path="crianza_family" />
         <exclude domain="sharedpref" path="crianza_prefs" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="database" path="crianza_db" />
+        <exclude domain="database" path="crianza_database" />
         <exclude domain="sharedpref" path="crianza_family" />
         <exclude domain="sharedpref" path="crianza_prefs" />
     </device-transfer>

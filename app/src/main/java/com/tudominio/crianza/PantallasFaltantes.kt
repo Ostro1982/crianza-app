@@ -856,7 +856,7 @@ fun PantallaGastos(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "$${"%.2f".format(totalMes)}",
+                        Moneda.formatear(totalMes, MonedaConfig.actual),
                         style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp),
                         color = Neutral10,
                         fontWeight = FontWeight.Black,
@@ -911,7 +911,7 @@ fun PantallaGastos(
                                     Text(padres[0].nombre, color = NeutralVariant30, style = MaterialTheme.typography.bodySmall)
                                 }
                                 Spacer(Modifier.height(2.dp))
-                                Text("$${"%.2f".format(totalP1Mes)}", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                Text(Moneda.formatear(totalP1Mes, MonedaConfig.actual), color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -920,7 +920,7 @@ fun PantallaGastos(
                                     Box(Modifier.size(10.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Rose40))
                                 }
                                 Spacer(Modifier.height(2.dp))
-                                Text("$${"%.2f".format(totalP2Mes)}", color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                Text(Moneda.formatear(totalP2Mes, MonedaConfig.actual), color = Neutral10, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                             }
                         }
 
@@ -986,7 +986,7 @@ fun PantallaGastos(
                             color = NeutralVariant50
                         )
                         Text(
-                            "$${"%.2f".format(total)}",
+                            Moneda.formatear(total, MonedaConfig.actual),
                             style = MaterialTheme.typography.titleMedium,
                             color = Neutral10,
                             fontWeight = FontWeight.Bold
@@ -1041,7 +1041,7 @@ fun PantallaGastos(
                             Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(gasto.descripcion, fontWeight = FontWeight.Bold, color = Neutral10)
-                                    Text("$${"%.2f".format(gasto.monto)} · ${gasto.fecha}", color = NeutralVariant30)
+                                    Text("${Moneda.formatear(gasto.monto, MonedaConfig.actual)} · ${gasto.fecha}", color = NeutralVariant30)
                                     val detalle = listOfNotNull(
                                         "Pagó: ${gasto.nombrePagador}",
                                         gasto.categoria.takeIf { it.isNotEmpty() }
@@ -1084,6 +1084,7 @@ fun DialogoGasto(
     onGuardar: (Gasto) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val congelado = gasto?.let { Frozen.estaCongelado(it.fechaCompleta) } ?: false
     var desc by remember { mutableStateOf(gasto?.descripcion ?: "") }
     var monto by remember { mutableStateOf(gasto?.monto?.toString() ?: "") }
     var fecha by remember { mutableStateOf(gasto?.fecha ?: obtenerFechaActual()) }
@@ -1123,6 +1124,24 @@ fun DialogoGasto(
     var categoria by remember { mutableStateOf(gasto?.categoria ?: "") }
     var autocompensado by remember { mutableStateOf(gasto?.autocompensado ?: false) }
     var expandirCategorias by remember { mutableStateOf(false) }
+    var reciboFotoUri by remember { mutableStateOf(gasto?.reciboFotoUri ?: "") }
+
+    val reciboPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            val dir = java.io.File(context.filesDir, "recibos").also { it.mkdirs() }
+            val file = java.io.File(dir, "${UUID.randomUUID()}.jpg")
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                }
+                reciboFotoUri = file.absolutePath
+            } catch (_: Exception) {
+                reciboFotoUri = uri.toString()
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1132,6 +1151,13 @@ fun DialogoGasto(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (congelado) {
+                    Text(
+                        Frozen.mensaje(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
                 OutlinedButton(
                     onClick = {
                         val granted = context.checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -1204,6 +1230,33 @@ fun DialogoGasto(
                             style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
                     }
                 }
+
+                // Foto del recibo (evidencia legal)
+                if (reciboFotoUri.isNotEmpty()) {
+                    AsyncImage(
+                        model = if (reciboFotoUri.startsWith("/")) java.io.File(reciboFotoUri) else reciboFotoUri,
+                        contentDescription = "Foto del recibo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        reciboPicker.launch(
+                            androidx.activity.result.PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (reciboFotoUri.isEmpty()) "Adjuntar recibo (opcional)" else "Cambiar recibo")
+                }
             }
         },
         confirmButton = {
@@ -1219,10 +1272,11 @@ fun DialogoGasto(
                     idsHijos = emptyList(),
                     nombresHijos = "",
                     categoria = categoria,
-                    autocompensado = autocompensado
+                    autocompensado = autocompensado,
+                    reciboFotoUri = reciboFotoUri
                 ))
-            }, enabled = desc.isNotBlank() && monto.toDoubleOrNull() != null) {
-                Text("Guardar")
+            }, enabled = !congelado && desc.isNotBlank() && monto.toDoubleOrNull() != null) {
+                Text(if (congelado) "Bloqueado" else "Guardar")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }

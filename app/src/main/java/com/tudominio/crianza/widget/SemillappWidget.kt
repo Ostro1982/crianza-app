@@ -78,7 +78,7 @@ class SemillappWidget : GlanceAppWidget() {
         val dataAgenda = WidgetDataHelper.getEventosProximos(context)
             .map { LineaWidget("${it.labelDia}  ${it.titulo.take(18)}", it.hora) }
         val dataGastos = WidgetDataHelper.getGastos(context)
-            .map { LineaWidget(it.descripcion.take(22), "$ ${it.monto.toLong()}") }
+            .map { LineaWidget(it.descripcion.take(22), com.tudominio.crianza.Moneda.formatearCorto(it.monto, com.tudominio.crianza.MonedaConfig.actual)) }
         val dataCompras = WidgetDataHelper.getComprasPendientes(context)
             .map { LineaWidget(it.descripcion.take(26), if (it.cantidad != "1") "x${it.cantidad}" else "") }
         val dataPendientes = WidgetDataHelper.getPendientes(context)

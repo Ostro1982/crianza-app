@@ -10,21 +10,3 @@ interface ConfiguracionIntegracionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun guardar(config: ConfiguracionIntegracion)
 }
-
-@Dao
-interface FiltroEmailDao {
-    @Query("SELECT * FROM filtros_email WHERE activo = 1")
-    suspend fun obtenerActivos(): List<FiltroEmail>
-
-    @Query("SELECT * FROM filtros_email")
-    suspend fun obtenerTodos(): List<FiltroEmail>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertar(filtro: FiltroEmail)
-
-    @Delete
-    suspend fun eliminar(filtro: FiltroEmail)
-
-    @Update
-    suspend fun actualizar(filtro: FiltroEmail)
-}

@@ -110,7 +110,8 @@ data class Gasto(
     val dividirAutomatico: Boolean = true,
     val fechaCompleta: Long = System.currentTimeMillis(),
     val categoria: String = "",
-    val autocompensado: Boolean = false // No entra a deuda de compensación
+    val autocompensado: Boolean = false, // No entra a deuda de compensación
+    val reciboFotoUri: String = "" // Foto del recibo (opcional, evidencia legal)
 )
 
 val CATEGORIAS_GASTO = listOf(
@@ -202,29 +203,17 @@ data class Mensaje(
 @Entity(tableName = "configuracion_integracion")
 data class ConfiguracionIntegracion(
     @PrimaryKey val id: Int = 1,
-    val telegramBotToken: String = "",
-    val telegramChatIdPadre1: String = "",
-    val telegramChatIdPadre2: String = "",
-    val emailHost: String = "imap.gmail.com",
-    val emailPort: Int = 993,
-    val emailUser: String = "",
-    val emailPassword: String = "",
-    val habilitarTelegram: Boolean = false,
-    val habilitarEmail: Boolean = false,
-    val ultimoUpdateIdTelegram: Long = 0L,
-    val ultimaRevisionEmail: Long = 0L,
-    // WhatsApp
-    val whatsappTelefonoPadre1: String = "",
-    val whatsappTelefonoPadre2: String = "",
-    val habilitarWhatsApp: Boolean = false,
-    // Nombres de grupos escolares separados por coma
-    // Los mensajes de texto libre de estos grupos se analizan para detectar eventos
-    val whatsappGruposEscuela: String = "",
     // Notificaciones push por tipo
     val notifEventos: Boolean = true,
     val notifGastos: Boolean = true,
     val notifCompensaciones: Boolean = true,
-    val notifCompras: Boolean = true
+    val notifCompras: Boolean = true,
+    // Reminders custodia (Tier 2 #10)
+    val notifCustodia: Boolean = true,
+    // Modo frozen: días después de los cuales registros pasados quedan bloqueados (0 = desactivado)
+    val frozenDias: Int = 0,
+    // Moneda familiar (ISO 4217: ARS, MXN, CLP, COP, PEN, USD, EUR, etc.)
+    val moneda: String = "ARS"
 )
 
 @Entity(
@@ -241,14 +230,6 @@ data class Pendiente(
     // Recurrencia: 0 = no recurrente, 1 = diario, 7 = semanal, 30 = mensual
     val frecuenciaDias: Int = 0,
     val fechaCompletado: Long = 0L  // timestamp ms, para saber cuándo reactivar
-)
-
-@Entity(tableName = "filtros_email")
-data class FiltroEmail(
-    @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val tipo: String, // "remitente" o "asunto"
-    val valor: String,
-    val activo: Boolean = true
 )
 
 // Modelo para solicitudes de vinculación entre familias (no persistido en Room)

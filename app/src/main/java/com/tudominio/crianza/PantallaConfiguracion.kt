@@ -4,20 +4,11 @@ package com.tudominio.crianza
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.HelpOutline
-import androidx.compose.material.icons.outlined.PhoneAndroid
-import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,33 +16,40 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.tudominio.crianza.ui.theme.*
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import java.util.UUID
 
 @Composable
 fun PantallaConfiguracion(
     config: ConfiguracionIntegracion,
-    filtros: List<FiltroEmail>,
-    padres: List<Padre>,
     onGuardarConfig: (ConfiguracionIntegracion) -> Unit,
-    onAgregarFiltro: (FiltroEmail) -> Unit,
-    onEliminarFiltro: (FiltroEmail) -> Unit,
     onAtras: () -> Unit,
     onVerEstadisticas: () -> Unit = {},
     onReiniciarFamilia: () -> Unit = {},
     onVerTutorial: () -> Unit = {},
-    onVerTourGuiado: () -> Unit = {}
+    onVerTourGuiado: () -> Unit = {},
+    onVerHistorialCambios: () -> Unit = {},
+    onExportarPDFCustodia: () -> Unit = {},
+    onExportarPDFGastos: () -> Unit = {}
 ) {
     var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
+    var mostrarDialogoCambiarIdentidad by remember { mutableStateOf(false) }
+    var mostrarDialogoDesvincular by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
+
+    var notifEventos by remember { mutableStateOf(config.notifEventos) }
+    var notifGastos by remember { mutableStateOf(config.notifGastos) }
+    var notifCompensaciones by remember { mutableStateOf(config.notifCompensaciones) }
+    var notifCompras by remember { mutableStateOf(config.notifCompras) }
+    var notifCustodia by remember { mutableStateOf(config.notifCustodia) }
+    var moneda by remember { mutableStateOf(config.moneda) }
+    var frozenDiasTexto by remember { mutableStateOf(config.frozenDias.toString()) }
+
     if (mostrarDialogoReiniciar) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoReiniciar = false },
@@ -70,34 +68,6 @@ fun PantallaConfiguracion(
             }
         )
     }
-    val context = LocalContext.current
-    val configPrefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
-
-    var telegramToken by remember { mutableStateOf(config.telegramBotToken) }
-    var chatIdPadre1 by remember { mutableStateOf(config.telegramChatIdPadre1) }
-    var chatIdPadre2 by remember { mutableStateOf(config.telegramChatIdPadre2) }
-    var habilitarTelegram by remember { mutableStateOf(config.habilitarTelegram) }
-
-    var emailHost by remember { mutableStateOf(config.emailHost) }
-    var emailPort by remember { mutableStateOf(config.emailPort.toString()) }
-    var emailUser by remember { mutableStateOf(config.emailUser) }
-    var emailPassword by remember { mutableStateOf(config.emailPassword) }
-    var habilitarEmail by remember { mutableStateOf(config.habilitarEmail) }
-
-    var whatsappTelPadre1 by remember { mutableStateOf(config.whatsappTelefonoPadre1) }
-    var whatsappTelPadre2 by remember { mutableStateOf(config.whatsappTelefonoPadre2) }
-    var habilitarWhatsApp by remember { mutableStateOf(config.habilitarWhatsApp) }
-    var whatsappGruposEscuela by remember { mutableStateOf(config.whatsappGruposEscuela) }
-
-    var notifEventos by remember { mutableStateOf(config.notifEventos) }
-    var notifGastos by remember { mutableStateOf(config.notifGastos) }
-    var notifCompensaciones by remember { mutableStateOf(config.notifCompensaciones) }
-    var notifCompras by remember { mutableStateOf(config.notifCompras) }
-
-    var mostrarDialogoFiltro by remember { mutableStateOf(false) }
-    var mostrarAyuda by remember { mutableStateOf<String?>(null) } // "whatsapp" | "telegram" | "email"
-    var mostrarDialogoCambiarIdentidad by remember { mutableStateOf(false) }
-    var mostrarDialogoDesvincular by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(BgGradient)) {
     Scaffold(
@@ -114,23 +84,13 @@ fun PantallaConfiguracion(
                     TextButton(onClick = {
                         onGuardarConfig(
                             config.copy(
-                                telegramBotToken = telegramToken.trim(),
-                                telegramChatIdPadre1 = chatIdPadre1.trim(),
-                                telegramChatIdPadre2 = chatIdPadre2.trim(),
-                                habilitarTelegram = habilitarTelegram,
-                                emailHost = emailHost.trim(),
-                                emailPort = emailPort.toIntOrNull() ?: 993,
-                                emailUser = emailUser.trim(),
-                                emailPassword = emailPassword,
-                                habilitarEmail = habilitarEmail,
-                                whatsappTelefonoPadre1 = whatsappTelPadre1.trim(),
-                                whatsappTelefonoPadre2 = whatsappTelPadre2.trim(),
-                                habilitarWhatsApp = habilitarWhatsApp,
-                                whatsappGruposEscuela = whatsappGruposEscuela.trim(),
                                 notifEventos = notifEventos,
                                 notifGastos = notifGastos,
                                 notifCompensaciones = notifCompensaciones,
-                                notifCompras = notifCompras
+                                notifCompras = notifCompras,
+                                notifCustodia = notifCustodia,
+                                moneda = moneda,
+                                frozenDias = frozenDiasTexto.toIntOrNull()?.coerceAtLeast(0) ?: 0
                             )
                         )
                         onAtras()
@@ -152,38 +112,92 @@ fun PantallaConfiguracion(
         ) {
 
             // ── Notificaciones push ──────────────────────────────────────────
-            Text(
-                "Notificaciones",
+            Text("Notificaciones",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                "Recibí una notificación en este celular cuando el otro integrante registre algo.",
+                "Recibí un aviso cuando el otro integrante registre algo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Eventos y calendario", modifier = Modifier.weight(1f))
-                Switch(checked = notifEventos, onCheckedChange = { notifEventos = it })
+            SwitchRow("Eventos y calendario", notifEventos) { notifEventos = it }
+            SwitchRow("Gastos", notifGastos) { notifGastos = it }
+            SwitchRow("Compensaciones", notifCompensaciones) { notifCompensaciones = it }
+            SwitchRow("Lista de compras", notifCompras) { notifCompras = it }
+            SwitchRow("Recordatorios de custodia", notifCustodia) { notifCustodia = it }
+
+            // ── Co-parenting (moneda + modo frozen) ──────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text("Co-parenting",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            // Moneda
+            Column {
+                Text("Moneda", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(
+                    "Aplica a todos los gastos y compensaciones de la familia.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                val opciones = listOf("ARS", "MXN", "CLP", "COP", "PEN", "UYU", "USD", "EUR")
+                FlowRowCompat(opciones) { op ->
+                    val sel = moneda == op
+                    FilterChip(
+                        selected = sel,
+                        onClick = { moneda = op },
+                        label = { Text(op) }
+                    )
+                }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Gastos", modifier = Modifier.weight(1f))
-                Switch(checked = notifGastos, onCheckedChange = { notifGastos = it })
+            // Frozen
+            Column {
+                Text("Bloquear edición de registros pasados",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "Después de N días, los gastos/eventos/registros no se pueden editar (evidencia inalterable). 0 = desactivado.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = frozenDiasTexto,
+                    onValueChange = { frozenDiasTexto = it.filter { c -> c.isDigit() }.take(3) },
+                    label = { Text("Días") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Compensaciones", modifier = Modifier.weight(1f))
-                Switch(checked = notifCompensaciones, onCheckedChange = { notifCompensaciones = it })
+
+            // ── Evidencia / PDF legal ────────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text("Evidencia legal",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Documentos firmados con hash, presentables en mediación o juzgado de familia.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            OutlinedButton(onClick = onExportarPDFCustodia, modifier = Modifier.fillMaxWidth()) {
+                Text("Exportar PDF custodia")
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Lista de compras", modifier = Modifier.weight(1f))
-                Switch(checked = notifCompras, onCheckedChange = { notifCompras = it })
+            OutlinedButton(onClick = onExportarPDFGastos, modifier = Modifier.fillMaxWidth()) {
+                Text("Exportar PDF gastos")
+            }
+            OutlinedButton(onClick = onVerHistorialCambios, modifier = Modifier.fillMaxWidth()) {
+                Text("Ver historial de cambios")
             }
 
             // ── Dispositivo ──────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "Dispositivo",
+            Spacer(Modifier.height(8.dp))
+            Text("Dispositivo",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -191,49 +205,33 @@ fun PantallaConfiguracion(
             OutlinedButton(
                 onClick = { mostrarDialogoCambiarIdentidad = true },
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cambiar quién soy")
-            }
+            ) { Text("Cambiar quién soy") }
             OutlinedButton(
                 onClick = { mostrarDialogoReiniciar = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Reiniciar familia (borrar integrantes y empezar de cero)")
-            }
+            ) { Text("Reiniciar familia (borrar integrantes y empezar de cero)") }
             OutlinedButton(
                 onClick = { mostrarDialogoDesvincular = true },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Desvincular dispositivo")
-            }
+            ) { Text("Desvincular dispositivo") }
 
-            // ── Herramientas ──────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onVerEstadisticas,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            // ── Herramientas ─────────────────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onVerEstadisticas, modifier = Modifier.fillMaxWidth()) {
                 Text("Ver estadísticas")
             }
-            OutlinedButton(
-                onClick = onVerTutorial,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            OutlinedButton(onClick = onVerTutorial, modifier = Modifier.fillMaxWidth()) {
                 Text("Ver tutorial (slides)")
             }
-            OutlinedButton(
-                onClick = onVerTourGuiado,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            OutlinedButton(onClick = onVerTourGuiado, modifier = Modifier.fillMaxWidth()) {
                 Text("Tour guiado en pantalla")
             }
 
-            // ── Sync calendario ───────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Calendario del sistema",
+            // ── Sync calendario sistema ──────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text("Calendario del sistema",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -241,14 +239,11 @@ fun PantallaConfiguracion(
             var syncCalendar by remember {
                 mutableStateOf(configPrefs.getBoolean("sync_calendar_bidi", false))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Exportar eventos al calendario", style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        "Al crear un evento en Crianza, también se agrega al calendario del teléfono (Google/Samsung/etc)",
+                        "Al crear un evento en Nesty también se agrega al calendario del teléfono.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -262,20 +257,16 @@ fun PantallaConfiguracion(
                 )
             }
 
-            // ── Seguridad ─────────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Seguridad",
+            // ── Seguridad ────────────────────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text("Seguridad",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             var lockHabilitado by remember { mutableStateOf(AppLock.estaHabilitado(context)) }
             val soporta = remember { AppLock.dispositivoSoporta(context) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Pedir huella/PIN al abrir", style = MaterialTheme.typography.bodyMedium)
                     Text(
@@ -295,46 +286,45 @@ fun PantallaConfiguracion(
                 )
             }
 
-            // ── Backup ────────────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Respaldo de datos",
+            // ── Backup local encriptado ──────────────────────────────────────
+            Spacer(Modifier.height(8.dp))
+            Text("Respaldo de datos",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                "Guardá una copia de todos tus datos. Podés restaurarla en otro teléfono o recuperarla si algo falla.",
+                "Guardá una copia encriptada de todos tus datos. Podés restaurarla en otro teléfono.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             val scope = rememberCoroutineScope()
             var mensajeBackup by remember { mutableStateOf<String?>(null) }
-            var mostrarConfirmarRestaurar by remember { mutableStateOf<android.net.Uri?>(null) }
+            var passwordExportDialog by remember { mutableStateOf<android.net.Uri?>(null) }
+            var passwordImportDialog by remember { mutableStateOf<android.net.Uri?>(null) }
+            var passwordTexto by remember { mutableStateOf("") }
+            var passwordVisible by remember { mutableStateOf(false) }
 
             val exportLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.CreateDocument("application/octet-stream")
             ) { uri ->
                 if (uri != null) {
-                    scope.launch {
-                        val r = BackupManager.exportar(context, uri)
-                        mensajeBackup = if (r.isSuccess) "Copia guardada"
-                        else "Error: ${r.exceptionOrNull()?.message}"
-                    }
+                    passwordExportDialog = uri
+                    passwordTexto = ""
                 }
             }
 
             val importLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.OpenDocument()
             ) { uri ->
-                if (uri != null) mostrarConfirmarRestaurar = uri
+                if (uri != null) {
+                    passwordImportDialog = uri
+                    passwordTexto = ""
+                }
             }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { exportLauncher.launch(BackupManager.nombreSugerido()) },
                     modifier = Modifier.weight(1f)
@@ -345,42 +335,122 @@ fun PantallaConfiguracion(
                 ) { Text("Restaurar") }
             }
             mensajeBackup?.let {
-                Text(
-                    it,
+                Text(it,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            if (mostrarConfirmarRestaurar != null) {
+            // ── Diálogo password export ──
+            if (passwordExportDialog != null) {
                 AlertDialog(
-                    onDismissRequest = { mostrarConfirmarRestaurar = null },
-                    title = { Text("¿Restaurar copia?") },
-                    text = { Text("Esto va a REEMPLAZAR todos tus datos actuales con los de la copia. La app se cerrará y tenés que volver a abrirla.") },
+                    onDismissRequest = { passwordExportDialog = null },
+                    title = { Text("Encriptar backup") },
+                    text = {
+                        Column {
+                            Text("Elegí una contraseña (mínimo 8 caracteres). Sin ella nadie va a poder restaurar este archivo.")
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = passwordTexto,
+                                onValueChange = { passwordTexto = it },
+                                label = { Text("Contraseña") },
+                                singleLine = true,
+                                visualTransformation = if (passwordVisible)
+                                    androidx.compose.ui.text.input.VisualTransformation.None
+                                else
+                                    androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            TextButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Text(if (passwordVisible) "Ocultar" else "Mostrar")
+                            }
+                        }
+                    },
                     confirmButton = {
-                        TextButton(onClick = {
-                            val uri = mostrarConfirmarRestaurar!!
-                            mostrarConfirmarRestaurar = null
-                            scope.launch {
-                                val r = BackupManager.importar(context, uri)
-                                if (r.isSuccess) {
-                                    android.os.Process.killProcess(android.os.Process.myPid())
-                                } else {
-                                    mensajeBackup = "Error: ${r.exceptionOrNull()?.message}"
+                        TextButton(
+                            enabled = passwordTexto.length >= 8,
+                            onClick = {
+                                val uri = passwordExportDialog!!
+                                val pw = passwordTexto
+                                passwordExportDialog = null
+                                passwordTexto = ""
+                                scope.launch {
+                                    val r = BackupManager.exportarConPassword(context, uri, pw)
+                                    mensajeBackup = if (r.isSuccess) "Backup encriptado guardado"
+                                    else "Error: ${r.exceptionOrNull()?.message}"
                                 }
                             }
-                        }) { Text("Restaurar", color = MaterialTheme.colorScheme.error) }
+                        ) { Text("Exportar") }
                     },
                     dismissButton = {
-                        TextButton(onClick = { mostrarConfirmarRestaurar = null }) { Text("Cancelar") }
+                        TextButton(onClick = { passwordExportDialog = null }) { Text("Cancelar") }
                     }
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // ── Diálogo password import ──
+            if (passwordImportDialog != null) {
+                AlertDialog(
+                    onDismissRequest = { passwordImportDialog = null },
+                    title = { Text("Restaurar backup") },
+                    text = {
+                        Column {
+                            Text("Esto va a REEMPLAZAR todos tus datos. La app se cerrará al terminar.")
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = passwordTexto,
+                                onValueChange = { passwordTexto = it },
+                                label = { Text("Contraseña") },
+                                singleLine = true,
+                                visualTransformation = if (passwordVisible)
+                                    androidx.compose.ui.text.input.VisualTransformation.None
+                                else
+                                    androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            TextButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Text(if (passwordVisible) "Ocultar" else "Mostrar")
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = passwordTexto.length >= 8,
+                            onClick = {
+                                val uri = passwordImportDialog!!
+                                val pw = passwordTexto
+                                passwordImportDialog = null
+                                passwordTexto = ""
+                                scope.launch {
+                                    // Intento encriptado primero. Si falla y no es magic-mismatch, probar legacy.
+                                    val r = BackupManager.importarConPassword(context, uri, pw)
+                                    if (r.isSuccess) {
+                                        android.os.Process.killProcess(android.os.Process.myPid())
+                                    } else {
+                                        val msg = r.exceptionOrNull()?.message ?: ""
+                                        if (msg.contains("no es un backup encriptado")) {
+                                            // Probar formato legacy (compat con backups previos)
+                                            val r2 = BackupManager.importar(context, uri)
+                                            if (r2.isSuccess) android.os.Process.killProcess(android.os.Process.myPid())
+                                            else mensajeBackup = "Error: ${r2.exceptionOrNull()?.message}"
+                                        } else {
+                                            mensajeBackup = "Error: $msg"
+                                        }
+                                    }
+                                }
+                            }
+                        ) { Text("Restaurar", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { passwordImportDialog = null }) { Text("Cancelar") }
+                    }
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
-    }  // Box
+    }
 
     if (mostrarDialogoCambiarIdentidad) {
         AlertDialog(
@@ -421,154 +491,24 @@ fun PantallaConfiguracion(
             }
         )
     }
-
-    // Diálogos de ayuda removidos (integraciones WhatsApp/Telegram/Email eliminadas)
 }
 
 @Composable
-private fun SeccionIntegracion(titulo: String, icono: ImageVector, onAyuda: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    icono, contentDescription = null,
-                    modifier = Modifier.padding(6.dp).size(18.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Text(
-                titulo,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        IconButton(onClick = onAyuda, modifier = Modifier.size(32.dp)) {
-            Icon(
-                Icons.Outlined.HelpOutline,
-                contentDescription = "Ayuda $titulo",
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
+private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
+// FlowRow simple sin depender de accompanist; arma chips en filas que envuelven.
 @Composable
-private fun ComandosCard(titulo: String, comandos: List<Pair<String, String>>) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(titulo, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            comandos.forEach { (cmd, desc) ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(cmd, style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.weight(1f))
-                    Text("→ $desc", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(0.75f),
-                        modifier = Modifier.weight(1.2f))
-                }
+private fun FlowRowCompat(items: List<String>, content: @Composable (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items.chunked(4).forEach { fila ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                fila.forEach { content(it) }
             }
         }
     }
-}
-
-@Composable
-private fun DialogoAyuda(
-    titulo: String,
-    pasos: List<Pair<String, String>>,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Outlined.HelpOutline, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary)
-                Text(titulo, style = MaterialTheme.typography.titleMedium)
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                pasos.forEach { (paso, descripcion) ->
-                    ElevatedCard(
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                paso,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(descripcion, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Entendido") }
-        }
-    )
-}
-
-@Composable
-fun DialogoAgregarFiltro(
-    onDismiss: () -> Unit,
-    onGuardar: (tipo: String, valor: String) -> Unit
-) {
-    var tipo by remember { mutableStateOf("remitente") }
-    var valor by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Agregar filtro de email") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tipo de filtro:")
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = tipo == "remitente", onClick = { tipo = "remitente" })
-                    Text("Remitente (dirección de email)")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = tipo == "asunto", onClick = { tipo = "asunto" })
-                    Text("Asunto (texto a buscar)")
-                }
-                OutlinedTextField(
-                    value = valor,
-                    onValueChange = { valor = it },
-                    label = {
-                        Text(if (tipo == "remitente") "Email del remitente" else "Texto en el asunto")
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { onGuardar(tipo, valor) }, enabled = valor.isNotBlank()) {
-                Text("Agregar")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
-    )
 }

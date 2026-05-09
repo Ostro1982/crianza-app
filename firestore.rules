@@ -10,9 +10,16 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.familyId;
     }
 
+    function docFamilyId(userId) {
+      return get(/databases/$(database)/documents/usuarios/$(userId)).data.familyId;
+    }
+
     match /usuarios/{userId} {
-      // Read: cualquier user logueado (necesario para buscar por email y vincular padres)
-      allow read: if isSignedIn();
+      // Read: solo el propio doc, o miembros de la misma familia (no expone PII fuera).
+      allow read: if isSignedIn() && (
+        userId == request.auth.uid ||
+        docFamilyId(userId) == userFamilyId()
+      );
 
       // Create/update tu propio doc, o un padre_* ghost dentro de tu familia
       allow create, update: if isSignedIn() && (
@@ -22,6 +29,17 @@ service cloud.firestore {
 
       // Delete solo tu propio doc
       allow delete: if isSignedIn() && userId == request.auth.uid;
+    }
+
+    // Lookup público mínimo por email (solo familyId/nombre/uid, sin PII extra como teléfono).
+    // Permite buscar el familyId de alguien por email para vincularse, sin leakear el doc completo.
+    match /lookup_emails/{emailKey} {
+      allow read: if isSignedIn();
+      // Write: solo si el familyId que estás registrando es tu propia familia
+      allow create, update: if isSignedIn() &&
+        request.resource.data.familyId == userFamilyId();
+      allow delete: if isSignedIn() &&
+        resource.data.familyId == userFamilyId();
     }
 
     match /familias/{familyId}/{document=**} {
