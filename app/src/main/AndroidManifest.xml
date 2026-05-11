@@ -8,7 +8,10 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- READ_MEDIA_IMAGES sacado: usamos Android Photo Picker (no requiere permission) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove" />
