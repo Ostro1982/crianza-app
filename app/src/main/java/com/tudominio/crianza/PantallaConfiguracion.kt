@@ -9,7 +9,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.*
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
@@ -51,6 +60,19 @@ fun PantallaConfiguracion(
     var moneda by remember { mutableStateOf(config.moneda) }
     var frozenDiasTexto by remember { mutableStateOf(config.frozenDias.toString()) }
 
+    var modoActual by remember { mutableStateOf(ModoFamilia.actual(context)) }
+    val esConvivencia = modoActual == ModoFamilia.CONVIVENCIA
+
+    var tabActiva by remember { mutableStateOf(0) }
+    val tabs: List<Pair<String, ImageVector>> = listOf(
+        "Familia" to Icons.Filled.Group,
+        "Prefs" to Icons.Filled.Tune,
+        "Notif" to Icons.Filled.Notifications,
+        "Reportes" to Icons.Filled.Description,
+        "Seguridad" to Icons.Filled.Security,
+        "Ayuda" to Icons.Filled.HelpOutline
+    )
+
     if (mostrarDialogoReiniciar) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoReiniciar = false },
@@ -74,33 +96,56 @@ fun PantallaConfiguracion(
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = { Text("Configuración", color = Neutral10) },
-                navigationIcon = {
-                    IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
-                    }
-                },
-                actions = {
-                    TextButton(onClick = {
-                        onGuardarConfig(
-                            config.copy(
-                                notifEventos = notifEventos,
-                                notifGastos = notifGastos,
-                                notifCompensaciones = notifCompensaciones,
-                                notifCompras = notifCompras,
-                                notifCustodia = notifCustodia,
-                                moneda = moneda,
-                                frozenDias = frozenDiasTexto.toIntOrNull()?.coerceAtLeast(0) ?: 0
+            Column {
+                TopAppBar(
+                    title = { Text("Configuración", color = Neutral10) },
+                    navigationIcon = {
+                        IconButton(onClick = onAtras) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = {
+                            onGuardarConfig(
+                                config.copy(
+                                    notifEventos = notifEventos,
+                                    notifGastos = notifGastos,
+                                    notifCompensaciones = notifCompensaciones,
+                                    notifCompras = notifCompras,
+                                    notifCustodia = notifCustodia,
+                                    moneda = moneda,
+                                    frozenDias = frozenDiasTexto.toIntOrNull()?.coerceAtLeast(0) ?: 0
+                                )
                             )
+                            onAtras()
+                        }) {
+                            Text("Guardar", fontWeight = FontWeight.Bold, color = Neutral10)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+                ScrollableTabRow(
+                    selectedTabIndex = tabActiva,
+                    containerColor = Color.Transparent,
+                    edgePadding = 12.dp,
+                    divider = {}
+                ) {
+                    tabs.forEachIndexed { i, (label, icon) ->
+                        Tab(
+                            selected = tabActiva == i,
+                            onClick = { tabActiva = i },
+                            icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp)) },
+                            text = {
+                                Text(
+                                    label,
+                                    fontWeight = if (tabActiva == i) FontWeight.Bold else FontWeight.Normal,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
                         )
-                        onAtras()
-                    }) {
-                        Text("Guardar", fontWeight = FontWeight.Bold, color = Neutral10)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+                }
+            }
         }
     ) { paddingValues ->
         Column(
@@ -108,391 +153,49 @@ fun PantallaConfiguracion(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            // ── Notificaciones push ──────────────────────────────────────────
-            Text("Notificaciones",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Recibí un aviso cuando el otro integrante registre algo.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            SwitchRow("Eventos y calendario", notifEventos) { notifEventos = it }
-            SwitchRow("Gastos", notifGastos) { notifGastos = it }
-            SwitchRow("Compensaciones", notifCompensaciones) { notifCompensaciones = it }
-            SwitchRow("Lista de compras", notifCompras) { notifCompras = it }
-            SwitchRow("Recordatorios de custodia", notifCustodia) { notifCustodia = it }
-
-            // ── Preferencias familia ─────────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Preferencias",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            // Moneda — dropdown
-            Column {
-                Text("Moneda", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                Text(
-                    "Aplica a todos los gastos y compensaciones de la familia.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(8.dp))
-                var monedaExpandida by remember { mutableStateOf(false) }
-                val opciones = listOf(
-                    "ARS" to "Pesos argentinos (ARS)",
-                    "MXN" to "Pesos mexicanos (MXN)",
-                    "CLP" to "Pesos chilenos (CLP)",
-                    "COP" to "Pesos colombianos (COP)",
-                    "PEN" to "Soles peruanos (PEN)",
-                    "UYU" to "Pesos uruguayos (UYU)",
-                    "USD" to "Dólares (USD)",
-                    "EUR" to "Euros (EUR)"
-                )
-                val labelActual = opciones.firstOrNull { it.first == moneda }?.second ?: moneda
-                ExposedDropdownMenuBox(
-                    expanded = monedaExpandida,
-                    onExpandedChange = { monedaExpandida = it }
-                ) {
-                    OutlinedTextField(
-                        value = labelActual,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monedaExpandida) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = monedaExpandida,
-                        onDismissRequest = { monedaExpandida = false }
-                    ) {
-                        opciones.forEach { (codigo, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    moneda = codigo
-                                    monedaExpandida = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            // Frozen — opcional, lenguaje suave
-            Column {
-                Text("Bloquear cambios viejos",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    "Después de N días los gastos y registros quedan fijos. Útil si necesitás dejar el historial estable. 0 = siempre se pueden editar.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = frozenDiasTexto,
-                    onValueChange = { frozenDiasTexto = it.filter { c -> c.isDigit() }.take(3) },
-                    label = { Text("Días") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // ── Plan de custodia ─────────────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Plan de custodia",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Elegí un patrón (2-2-3, semana on/off, etc) y la app crea los registros de día por día. Después podés tocar cualquier día para ajustarlo.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            OutlinedButton(onClick = onCustodyScheduler, modifier = Modifier.fillMaxWidth()) {
-                Text("Configurar plan de custodia")
-            }
-
-            // ── Reportes y resumen ───────────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Reportes y resumen",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Generá un PDF ordenado de gastos o días con los chicos. Sirve para repasar el mes, mandar a la otra persona o, si hace falta, presentar en una mediación.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            OutlinedButton(onClick = onExportarPDFCustodia, modifier = Modifier.fillMaxWidth()) {
-                Text("Resumen de días con los chicos (PDF)")
-            }
-            OutlinedButton(onClick = onExportarPDFGastos, modifier = Modifier.fillMaxWidth()) {
-                Text("Resumen de gastos (PDF)")
-            }
-            OutlinedButton(onClick = onVerHistorialCambios, modifier = Modifier.fillMaxWidth()) {
-                Text("Ver historial de cambios")
-            }
-
-            // ── Dispositivo ──────────────────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Dispositivo",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            OutlinedButton(
-                onClick = { mostrarDialogoCambiarIdentidad = true },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Cambiar quién soy") }
-            OutlinedButton(
-                onClick = { mostrarDialogoReiniciar = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) { Text("Reiniciar familia (borrar integrantes y empezar de cero)") }
-            OutlinedButton(
-                onClick = { mostrarDialogoDesvincular = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) { Text("Desvincular dispositivo") }
-
-            // ── Herramientas ─────────────────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = onVerEstadisticas, modifier = Modifier.fillMaxWidth()) {
-                Text("Ver estadísticas")
-            }
-            OutlinedButton(onClick = onVerTutorial, modifier = Modifier.fillMaxWidth()) {
-                Text("Ver tutorial (slides)")
-            }
-            OutlinedButton(onClick = onVerTourGuiado, modifier = Modifier.fillMaxWidth()) {
-                Text("Tour guiado en pantalla")
-            }
-
-            // ── Sync calendario sistema ──────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Calendario del sistema",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            var syncCalendar by remember {
-                mutableStateOf(configPrefs.getBoolean("sync_calendar_bidi", false))
-            }
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Exportar eventos al calendario", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "Al crear un evento en Nesty también se agrega al calendario del teléfono.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = syncCalendar,
-                    onCheckedChange = {
-                        syncCalendar = it
-                        configPrefs.edit().putBoolean("sync_calendar_bidi", it).apply()
+            when (tabActiva) {
+                0 -> TabFamilia(
+                    esConvivencia = esConvivencia,
+                    onCustodyScheduler = onCustodyScheduler,
+                    onCambiarIdentidad = { mostrarDialogoCambiarIdentidad = true },
+                    onReiniciar = { mostrarDialogoReiniciar = true },
+                    onDesvincular = { mostrarDialogoDesvincular = true },
+                    onCambiarModo = { nuevoModo ->
+                        ModoFamilia.setModo(context, nuevoModo)
+                        modoActual = nuevoModo
                     }
                 )
-            }
-
-            // ── Seguridad ────────────────────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Seguridad",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            var lockHabilitado by remember { mutableStateOf(AppLock.estaHabilitado(context)) }
-            val soporta = remember { AppLock.dispositivoSoporta(context) }
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Pedir huella/PIN al abrir", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        if (soporta) "Los datos de tu familia quedan protegidos"
-                        else "Este dispositivo no tiene huella/PIN configurado",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = lockHabilitado,
-                    onCheckedChange = {
-                        lockHabilitado = it
-                        AppLock.setHabilitado(context, it)
-                    },
-                    enabled = soporta
+                1 -> TabPreferencias(
+                    moneda = moneda,
+                    onMonedaChange = { moneda = it },
+                    frozenDiasTexto = frozenDiasTexto,
+                    onFrozenChange = { frozenDiasTexto = it },
+                    configPrefs = configPrefs
+                )
+                2 -> TabNotificaciones(
+                    esConvivencia = esConvivencia,
+                    notifEventos = notifEventos, onEventos = { notifEventos = it },
+                    notifGastos = notifGastos, onGastos = { notifGastos = it },
+                    notifCompensaciones = notifCompensaciones, onComp = { notifCompensaciones = it },
+                    notifCompras = notifCompras, onCompras = { notifCompras = it },
+                    notifCustodia = notifCustodia, onCustodia = { notifCustodia = it }
+                )
+                3 -> TabReportes(
+                    esConvivencia = esConvivencia,
+                    onPDFCustodia = onExportarPDFCustodia,
+                    onPDFGastos = onExportarPDFGastos,
+                    onHistorial = onVerHistorialCambios,
+                    onEstadisticas = onVerEstadisticas
+                )
+                4 -> TabSeguridad(context = context)
+                5 -> TabAyuda(
+                    onTutorial = onVerTutorial,
+                    onTour = onVerTourGuiado
                 )
             }
-
-            // ── Backup local encriptado ──────────────────────────────────────
-            Spacer(Modifier.height(8.dp))
-            Text("Respaldo de datos",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                "Guardá una copia encriptada de todos tus datos. Podés restaurarla en otro teléfono.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            val scope = rememberCoroutineScope()
-            var mensajeBackup by remember { mutableStateOf<String?>(null) }
-            var passwordExportDialog by remember { mutableStateOf<android.net.Uri?>(null) }
-            var passwordImportDialog by remember { mutableStateOf<android.net.Uri?>(null) }
-            var passwordTexto by remember { mutableStateOf("") }
-            var passwordVisible by remember { mutableStateOf(false) }
-
-            val exportLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.CreateDocument("application/octet-stream")
-            ) { uri ->
-                if (uri != null) {
-                    passwordExportDialog = uri
-                    passwordTexto = ""
-                }
-            }
-
-            val importLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.OpenDocument()
-            ) { uri ->
-                if (uri != null) {
-                    passwordImportDialog = uri
-                    passwordTexto = ""
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = { exportLauncher.launch(BackupManager.nombreSugerido()) },
-                    modifier = Modifier.weight(1f)
-                ) { Text("Exportar") }
-                OutlinedButton(
-                    onClick = { importLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.weight(1f)
-                ) { Text("Restaurar") }
-            }
-            mensajeBackup?.let {
-                Text(it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // ── Diálogo password export ──
-            if (passwordExportDialog != null) {
-                AlertDialog(
-                    onDismissRequest = { passwordExportDialog = null },
-                    title = { Text("Encriptar backup") },
-                    text = {
-                        Column {
-                            Text("Elegí una contraseña (mínimo 8 caracteres). Sin ella nadie va a poder restaurar este archivo.")
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = passwordTexto,
-                                onValueChange = { passwordTexto = it },
-                                label = { Text("Contraseña") },
-                                singleLine = true,
-                                visualTransformation = if (passwordVisible)
-                                    androidx.compose.ui.text.input.VisualTransformation.None
-                                else
-                                    androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            TextButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Text(if (passwordVisible) "Ocultar" else "Mostrar")
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            enabled = passwordTexto.length >= 8,
-                            onClick = {
-                                val uri = passwordExportDialog!!
-                                val pw = passwordTexto
-                                passwordExportDialog = null
-                                passwordTexto = ""
-                                scope.launch {
-                                    val r = BackupManager.exportarConPassword(context, uri, pw)
-                                    mensajeBackup = if (r.isSuccess) "Backup encriptado guardado"
-                                    else "Error: ${r.exceptionOrNull()?.message}"
-                                }
-                            }
-                        ) { Text("Exportar") }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { passwordExportDialog = null }) { Text("Cancelar") }
-                    }
-                )
-            }
-
-            // ── Diálogo password import ──
-            if (passwordImportDialog != null) {
-                AlertDialog(
-                    onDismissRequest = { passwordImportDialog = null },
-                    title = { Text("Restaurar backup") },
-                    text = {
-                        Column {
-                            Text("Esto va a REEMPLAZAR todos tus datos. La app se cerrará al terminar.")
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = passwordTexto,
-                                onValueChange = { passwordTexto = it },
-                                label = { Text("Contraseña") },
-                                singleLine = true,
-                                visualTransformation = if (passwordVisible)
-                                    androidx.compose.ui.text.input.VisualTransformation.None
-                                else
-                                    androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            TextButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Text(if (passwordVisible) "Ocultar" else "Mostrar")
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            enabled = passwordTexto.length >= 8,
-                            onClick = {
-                                val uri = passwordImportDialog!!
-                                val pw = passwordTexto
-                                passwordImportDialog = null
-                                passwordTexto = ""
-                                scope.launch {
-                                    // Intento encriptado primero. Si falla y no es magic-mismatch, probar legacy.
-                                    val r = BackupManager.importarConPassword(context, uri, pw)
-                                    if (r.isSuccess) {
-                                        android.os.Process.killProcess(android.os.Process.myPid())
-                                    } else {
-                                        val msg = r.exceptionOrNull()?.message ?: ""
-                                        if (msg.contains("no es un backup encriptado")) {
-                                            // Probar formato legacy (compat con backups previos)
-                                            val r2 = BackupManager.importar(context, uri)
-                                            if (r2.isSuccess) android.os.Process.killProcess(android.os.Process.myPid())
-                                            else mensajeBackup = "Error: ${r2.exceptionOrNull()?.message}"
-                                        } else {
-                                            mensajeBackup = "Error: $msg"
-                                        }
-                                    }
-                                }
-                            }
-                        ) { Text("Restaurar", color = MaterialTheme.colorScheme.error) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { passwordImportDialog = null }) { Text("Cancelar") }
-                    }
-                )
-            }
-
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -539,22 +242,512 @@ fun PantallaConfiguracion(
     }
 }
 
+// ═══════════════ TAB 0: FAMILIA ═══════════════
+
+@Composable
+private fun TabFamilia(
+    esConvivencia: Boolean,
+    onCustodyScheduler: () -> Unit,
+    onCambiarIdentidad: () -> Unit,
+    onReiniciar: () -> Unit,
+    onDesvincular: () -> Unit,
+    onCambiarModo: (String) -> Unit
+) {
+    var dialogoModo by remember { mutableStateOf(false) }
+
+    SeccionTitulo("Modo de la familia")
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                if (esConvivencia) "🏡 Vivimos juntos" else "🔄 Vivimos separados",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                if (esConvivencia) "Coordinamos la crianza bajo el mismo techo"
+                else "Compartimos la crianza entre dos hogares",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        TextButton(onClick = { dialogoModo = true }) { Text("Cambiar") }
+    }
+
+    if (!esConvivencia) {
+        Spacer(Modifier.height(8.dp))
+        SeccionTitulo("Plan de custodia")
+        Text(
+            "Elegí un patrón (2-2-3, semana on/off, etc) y la app crea los registros día por día.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedButton(onClick = onCustodyScheduler, modifier = Modifier.fillMaxWidth()) {
+            Text("Configurar plan de custodia")
+        }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Identidad y vínculo")
+    OutlinedButton(onClick = onCambiarIdentidad, modifier = Modifier.fillMaxWidth()) {
+        Text("Cambiar quién soy")
+    }
+    OutlinedButton(
+        onClick = onReiniciar,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+    ) { Text("Reiniciar familia (borrar integrantes)") }
+    OutlinedButton(
+        onClick = onDesvincular,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+    ) { Text("Desvincular dispositivo") }
+
+    if (dialogoModo) {
+        AlertDialog(
+            onDismissRequest = { dialogoModo = false },
+            title = { Text("¿Cómo viven?") },
+            text = {
+                Column {
+                    Text(
+                        "Esto cambia qué secciones ves. Tus datos no se borran.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OpcionModo(
+                        emoji = "🏡",
+                        titulo = "Vivimos juntos",
+                        descripcion = "Sin plan de custodia, sin PDF de días con los chicos.",
+                        seleccionado = esConvivencia,
+                        onClick = {
+                            onCambiarModo(ModoFamilia.CONVIVENCIA)
+                            dialogoModo = false
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OpcionModo(
+                        emoji = "🔄",
+                        titulo = "Vivimos separados",
+                        descripcion = "Coparenting con plan de custodia, días con cada padre, PDFs.",
+                        seleccionado = !esConvivencia,
+                        onClick = {
+                            onCambiarModo(ModoFamilia.COPARENTING)
+                            dialogoModo = false
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { dialogoModo = false }) { Text("Cerrar") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun OpcionModo(
+    emoji: String,
+    titulo: String,
+    descripcion: String,
+    seleccionado: Boolean,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (seleccionado)
+            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        else ButtonDefaults.outlinedButtonColors()
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(emoji, style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(titulo, fontWeight = FontWeight.Bold)
+                Text(descripcion, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+// ═══════════════ TAB 1: PREFERENCIAS ═══════════════
+
+@Composable
+private fun TabPreferencias(
+    moneda: String,
+    onMonedaChange: (String) -> Unit,
+    frozenDiasTexto: String,
+    onFrozenChange: (String) -> Unit,
+    configPrefs: android.content.SharedPreferences
+) {
+    SeccionTitulo("Moneda")
+    Text(
+        "Aplica a todos los gastos y compensaciones de la familia.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    var monedaExpandida by remember { mutableStateOf(false) }
+    val opciones = listOf(
+        "ARS" to "Pesos argentinos (ARS)",
+        "MXN" to "Pesos mexicanos (MXN)",
+        "CLP" to "Pesos chilenos (CLP)",
+        "COP" to "Pesos colombianos (COP)",
+        "PEN" to "Soles peruanos (PEN)",
+        "UYU" to "Pesos uruguayos (UYU)",
+        "USD" to "Dólares (USD)",
+        "EUR" to "Euros (EUR)"
+    )
+    val labelActual = opciones.firstOrNull { it.first == moneda }?.second ?: moneda
+    ExposedDropdownMenuBox(
+        expanded = monedaExpandida,
+        onExpandedChange = { monedaExpandida = it }
+    ) {
+        OutlinedTextField(
+            value = labelActual,
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monedaExpandida) },
+            modifier = Modifier.fillMaxWidth().menuAnchor()
+        )
+        ExposedDropdownMenu(
+            expanded = monedaExpandida,
+            onDismissRequest = { monedaExpandida = false }
+        ) {
+            opciones.forEach { (codigo, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onMonedaChange(codigo)
+                        monedaExpandida = false
+                    }
+                )
+            }
+        }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Bloquear cambios viejos")
+    Text(
+        "Después de N días los gastos y registros quedan fijos. Útil si necesitás dejar el historial estable. 0 = siempre se pueden editar.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    OutlinedTextField(
+        value = frozenDiasTexto,
+        onValueChange = { onFrozenChange(it.filter { c -> c.isDigit() }.take(3)) },
+        label = { Text("Días") },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Calendario del sistema")
+    var syncCalendar by remember {
+        mutableStateOf(configPrefs.getBoolean("sync_calendar_bidi", false))
+    }
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Exportar eventos al calendario", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Al crear un evento en Nesty también se agrega al calendario del teléfono.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = syncCalendar,
+            onCheckedChange = {
+                syncCalendar = it
+                configPrefs.edit().putBoolean("sync_calendar_bidi", it).apply()
+            }
+        )
+    }
+}
+
+// ═══════════════ TAB 2: NOTIFICACIONES ═══════════════
+
+@Composable
+private fun TabNotificaciones(
+    esConvivencia: Boolean,
+    notifEventos: Boolean, onEventos: (Boolean) -> Unit,
+    notifGastos: Boolean, onGastos: (Boolean) -> Unit,
+    notifCompensaciones: Boolean, onComp: (Boolean) -> Unit,
+    notifCompras: Boolean, onCompras: (Boolean) -> Unit,
+    notifCustodia: Boolean, onCustodia: (Boolean) -> Unit
+) {
+    SeccionTitulo("Avisos push")
+    Text(
+        if (esConvivencia) "Recibí avisos cuando tu pareja registre algo."
+        else "Recibí un aviso cuando el otro integrante registre algo.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    SwitchRow("Eventos y calendario", notifEventos, onEventos)
+    SwitchRow("Gastos", notifGastos, onGastos)
+    if (!esConvivencia) {
+        SwitchRow("Compensaciones", notifCompensaciones, onComp)
+    }
+    SwitchRow("Lista de compras", notifCompras, onCompras)
+    if (!esConvivencia) {
+        SwitchRow("Recordatorios de custodia", notifCustodia, onCustodia)
+    }
+    SeccionTitulo("Cumpleaños")
+    Text(
+        "Te avisamos el día del cumpleaños de los chicos y los adultos de la familia.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+// ═══════════════ TAB 3: REPORTES ═══════════════
+
+@Composable
+private fun TabReportes(
+    esConvivencia: Boolean,
+    onPDFCustodia: () -> Unit,
+    onPDFGastos: () -> Unit,
+    onHistorial: () -> Unit,
+    onEstadisticas: () -> Unit
+) {
+    SeccionTitulo("Resúmenes en PDF")
+    Text(
+        if (esConvivencia)
+            "Generá un PDF ordenado de gastos del mes."
+        else
+            "Generá un PDF ordenado de gastos o días con los chicos. Sirve para repasar el mes, mandar a la otra persona o, si hace falta, presentar en una mediación.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    if (!esConvivencia) {
+        OutlinedButton(onClick = onPDFCustodia, modifier = Modifier.fillMaxWidth()) {
+            Text("Resumen de días con los chicos (PDF)")
+        }
+    }
+    OutlinedButton(onClick = onPDFGastos, modifier = Modifier.fillMaxWidth()) {
+        Text("Resumen de gastos (PDF)")
+    }
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Otros")
+    OutlinedButton(onClick = onHistorial, modifier = Modifier.fillMaxWidth()) {
+        Text("Ver historial de cambios")
+    }
+    OutlinedButton(onClick = onEstadisticas, modifier = Modifier.fillMaxWidth()) {
+        Text("Ver estadísticas")
+    }
+}
+
+// ═══════════════ TAB 4: SEGURIDAD ═══════════════
+
+@Composable
+private fun TabSeguridad(context: android.content.Context) {
+    SeccionTitulo("Bloqueo al abrir")
+    var lockHabilitado by remember { mutableStateOf(AppLock.estaHabilitado(context)) }
+    val soporta = remember { AppLock.dispositivoSoporta(context) }
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Pedir huella/PIN al abrir", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                if (soporta) "Los datos de tu familia quedan protegidos"
+                else "Este dispositivo no tiene huella/PIN configurado",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = lockHabilitado,
+            onCheckedChange = {
+                lockHabilitado = it
+                AppLock.setHabilitado(context, it)
+            },
+            enabled = soporta
+        )
+    }
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Respaldo de datos")
+    Text(
+        "Guardá una copia encriptada de todos tus datos. Podés restaurarla en otro teléfono.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    val scope = rememberCoroutineScope()
+    var mensajeBackup by remember { mutableStateOf<String?>(null) }
+    var passwordExportDialog by remember { mutableStateOf<android.net.Uri?>(null) }
+    var passwordImportDialog by remember { mutableStateOf<android.net.Uri?>(null) }
+    var passwordTexto by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null) {
+            passwordExportDialog = uri
+            passwordTexto = ""
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            passwordImportDialog = uri
+            passwordTexto = ""
+        }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { exportLauncher.launch(BackupManager.nombreSugerido()) },
+            modifier = Modifier.weight(1f)
+        ) { Text("Exportar") }
+        OutlinedButton(
+            onClick = { importLauncher.launch(arrayOf("*/*")) },
+            modifier = Modifier.weight(1f)
+        ) { Text("Restaurar") }
+    }
+    mensajeBackup?.let {
+        Text(it,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    if (passwordExportDialog != null) {
+        AlertDialog(
+            onDismissRequest = { passwordExportDialog = null },
+            title = { Text("Encriptar backup") },
+            text = {
+                Column {
+                    Text("Elegí una contraseña (mínimo 8 caracteres). Sin ella nadie va a poder restaurar este archivo.")
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = passwordTexto,
+                        onValueChange = { passwordTexto = it },
+                        label = { Text("Contraseña") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Text(if (passwordVisible) "Ocultar" else "Mostrar")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = passwordTexto.length >= 8,
+                    onClick = {
+                        val uri = passwordExportDialog!!
+                        val pw = passwordTexto
+                        passwordExportDialog = null
+                        passwordTexto = ""
+                        scope.launch {
+                            val r = BackupManager.exportarConPassword(context, uri, pw)
+                            mensajeBackup = if (r.isSuccess) "Backup encriptado guardado"
+                            else "Error: ${r.exceptionOrNull()?.message}"
+                        }
+                    }
+                ) { Text("Exportar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { passwordExportDialog = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (passwordImportDialog != null) {
+        AlertDialog(
+            onDismissRequest = { passwordImportDialog = null },
+            title = { Text("Restaurar backup") },
+            text = {
+                Column {
+                    Text("Esto va a REEMPLAZAR todos tus datos. La app se cerrará al terminar.")
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = passwordTexto,
+                        onValueChange = { passwordTexto = it },
+                        label = { Text("Contraseña") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible)
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        else
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Text(if (passwordVisible) "Ocultar" else "Mostrar")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = passwordTexto.length >= 8,
+                    onClick = {
+                        val uri = passwordImportDialog!!
+                        val pw = passwordTexto
+                        passwordImportDialog = null
+                        passwordTexto = ""
+                        scope.launch {
+                            val r = BackupManager.importarConPassword(context, uri, pw)
+                            if (r.isSuccess) {
+                                android.os.Process.killProcess(android.os.Process.myPid())
+                            } else {
+                                val msg = r.exceptionOrNull()?.message ?: ""
+                                if (msg.contains("no es un backup encriptado")) {
+                                    val r2 = BackupManager.importar(context, uri)
+                                    if (r2.isSuccess) android.os.Process.killProcess(android.os.Process.myPid())
+                                    else mensajeBackup = "Error: ${r2.exceptionOrNull()?.message}"
+                                } else {
+                                    mensajeBackup = "Error: $msg"
+                                }
+                            }
+                        }
+                    }
+                ) { Text("Restaurar", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { passwordImportDialog = null }) { Text("Cancelar") }
+            }
+        )
+    }
+}
+
+// ═══════════════ TAB 5: AYUDA ═══════════════
+
+@Composable
+private fun TabAyuda(
+    onTutorial: () -> Unit,
+    onTour: () -> Unit
+) {
+    SeccionTitulo("Cómo usar Nesty")
+    OutlinedButton(onClick = onTutorial, modifier = Modifier.fillMaxWidth()) {
+        Text("Ver tutorial (slides)")
+    }
+    OutlinedButton(onClick = onTour, modifier = Modifier.fillMaxWidth()) {
+        Text("Tour guiado en pantalla")
+    }
+}
+
+// ═══════════════ HELPERS ═══════════════
+
+@Composable
+private fun SeccionTitulo(texto: String) {
+    Text(
+        texto,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-// FlowRow simple sin depender de accompanist; arma chips en filas que envuelven.
-@Composable
-private fun FlowRowCompat(items: List<String>, content: @Composable (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        items.chunked(4).forEach { fila ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                fila.forEach { content(it) }
-            }
-        }
     }
 }

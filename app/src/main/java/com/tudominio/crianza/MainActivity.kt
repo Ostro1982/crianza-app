@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Sync
@@ -462,6 +463,7 @@ fun NavegacionApp() {
             onDocumentos = { pantallaActual = "documentos" },
             onMensajes = { pantallaActual = "mensajes" },
             onPendientes = { pantallaActual = "pendientes" },
+            onBuscador = { pantallaActual = "buscador" },
             registrosTiempo = registrosTiempo,
             codigoFamiliar = codigoFamiliar,
             usuarioGoogle = usuarioGoogle,
@@ -815,6 +817,19 @@ fun NavegacionApp() {
             onActualizar = { p -> scope.launch { syncManager.actualizarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
             onEliminar = { p -> scope.launch { syncManager.eliminarPendiente(p); pendientesLista = db.pendienteDao().obtenerTodos(); SemillappWidget().updateAll(context) } },
             onAtras = { pantallaActual = "principal" }
+        )
+        "buscador" -> PantallaBuscador(
+            gastos = gastos,
+            eventos = eventos,
+            pendientes = pendientesLista,
+            compras = itemsCompra,
+            recuerdos = recuerdos,
+            documentos = documentos,
+            onAtras = { pantallaActual = "principal" },
+            onIrA = { destino -> pantallaActual = when (destino) {
+                "compras" -> "listaCompras"
+                else -> destino
+            } }
         )
         "configuracion" -> PantallaConfiguracion(
             config = configuracionIntegracion,
@@ -1239,6 +1254,7 @@ fun PantallaPrincipal(
     onMensajes: () -> Unit,
     onConfiguracion: () -> Unit,
     onPendientes: () -> Unit = {},
+    onBuscador: () -> Unit = {},
     registrosTiempo: List<RegistroTiempo> = emptyList(),
     onIniciarCustodia: () -> Unit = {},
     onFinalizarCustodia: () -> Unit = {},
@@ -1276,6 +1292,7 @@ fun PantallaPrincipal(
 
     // ── Estado dinámico del dashboard ──────────────────────────────────────────
     val context = LocalContext.current
+    var hijoFiltradoId by rememberSaveable { mutableStateOf("") }
     var eventosSemana by remember { mutableStateOf<Map<String, List<Evento>>>(emptyMap()) }
     var comprasPendientes by remember { mutableStateOf<List<ItemCompra>>(emptyList()) }
     var tareasPendientes by remember { mutableStateOf<List<Pendiente>>(emptyList()) }
@@ -1410,6 +1427,9 @@ fun PantallaPrincipal(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBuscador) {
+                        Icon(Icons.Default.Search, "Buscar", tint = NeutralVariant50)
+                    }
                     if (usuarioGoogle == null) {
                         IconButton(onClick = onIniciarGoogle) {
                             Icon(Icons.Default.Person, "Iniciar con Google", tint = Indigo40)
@@ -1483,6 +1503,32 @@ fun PantallaPrincipal(
                 }
             }
 
+            // ── Selector hijo (chip filter global) ────────────────────────────
+            if (hijos.size > 1) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Text("Filtrar por hijo", style = MaterialTheme.typography.labelMedium, color = NeutralVariant50)
+                    Spacer(Modifier.height(4.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = hijoFiltradoId.isEmpty(),
+                                onClick = { hijoFiltradoId = "" },
+                                label = { Text("Todos", fontWeight = if (hijoFiltradoId.isEmpty()) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                        }
+                        items(hijos, key = { it.id }) { hijo ->
+                            FilterChip(
+                                selected = hijoFiltradoId == hijo.id,
+                                onClick = { hijoFiltradoId = if (hijoFiltradoId == hijo.id) "" else hijo.id },
+                                label = { Text(hijo.nombre, fontWeight = if (hijoFiltradoId == hijo.id) FontWeight.Bold else FontWeight.Normal) }
+                            )
+                        }
+                    }
+                }
+            }
+
             // ── Hero: Planificación semanal ───────────────────────────────────
             if (hijos.isNotEmpty() && idPadreActual.isNotEmpty()) {
                 WidgetPlanificacionSemanal(
@@ -1490,7 +1536,8 @@ fun PantallaPrincipal(
                     onEditar = onPlanificacion,
                     version = planificacionVersion,
                     custodySchedule = custodySchedule,
-                    eventos = eventosSemanaList
+                    eventos = eventosSemanaList,
+                    hijoFiltradoId = hijoFiltradoId
                 )
             }
 
@@ -1734,9 +1781,11 @@ fun PantallaPrincipal(
             pendiente = p,
             padres = padres,
             onDismiss = { pendienteEditando = null },
-            onGuardar = { titulo, fechaLimite, asignadoA, frecuencia ->
+            onGuardar = { titulo, fechaLimite, asignadoA, frecuencia, esRegalo ->
+                val tituloLimpio = titulo.removePrefix("🎁").trim()
+                val tituloFinal = if (esRegalo) "🎁 $tituloLimpio" else tituloLimpio
                 onActualizarPendiente(p.copy(
-                    titulo = titulo,
+                    titulo = tituloFinal,
                     fechaLimite = fechaLimite,
                     asignadoA = asignadoA,
                     frecuenciaDias = frecuencia
@@ -1860,8 +1909,11 @@ fun WidgetPlanificacionSemanal(
     onEditar: () -> Unit,
     version: Int = 0,
     custodySchedule: CustodySchedule? = null,
-    eventos: List<Evento> = emptyList()
+    eventos: List<Evento> = emptyList(),
+    hijoFiltradoId: String = ""
 ) {
+    @Suppress("UNUSED_VARIABLE")
+    val filtroHijo = hijoFiltradoId  // disponible para extender filtros del widget
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
     @Suppress("UNUSED_VARIABLE")

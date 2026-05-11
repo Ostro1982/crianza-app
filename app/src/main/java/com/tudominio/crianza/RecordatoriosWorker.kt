@@ -150,6 +150,40 @@ class RecordatoriosWorker(
             }
         }
 
+        // ── Cumpleaños hoy ────────────────────────────────────────────────
+        // Compara mes-día (MM-DD) de fechaNacimiento de hijos y padres con hoy.
+        val mmddHoy = if (hoy.length >= 10) hoy.substring(5, 10) else ""
+        if (mmddHoy.isNotEmpty()) {
+            val hijos = db.familiaDao().obtenerTodosLosHijos()
+            hijos.forEach { hijo ->
+                val fn = hijo.fechaNacimiento
+                if (fn.length >= 10 && fn.substring(5, 10) == mmddHoy) {
+                    val key = "cumple_${hijo.id}_$hoy"
+                    if (key !in notificadosHoy) {
+                        val edad = edadEnAnios(fn, hoy)
+                        val titulo = if (edad != null) "🎉 ${hijo.nombre} cumple $edad" else "🎉 Cumpleaños de ${hijo.nombre}"
+                        NotificacionHelper.notificar(applicationContext, titulo, "¡Feliz día!")
+                        notificadosHoy.add(key)
+                    }
+                }
+            }
+            val padresList = db.familiaDao().obtenerTodosLosPadres()
+            padresList.forEach { padre ->
+                val fn = padre.fechaNacimiento
+                if (fn.length >= 10 && fn.substring(5, 10) == mmddHoy) {
+                    val key = "cumple_${padre.id}_$hoy"
+                    if (key !in notificadosHoy) {
+                        NotificacionHelper.notificar(
+                            applicationContext,
+                            "🎂 Cumpleaños de ${padre.nombre}",
+                            "Hoy cumple años"
+                        )
+                        notificadosHoy.add(key)
+                    }
+                }
+            }
+        }
+
         // ── Compras sin comprar hace más de 3 días ──────────────────────────
         val tresDiasMs = 3 * 24 * 60 * 60 * 1000L
         val comprasViejas = db.itemCompraDao().obtenerCompartidos()
@@ -170,6 +204,19 @@ class RecordatoriosWorker(
         prefs.edit().putStringSet("notificados", notificadosHoy).apply()
 
         return Result.success()
+    }
+
+    private fun edadEnAnios(fechaNac: String, hoy: String): Int? {
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val nac = sdf.parse(fechaNac) ?: return null
+            val cur = sdf.parse(hoy) ?: return null
+            val calNac = Calendar.getInstance().apply { time = nac }
+            val calCur = Calendar.getInstance().apply { time = cur }
+            var edad = calCur.get(Calendar.YEAR) - calNac.get(Calendar.YEAR)
+            if (calCur.get(Calendar.DAY_OF_YEAR) < calNac.get(Calendar.DAY_OF_YEAR)) edad--
+            if (edad < 0 || edad > 130) null else edad
+        } catch (_: Exception) { null }
     }
 
     companion object {

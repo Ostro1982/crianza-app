@@ -44,9 +44,18 @@ fun PantallaPendientes(
     var pendienteEditando by remember { mutableStateOf<Pendiente?>(null) }
     var mostrarCompletados by remember { mutableStateOf(false) }
     var busqueda by remember { mutableStateOf("") }
+    // Filtro: "todos" | "tareas" | "regalos"
+    var filtroTipo by remember { mutableStateOf("todos") }
 
-    val filtrados = if (busqueda.isBlank()) pendientes
-    else pendientes.filter {
+    fun esRegalo(p: Pendiente) = p.titulo.startsWith("🎁")
+
+    val basePorTipo = when (filtroTipo) {
+        "tareas" -> pendientes.filterNot { esRegalo(it) }
+        "regalos" -> pendientes.filter { esRegalo(it) }
+        else -> pendientes
+    }
+    val filtrados = if (busqueda.isBlank()) basePorTipo
+    else basePorTipo.filter {
         it.titulo.contains(busqueda, ignoreCase = true) ||
             it.asignadoA.contains(busqueda, ignoreCase = true)
     }
@@ -87,6 +96,26 @@ fun PantallaPendientes(
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    FilterChip(
+                        selected = filtroTipo == "todos",
+                        onClick = { filtroTipo = "todos" },
+                        label = { Text("Todos") }
+                    )
+                    FilterChip(
+                        selected = filtroTipo == "tareas",
+                        onClick = { filtroTipo = "tareas" },
+                        label = { Text("Tareas") }
+                    )
+                    FilterChip(
+                        selected = filtroTipo == "regalos",
+                        onClick = { filtroTipo = "regalos" },
+                        label = { Text("🎁 Regalos") }
+                    )
+                }
                 if (pendientes.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -170,18 +199,21 @@ fun PantallaPendientes(
         DialogoPendiente(
             pendiente = pendienteEditando,
             padres = padres,
+            tipoInicial = if (filtroTipo == "regalos") "regalo" else "tarea",
             onDismiss = { mostrarDialogo = false; pendienteEditando = null },
-            onGuardar = { titulo, fechaLimite, asignadoA, frecuenciaDias ->
+            onGuardar = { titulo, fechaLimite, asignadoA, frecuenciaDias, esRegalo ->
+                val tituloLimpio = titulo.removePrefix("🎁").trim()
+                val tituloFinal = if (esRegalo) "🎁 $tituloLimpio" else tituloLimpio
                 val p = if (pendienteEditando != null) {
                     pendienteEditando!!.copy(
-                        titulo = titulo,
+                        titulo = tituloFinal,
                         fechaLimite = fechaLimite,
                         asignadoA = asignadoA,
                         frecuenciaDias = frecuenciaDias
                     )
                 } else {
                     Pendiente(
-                        titulo = titulo,
+                        titulo = tituloFinal,
                         fechaLimite = fechaLimite,
                         asignadoA = asignadoA,
                         frecuenciaDias = frecuenciaDias
@@ -262,26 +294,46 @@ fun TarjetaPendiente(
 fun DialogoPendiente(
     pendiente: Pendiente?,
     padres: List<Padre>,
+    tipoInicial: String = "tarea",
     onDismiss: () -> Unit,
-    onGuardar: (titulo: String, fechaLimite: String, asignadoA: String, frecuenciaDias: Int) -> Unit,
+    onGuardar: (titulo: String, fechaLimite: String, asignadoA: String, frecuenciaDias: Int, esRegalo: Boolean) -> Unit,
     onEliminar: (() -> Unit)? = null
 ) {
-    var titulo by remember { mutableStateOf(pendiente?.titulo ?: "") }
+    val tituloOriginal = pendiente?.titulo ?: ""
+    val regaloInicial = tituloOriginal.startsWith("🎁") || (pendiente == null && tipoInicial == "regalo")
+    var titulo by remember { mutableStateOf(tituloOriginal.removePrefix("🎁").trim()) }
     var fechaLimite by remember { mutableStateOf(pendiente?.fechaLimite ?: "") }
     var asignadoA by remember { mutableStateOf(pendiente?.asignadoA ?: "") }
     var frecuenciaDias by remember { mutableIntStateOf(pendiente?.frecuenciaDias ?: 0) }
+    var esRegalo by remember { mutableStateOf(regaloInicial) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (pendiente == null) "Nuevo pendiente" else "Editar pendiente") },
+        title = { Text(if (pendiente == null) (if (esRegalo) "Nuevo regalo" else "Nuevo pendiente") else "Editar pendiente") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(
+                        selected = !esRegalo,
+                        onClick = { esRegalo = false },
+                        label = { Text("Tarea") }
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    FilterChip(
+                        selected = esRegalo,
+                        onClick = { esRegalo = true },
+                        label = { Text("🎁 Regalo") }
+                    )
+                }
                 OutlinedTextField(
                     value = titulo,
                     onValueChange = { titulo = it },
-                    label = { Text("Tarea") },
+                    label = { Text(if (esRegalo) "Regalo" else "Tarea") },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Ej: Llevar al pediatra, trámite DNI…") },
+                    placeholder = {
+                        Text(if (esRegalo) "Ej: Lego para Juan, libro para Sofía…"
+                            else "Ej: Llevar al pediatra, trámite DNI…")
+                    },
                     trailingIcon = {
                         IconoVoz(onTexto = { titulo = it })
                     }
@@ -331,7 +383,7 @@ fun DialogoPendiente(
         },
         confirmButton = {
             Button(
-                onClick = { onGuardar(titulo.trim(), fechaLimite.trim(), asignadoA, frecuenciaDias) },
+                onClick = { onGuardar(titulo.trim(), fechaLimite.trim(), asignadoA, frecuenciaDias, esRegalo) },
                 enabled = titulo.isNotBlank()
             ) { Text("Guardar") }
         },
