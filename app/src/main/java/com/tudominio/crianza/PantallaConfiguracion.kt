@@ -490,6 +490,36 @@ private fun TabPreferencias(
     )
 
     Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Tema")
+    val ctxTema = LocalContext.current
+    var temaActual by remember { mutableStateOf(TemaPref.actual(ctxTema)) }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        listOf(
+            TemaPref.AUTO to "Auto",
+            TemaPref.CLARO to "☀️ Claro",
+            TemaPref.OSCURO to "🌙 Oscuro"
+        ).forEach { (codigo, label) ->
+            FilterChip(
+                selected = temaActual == codigo,
+                onClick = {
+                    temaActual = codigo
+                    TemaPref.setTema(ctxTema, codigo)
+                    (ctxTema as? android.app.Activity)?.recreate()
+                },
+                label = { Text(label) }
+            )
+        }
+    }
+    Text(
+        "Auto sigue el modo del teléfono. Cambiá manual si lo querés fijo.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(Modifier.height(8.dp))
     SeccionTitulo("Categorías de gasto")
     Text(
         "Agregá o sacá categorías propias (cuotas, vacaciones, regalos, lo que necesites).",

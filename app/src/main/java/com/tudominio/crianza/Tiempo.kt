@@ -329,9 +329,21 @@ fun PantallaHistorialTiempo(
                 )
             }
         ) { paddingValues ->
-            if (registros.isEmpty()) {
+            if (registrosFiltrados.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(paddingValues), Alignment.Center) {
-                    Text("Sin registros", color = NeutralVariant50)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("⏱️", style = MaterialTheme.typography.displayLarge, color = NeutralVariant50)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Todavía no hay registros", color = NeutralVariant30, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Iniciá custodia desde inicio cuando tengas a los chicos, o creá un registro manual.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NeutralVariant50,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        )
+                    }
                 }
             } else {
                 LazyColumn(

@@ -31,6 +31,7 @@ data class CoachmarkPaso(
 )
 
 val PASOS_COACHMARK = listOf(
+    CoachmarkPaso("buscador",  "Buscador", "Lupa arriba a la derecha. Busca en gastos, eventos, pendientes, compras, recuerdos y documentos."),
     CoachmarkPaso("inbox",     "Inbox",     "Mensajes recientes entre los adultos. Tocá para ver el chat completo."),
     CoachmarkPaso("eventos",   "Eventos",   "Calendario compartido. Próximos compromisos del hijo o de la familia."),
     CoachmarkPaso("compras",   "Compras",   "Lista colaborativa. Cualquiera agrega items, quien compra los marca."),

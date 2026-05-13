@@ -1047,6 +1047,28 @@ fun PantallaGastos(
                 )
             }
 
+            if (gastosFiltrados.isEmpty()) {
+                Box(Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("💸", style = MaterialTheme.typography.displayLarge, color = NeutralVariant50)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (busqueda.isNotBlank() || filtroHijoId.isNotEmpty()) "Nada coincide con tu filtro"
+                            else "Sin gastos cargados",
+                            color = NeutralVariant30,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Tocá + arriba y sumá un gasto. Ej: pediatra, supermercado, cuota colegio.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NeutralVariant50,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                    }
+                }
+            } else {
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(gastosFiltrados.sortedByDescending { it.fecha }, key = { it.id }) { gasto ->
                     SwipeParaBorrar(onEliminar = { onEliminarGasto(gasto.id) }) {
@@ -1071,6 +1093,7 @@ fun PantallaGastos(
                         }
                     }
                 }
+            }
             }
         }
     }

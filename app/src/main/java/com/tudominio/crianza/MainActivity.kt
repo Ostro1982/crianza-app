@@ -1439,7 +1439,12 @@ fun PantallaPrincipal(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBuscador) {
+                    IconButton(
+                        onClick = onBuscador,
+                        modifier = Modifier.onGloballyPositioned { c ->
+                            coachmarkRects = coachmarkRects + ("buscador" to c.boundsInWindow())
+                        }
+                    ) {
                         Icon(Icons.Default.Search, "Buscar", tint = NeutralVariant50)
                     }
                     if (usuarioGoogle == null) {

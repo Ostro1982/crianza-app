@@ -1,14 +1,33 @@
 package com.tudominio.crianza.ui.theme
 
 import android.app.Activity
+import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+
+val LocalIsDark = compositionLocalOf { false }
+
+object TemaPref {
+    const val AUTO = "auto"
+    const val CLARO = "claro"
+    const val OSCURO = "oscuro"
+    fun actual(ctx: Context): String =
+        ctx.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
+            .getString("tema", AUTO) ?: AUTO
+    fun setTema(ctx: Context, t: String) {
+        ctx.getSharedPreferences("crianza_prefs", Context.MODE_PRIVATE)
+            .edit().putString("tema", t).apply()
+    }
+}
 
 private val LightColorScheme = lightColorScheme(
     primary                = Indigo40,
@@ -68,9 +87,16 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun CrianzaTheme(
-    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
+    val pref = TemaPref.actual(context)
+    val sistemaEsDark = isSystemInDarkTheme()
+    val darkTheme = when (pref) {
+        TemaPref.OSCURO -> true
+        TemaPref.CLARO -> false
+        else -> sistemaEsDark
+    }
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
@@ -79,13 +105,16 @@ fun CrianzaTheme(
             val window = (view.context as Activity).window
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(LocalIsDark provides darkTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
+
