@@ -847,6 +847,7 @@ fun NavegacionApp() {
             onExportarPDFCustodia = { pantallaActual = "pdf_custodia" },
             onExportarPDFGastos = { pantallaActual = "pdf_gastos" },
             onCustodyScheduler = { pantallaActual = "custody_scheduler" },
+            onCategorias = { pantallaActual = "categorias_gasto" },
             onReiniciarFamilia = {
                 scope.launch {
                     try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
@@ -868,6 +869,7 @@ fun NavegacionApp() {
             }
         )
         "tutorial" -> PantallaOnboarding(onTerminar = { pantallaActual = "configuracion" })
+        "categorias_gasto" -> PantallaCategoriasGasto(onAtras = { pantallaActual = "configuracion" })
         "estadisticas" -> PantallaEstadisticas(
             onAtras = { pantallaActual = "configuracion" }
         )
@@ -1292,7 +1294,8 @@ fun PantallaPrincipal(
 
     // ── Estado dinámico del dashboard ──────────────────────────────────────────
     val context = LocalContext.current
-    var hijoFiltradoId by rememberSaveable { mutableStateOf("") }
+    var hijoFiltradoId by rememberSaveable { mutableStateOf(FiltroHijo.idActual) }
+    LaunchedEffect(hijoFiltradoId) { FiltroHijo.set(hijoFiltradoId) }
     var eventosSemana by remember { mutableStateOf<Map<String, List<Evento>>>(emptyMap()) }
     var comprasPendientes by remember { mutableStateOf<List<ItemCompra>>(emptyList()) }
     var tareasPendientes by remember { mutableStateOf<List<Pendiente>>(emptyList()) }
@@ -1913,7 +1916,7 @@ fun WidgetPlanificacionSemanal(
     hijoFiltradoId: String = ""
 ) {
     @Suppress("UNUSED_VARIABLE")
-    val filtroHijo = hijoFiltradoId  // disponible para extender filtros del widget
+    val filtroHijo = hijoFiltradoId  // hook para futuras filtraciones internas del widget
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
     @Suppress("UNUSED_VARIABLE")

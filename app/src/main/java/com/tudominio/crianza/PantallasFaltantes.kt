@@ -802,7 +802,10 @@ fun PantallaGastos(
                 "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
             )
-            val gastosMes = gastos.filter { g ->
+            val filtroHijoIdResumen = FiltroHijo.idActualState.value
+            val gastosBase = if (filtroHijoIdResumen.isEmpty()) gastos
+                else gastos.filter { it.idsHijos.isEmpty() || filtroHijoIdResumen in it.idsHijos }
+            val gastosMes = gastosBase.filter { g ->
                 val f = parseFecha(g.fecha)
                 esMismoMes(f, cal.time)
             }
@@ -1022,13 +1025,26 @@ fun PantallaGastos(
                 shape = RoundedCornerShape(16.dp)
             )
 
-            val gastosFiltrados = if (busqueda.isBlank()) gastos else {
+            val filtroHijoId = FiltroHijo.idActualState.value
+            val gastosPorHijo = if (filtroHijoId.isEmpty()) gastos
+                else gastos.filter { it.idsHijos.isEmpty() || filtroHijoId in it.idsHijos }
+            val gastosFiltrados = if (busqueda.isBlank()) gastosPorHijo else {
                 val q = busqueda.lowercase()
-                gastos.filter {
+                gastosPorHijo.filter {
                     it.descripcion.lowercase().contains(q) ||
                     it.nombrePagador.lowercase().contains(q) ||
                     it.categoria.lowercase().contains(q)
                 }
+            }
+            if (filtroHijoId.isNotEmpty()) {
+                val nombre = hijos.firstOrNull { it.id == filtroHijoId }?.nombre ?: ""
+                Text(
+                    "Filtrando: $nombre",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
 
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1125,6 +1141,11 @@ fun DialogoGasto(
     var autocompensado by remember { mutableStateOf(gasto?.autocompensado ?: false) }
     var expandirCategorias by remember { mutableStateOf(false) }
     var reciboFotoUri by remember { mutableStateOf(gasto?.reciboFotoUri ?: "") }
+    var frecuenciaDias by remember { mutableIntStateOf(gasto?.frecuenciaDias ?: 0) }
+    var categoriasDb by remember { mutableStateOf(listOf<CategoriaGasto>()) }
+    LaunchedEffect(Unit) {
+        categoriasDb = AppDatabase.getInstance(context).categoriaGastoDao().obtenerTodas()
+    }
 
     val reciboPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -1202,10 +1223,11 @@ fun DialogoGasto(
                             text = { Text("Sin categoría") },
                             onClick = { categoria = ""; expandirCategorias = false }
                         )
-                        CATEGORIAS_GASTO.forEach { cat ->
+                        val listaCats = if (categoriasDb.isEmpty()) CATEGORIAS_GASTO.map { CategoriaGasto(it, "", 0) } else categoriasDb
+                        listaCats.forEach { cat ->
                             DropdownMenuItem(
-                                text = { Text(cat) },
-                                onClick = { categoria = cat; expandirCategorias = false }
+                                text = { Text("${cat.emoji.ifBlank { "" }} ${cat.nombre}".trim()) },
+                                onClick = { categoria = cat.nombre; expandirCategorias = false }
                             )
                         }
                     }
@@ -1228,6 +1250,20 @@ fun DialogoGasto(
                         Text("Autocompensado", fontWeight = FontWeight.Medium)
                         Text("No entra a la deuda de compensación",
                             style = MaterialTheme.typography.bodySmall, color = NeutralVariant50)
+                    }
+                }
+
+                Text("¿Se repite?", style = MaterialTheme.typography.labelMedium)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    listOf(0 to "No", 7 to "Semanal", 30 to "Mensual", 365 to "Anual").forEach { (dias, label) ->
+                        FilterChip(
+                            selected = frecuenciaDias == dias,
+                            onClick = { frecuenciaDias = dias },
+                            label = { Text(label, style = MaterialTheme.typography.bodySmall) }
+                        )
                     }
                 }
 
@@ -1273,7 +1309,9 @@ fun DialogoGasto(
                     nombresHijos = "",
                     categoria = categoria,
                     autocompensado = autocompensado,
-                    reciboFotoUri = reciboFotoUri
+                    reciboFotoUri = reciboFotoUri,
+                    frecuenciaDias = frecuenciaDias,
+                    origenGastoRecurrente = gasto?.origenGastoRecurrente ?: ""
                 ))
             }, enabled = !congelado && desc.isNotBlank() && monto.toDoubleOrNull() != null) {
                 Text(if (congelado) "Bloqueado" else "Guardar")

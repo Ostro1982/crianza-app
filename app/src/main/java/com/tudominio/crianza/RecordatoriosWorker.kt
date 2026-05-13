@@ -90,6 +90,37 @@ class RecordatoriosWorker(
             }
         }
 
+        // ── Generar gastos recurrentes ───────────────────────────────────
+        // Para cada gasto con frecuenciaDias > 0, si pasó N días desde fecha del
+        // último gasto con su mismo origen (o sí mismo si origen = ""), creo uno nuevo.
+        val sdfDia = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val todosGastos = db.gastoDao().obtenerTodosLosGastos()
+        val plantillas = todosGastos.filter { it.frecuenciaDias > 0 && it.origenGastoRecurrente.isBlank() }
+        val ahoraMsR = System.currentTimeMillis()
+        plantillas.forEach { plantilla ->
+            val ultimaInstancia = todosGastos
+                .filter { it.id == plantilla.id || it.origenGastoRecurrente == plantilla.id }
+                .maxByOrNull { it.fechaCompleta } ?: plantilla
+            val periodMs = plantilla.frecuenciaDias * 24L * 60L * 60L * 1000L
+            val diff = ahoraMsR - ultimaInstancia.fechaCompleta
+            if (diff >= periodMs) {
+                val nuevaFecha = sdfDia.format(java.util.Date(ultimaInstancia.fechaCompleta + periodMs))
+                val nuevo = plantilla.copy(
+                    id = java.util.UUID.randomUUID().toString(),
+                    fecha = nuevaFecha,
+                    fechaCompleta = ultimaInstancia.fechaCompleta + periodMs,
+                    origenGastoRecurrente = plantilla.id,
+                    frecuenciaDias = 0  // las instancias no son plantillas
+                )
+                db.gastoDao().insertarGasto(nuevo)
+                NotificacionHelper.notificar(
+                    applicationContext,
+                    "💸 Gasto recurrente creado",
+                    "${plantilla.descripcion} · ${Moneda.formatear(plantilla.monto, MonedaConfig.actual)}"
+                )
+            }
+        }
+
         // ── Reactivar pendientes recurrentes vencidos ───────────────────────
         val ahoraMs = System.currentTimeMillis()
         db.pendienteDao().obtenerTodos()

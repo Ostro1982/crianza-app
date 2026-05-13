@@ -52,7 +52,10 @@ fun PantallaTiempo(
     var registroEditando by remember { mutableStateOf<RegistroTiempo?>(null) }
     var mostrarResumen by remember { mutableStateOf(false) }
 
-    val registrosOrdenados = remember(registros) { registros.sortedByDescending { it.fechaCompleta } }
+    val filtroHijoIdT = FiltroHijo.idActualState.value
+    val registrosFiltrados = if (filtroHijoIdT.isEmpty()) registros
+        else registros.filter { it.idHijo == filtroHijoIdT }
+    val registrosOrdenados = remember(registrosFiltrados) { registrosFiltrados.sortedByDescending { it.fechaCompleta } }
     val ultimos2 = registrosOrdenados.take(2)
 
     Box(Modifier.fillMaxSize().background(BgGrad0)) {
@@ -307,6 +310,9 @@ fun PantallaHistorialTiempo(
     onAtras: () -> Unit
 ) {
     var registroEditando by remember { mutableStateOf<RegistroTiempo?>(null) }
+    val filtroHijoIdH = FiltroHijo.idActualState.value
+    val registrosFiltrados = if (filtroHijoIdH.isEmpty()) registros
+        else registros.filter { it.idHijo == filtroHijoIdH }
 
     Box(Modifier.fillMaxSize().background(BgGrad0)) {
         Scaffold(
@@ -333,7 +339,7 @@ fun PantallaHistorialTiempo(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(registros.sortedByDescending { it.fechaCompleta }, key = { it.id }) { registro ->
+                    items(registrosFiltrados.sortedByDescending { it.fechaCompleta }, key = { it.id }) { registro ->
                         val historial = ediciones[registro.id] ?: emptyList()
                         SwipeParaBorrar(onEliminar = { onEliminarRegistro(registro.id) }) {
                             Column {

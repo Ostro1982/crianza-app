@@ -43,7 +43,8 @@ fun PantallaConfiguracion(
     onVerHistorialCambios: () -> Unit = {},
     onExportarPDFCustodia: () -> Unit = {},
     onExportarPDFGastos: () -> Unit = {},
-    onCustodyScheduler: () -> Unit = {}
+    onCustodyScheduler: () -> Unit = {},
+    onCategorias: () -> Unit = {}
 ) {
     var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
     var mostrarDialogoCambiarIdentidad by remember { mutableStateOf(false) }
@@ -173,7 +174,8 @@ fun PantallaConfiguracion(
                     onMonedaChange = { moneda = it },
                     frozenDiasTexto = frozenDiasTexto,
                     onFrozenChange = { frozenDiasTexto = it },
-                    configPrefs = configPrefs
+                    configPrefs = configPrefs,
+                    onCategorias = onCategorias
                 )
                 2 -> TabNotificaciones(
                     esConvivencia = esConvivencia,
@@ -378,7 +380,8 @@ private fun TabPreferencias(
     onMonedaChange: (String) -> Unit,
     frozenDiasTexto: String,
     onFrozenChange: (String) -> Unit,
-    configPrefs: android.content.SharedPreferences
+    configPrefs: android.content.SharedPreferences,
+    onCategorias: () -> Unit
 ) {
     SeccionTitulo("Moneda")
     Text(
@@ -438,6 +441,17 @@ private fun TabPreferencias(
         label = { Text("Días") },
         modifier = Modifier.fillMaxWidth()
     )
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Categorías de gasto")
+    Text(
+        "Agregá o sacá categorías propias (cuotas, vacaciones, regalos, lo que necesites).",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    OutlinedButton(onClick = onCategorias, modifier = Modifier.fillMaxWidth()) {
+        Text("Gestionar categorías")
+    }
 
     Spacer(Modifier.height(8.dp))
     SeccionTitulo("Calendario del sistema")

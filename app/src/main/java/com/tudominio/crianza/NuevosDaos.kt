@@ -66,6 +66,21 @@ interface CategoriaCompraDao {
 }
 
 @Dao
+interface CategoriaGastoDao {
+    @Query("SELECT * FROM categorias_gasto ORDER BY orden ASC, nombre ASC")
+    suspend fun obtenerTodas(): List<CategoriaGasto>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertar(cat: CategoriaGasto)
+
+    @Delete
+    suspend fun eliminar(cat: CategoriaGasto)
+
+    @Query("DELETE FROM categorias_gasto WHERE nombre = :nombre")
+    suspend fun eliminarPorNombre(nombre: String)
+}
+
+@Dao
 interface MensajeDao {
     @Query("SELECT * FROM mensajes ORDER BY fechaCompleta ASC")
     suspend fun obtenerTodos(): List<Mensaje>

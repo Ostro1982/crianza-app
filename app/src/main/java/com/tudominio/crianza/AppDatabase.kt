@@ -25,9 +25,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CategoriaCompra::class,
         Pendiente::class,
         RegistroEdicion::class,
-        CustodySchedule::class
+        CustodySchedule::class,
+        CategoriaGasto::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -47,6 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun pendienteDao(): PendienteDao
     abstract fun registroEdicionDao(): RegistroEdicionDao
     abstract fun custodyScheduleDao(): CustodyScheduleDao
+    abstract fun categoriaGastoDao(): CategoriaGastoDao
 
     companion object {
         @Volatile
@@ -120,6 +122,38 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // v21 → v22: categorías gasto editables + gastos recurrentes.
+        // Crea tabla categorias_gasto, popula con defaults (CATEGORIAS_GASTO).
+        // Agrega columnas frecuenciaDias y origenGastoRecurrente a gastos.
+        private val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS categorias_gasto (
+                        nombre TEXT NOT NULL PRIMARY KEY,
+                        emoji TEXT NOT NULL DEFAULT '',
+                        orden INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                val defaults = listOf(
+                    "Alimentación" to "🛒",
+                    "Salud" to "🏥",
+                    "Educación" to "📚",
+                    "Ropa" to "👕",
+                    "Transporte" to "🚗",
+                    "Entretenimiento" to "🎭",
+                    "Hogar" to "🏠",
+                    "Higiene" to "🧴",
+                    "Actividades" to "⚽",
+                    "Otro" to "📦"
+                )
+                defaults.forEachIndexed { idx, (n, e) ->
+                    db.execSQL("INSERT OR IGNORE INTO categorias_gasto (nombre, emoji, orden) VALUES (?, ?, ?)", arrayOf(n, e, idx))
+                }
+                db.execSQL("ALTER TABLE gastos ADD COLUMN frecuenciaDias INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE gastos ADD COLUMN origenGastoRecurrente TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         // v20 → v21: custody scheduler. Agrega tabla custody_schedules y marca de
         // origen en registros_tiempo para poder regenerar/borrar batch.
         private val MIGRATION_20_21 = object : Migration(20, 21) {
@@ -169,7 +203,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                         MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
-                        MIGRATION_20_21
+                        MIGRATION_20_21, MIGRATION_21_22
                     )
                     // Solo destruye en downgrade (improbable). Upgrade requiere migration explícita.
                     .fallbackToDestructiveMigrationOnDowngrade()

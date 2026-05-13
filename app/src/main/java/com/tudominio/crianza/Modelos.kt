@@ -112,7 +112,10 @@ data class Gasto(
     val fechaCompleta: Long = System.currentTimeMillis(),
     val categoria: String = "",
     val autocompensado: Boolean = false, // No entra a deuda de compensación
-    val reciboFotoUri: String = "" // Foto del recibo (opcional, evidencia legal)
+    val reciboFotoUri: String = "", // Foto del recibo (opcional, evidencia legal)
+    // Recurrencia: 0 = no recurrente, 7 = semanal, 30 = mensual, 365 = anual
+    val frecuenciaDias: Int = 0,
+    val origenGastoRecurrente: String = "" // ID del gasto plantilla. "" = manual.
 )
 
 val CATEGORIAS_GASTO = listOf(
@@ -176,6 +179,13 @@ data class ItemCompra(
 data class CategoriaCompra(
     @PrimaryKey val nombre: String,
     val subcategorias: String = "" // pipe-separated: "Leche|Pan|Huevos"
+)
+
+@Entity(tableName = "categorias_gasto")
+data class CategoriaGasto(
+    @PrimaryKey val nombre: String,
+    val emoji: String = "",
+    val orden: Int = 0
 )
 
 @Entity(tableName = "documentos")
