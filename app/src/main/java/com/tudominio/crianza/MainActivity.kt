@@ -1572,6 +1572,7 @@ fun PantallaPrincipal(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // ── Inbox (ancho completo) ────────────────────────────────────
+                if (DashWidgets.activo(DashWidgets.INBOX, context))
                 GlassCard(onClick = onMensajes, modifier = Modifier.onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("inbox" to c.boundsInWindow()) }) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1600,7 +1601,11 @@ fun PantallaPrincipal(
                 }
 
                 // ── Próximamente + Compras ────────────────────────────────────
+                val mostrarEventos = DashWidgets.activo(DashWidgets.EVENTOS, context)
+                val mostrarCompras = DashWidgets.activo(DashWidgets.COMPRAS, context)
+                if (mostrarEventos || mostrarCompras)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (mostrarEventos)
                     GlassCard(onClick = onCalendario, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("eventos" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("\uD83D\uDCC5", fontSize = 22.sp)
@@ -1637,6 +1642,7 @@ fun PantallaPrincipal(
                             }
                         }
                     }
+                    if (mostrarCompras)
                     GlassCard(onClick = onListaCompras, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("compras" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1671,7 +1677,11 @@ fun PantallaPrincipal(
                 }
 
                 // ── Pendientes + Compensación ─────────────────────────────────
+                val mostrarPend = DashWidgets.activo(DashWidgets.PENDIENTES, context)
+                val mostrarComp = DashWidgets.activo(DashWidgets.COMPENSACION, context)
+                if (mostrarPend || mostrarComp)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (mostrarPend)
                     GlassCard(onClick = onPendientes, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("tareas" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("\u2611", fontSize = 22.sp)
@@ -1710,6 +1720,7 @@ fun PantallaPrincipal(
                             }
                         }
                     }
+                    if (mostrarComp)
                     GlassCard(onClick = onCompensacion, modifier = Modifier.weight(1f).heightIn(min = 140.dp).onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("cuentas" to c.boundsInWindow()) }) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Text("\u2696", fontSize = 22.sp)
@@ -1757,6 +1768,7 @@ fun PantallaPrincipal(
                 }
 
                 // ── Finanzas Mes (ancho completo) ─────────────────────────────
+                if (DashWidgets.activo(DashWidgets.FINANZAS, context))
                 GlassCard(onClick = onGastos, modifier = Modifier.onGloballyPositioned { c -> coachmarkRects = coachmarkRects + ("finanzas" to c.boundsInWindow()) }) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,

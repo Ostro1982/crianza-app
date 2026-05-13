@@ -490,6 +490,29 @@ private fun TabPreferencias(
     )
 
     Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Tarjetas del inicio")
+    Text(
+        "Elegí qué módulos ver en la pantalla principal. Lo que no usás, ocultalo.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    val ctxDash = LocalContext.current
+    val refreshDash = remember { mutableStateOf(0) }
+    DashWidgets.TODOS.forEach { (id, label) ->
+        var act by remember(refreshDash.value, id) { mutableStateOf(DashWidgets.activo(id, ctxDash)) }
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, modifier = Modifier.weight(1f))
+            Switch(
+                checked = act,
+                onCheckedChange = {
+                    act = it
+                    DashWidgets.set(id, ctxDash, it)
+                }
+            )
+        }
+    }
+
+    Spacer(Modifier.height(8.dp))
     SeccionTitulo("Tema")
     val ctxTema = LocalContext.current
     var temaActual by remember { mutableStateOf(TemaPref.actual(ctxTema)) }
