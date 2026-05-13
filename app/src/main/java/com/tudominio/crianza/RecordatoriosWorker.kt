@@ -215,6 +215,20 @@ class RecordatoriosWorker(
             }
         }
 
+        // ── Aniversario ─────────────────────────────────────────────────
+        if (mmddHoy.isNotEmpty()) {
+            val aniv = configPrefs.getString("fecha_aniversario", "") ?: ""
+            if (aniv.length >= 10 && aniv.substring(5, 10) == mmddHoy) {
+                val key = "aniversario_$hoy"
+                if (key !in notificadosHoy) {
+                    val anios = edadEnAnios(aniv, hoy)
+                    val titulo = if (anios != null && anios > 0) "💞 $anios años de aniversario" else "💞 Aniversario"
+                    NotificacionHelper.notificar(applicationContext, titulo, "Acordate del día especial")
+                    notificadosHoy.add(key)
+                }
+            }
+        }
+
         // ── Compras sin comprar hace más de 3 días ──────────────────────────
         val tresDiasMs = 3 * 24 * 60 * 60 * 1000L
         val comprasViejas = db.itemCompraDao().obtenerCompartidos()

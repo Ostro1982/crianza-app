@@ -48,6 +48,12 @@ fun PantallaPendientes(
     var filtroTipo by remember { mutableStateOf("todos") }
 
     fun esRegalo(p: Pendiente) = p.titulo.startsWith("🎁")
+    fun precioRegalo(p: Pendiente): Double? {
+        val m = Regex("·\\s*\\$([0-9.,]+)\\s*$").find(p.titulo) ?: return null
+        return m.groupValues[1].replace(".", "").replace(",", ".").toDoubleOrNull()
+    }
+    fun tituloSinPrecio(p: Pendiente): String =
+        p.titulo.replace(Regex("\\s*·\\s*\\$[0-9.,]+\\s*$"), "").removePrefix("🎁").trim()
 
     val basePorTipo = when (filtroTipo) {
         "tareas" -> pendientes.filterNot { esRegalo(it) }
@@ -115,6 +121,31 @@ fun PantallaPendientes(
                         onClick = { filtroTipo = "regalos" },
                         label = { Text("🎁 Regalos") }
                     )
+                }
+                if (filtroTipo == "regalos" && filtrados.isNotEmpty()) {
+                    val totalGastado = filtrados.filter { it.completado }.sumOf { precioRegalo(it) ?: 0.0 }
+                    val totalPendiente = filtrados.filterNot { it.completado }.sumOf { precioRegalo(it) ?: 0.0 }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (totalGastado > 0) {
+                            Text(
+                                "Gastado: ${Moneda.formatear(totalGastado, MonedaConfig.actual)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Teal40,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (totalPendiente > 0) {
+                            Text(
+                                "Por comprar: ${Moneda.formatear(totalPendiente, MonedaConfig.actual)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Rose40,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
                 if (pendientes.isEmpty()) {
                     Box(
@@ -259,14 +290,32 @@ fun TarjetaPendiente(
             }
             Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    pendiente.titulo,
-                    fontWeight = FontWeight.Medium,
-                    color = Neutral10,
-                    textDecoration = if (pendiente.completado) TextDecoration.LineThrough else TextDecoration.None
-                )
+                val esR = pendiente.titulo.startsWith("🎁")
+                val precioMatch = Regex("·\\s*\\$([0-9.,]+)\\s*$").find(pendiente.titulo)
+                val precio = precioMatch?.groupValues?.get(1)?.replace(".", "")?.replace(",", ".")?.toDoubleOrNull()
+                val tituloLimpio = pendiente.titulo
+                    .replace(Regex("\\s*·\\s*\\$[0-9.,]+\\s*$"), "")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        tituloLimpio,
+                        fontWeight = FontWeight.Medium,
+                        color = Neutral10,
+                        textDecoration = if (pendiente.completado) TextDecoration.LineThrough else TextDecoration.None,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (precio != null) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            Moneda.formatear(precio, MonedaConfig.actual),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (pendiente.completado) Teal40 else Rose40,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
                 val detalles = listOfNotNull(
-                    pendiente.asignadoA.takeIf { it.isNotEmpty() },
+                    if (esR) (if (pendiente.completado) "Comprado ✓" else "Por comprar") else null,
+                    pendiente.asignadoA.takeIf { it.isNotEmpty() && !esR },
                     pendiente.fechaLimite.takeIf { it.isNotEmpty() }?.let {
                         try {
                             val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)
@@ -301,11 +350,21 @@ fun DialogoPendiente(
 ) {
     val tituloOriginal = pendiente?.titulo ?: ""
     val regaloInicial = tituloOriginal.startsWith("🎁") || (pendiente == null && tipoInicial == "regalo")
-    var titulo by remember { mutableStateOf(tituloOriginal.removePrefix("🎁").trim()) }
+    val precioInicial = run {
+        val m = Regex("·\\s*\\$([0-9.,]+)\\s*$").find(tituloOriginal)
+        m?.groupValues?.get(1)?.replace(".", "")?.replace(",", ".")?.toDoubleOrNull()
+    }
+    val tituloSinPrecioInicial = tituloOriginal
+        .replace(Regex("\\s*·\\s*\\$[0-9.,]+\\s*$"), "")
+        .removePrefix("🎁").trim()
+    var titulo by remember { mutableStateOf(tituloSinPrecioInicial) }
     var fechaLimite by remember { mutableStateOf(pendiente?.fechaLimite ?: "") }
     var asignadoA by remember { mutableStateOf(pendiente?.asignadoA ?: "") }
     var frecuenciaDias by remember { mutableIntStateOf(pendiente?.frecuenciaDias ?: 0) }
     var esRegalo by remember { mutableStateOf(regaloInicial) }
+    var precioTexto by remember { mutableStateOf(precioInicial?.let {
+        if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+    } ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -338,6 +397,16 @@ fun DialogoPendiente(
                         IconoVoz(onTexto = { titulo = it })
                     }
                 )
+                if (esRegalo) {
+                    OutlinedTextField(
+                        value = precioTexto,
+                        onValueChange = { precioTexto = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(10) },
+                        label = { Text("Precio (opcional)") },
+                        placeholder = { Text("0") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 CampoFecha(
                     value = fechaLimite,
                     label = "Fecha límite (opcional)",
@@ -383,7 +452,16 @@ fun DialogoPendiente(
         },
         confirmButton = {
             Button(
-                onClick = { onGuardar(titulo.trim(), fechaLimite.trim(), asignadoA, frecuenciaDias, esRegalo) },
+                onClick = {
+                    val precioVal = precioTexto.replace(",", ".").toDoubleOrNull()
+                    val tituloConPrecio = if (esRegalo && precioVal != null && precioVal > 0) {
+                        val fmt = if (precioVal == precioVal.toLong().toDouble())
+                            precioVal.toLong().toString()
+                        else precioVal.toString()
+                        "${titulo.trim()} · \$$fmt"
+                    } else titulo.trim()
+                    onGuardar(tituloConPrecio, fechaLimite.trim(), asignadoA, frecuenciaDias, esRegalo)
+                },
                 enabled = titulo.isNotBlank()
             ) { Text("Guardar") }
         },

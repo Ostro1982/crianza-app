@@ -200,6 +200,7 @@ fun NavegacionApp() {
     var categoriasCompra by remember { mutableStateOf(listOf<CategoriaCompra>()) }
     var edicionesRegistros by remember { mutableStateOf(mapOf<String, List<RegistroEdicion>>()) }
     var custodyScheduleActivo by remember { mutableStateOf<CustodySchedule?>(null) }
+    var fichaHijoSeleccionado by remember { mutableStateOf<Hijo?>(null) }
     var planificacionVersion by remember { mutableStateOf(0) }
     var dashboardVersion by remember { mutableStateOf(0) }
     var eventoEditando by remember { mutableStateOf<Evento?>(null) }
@@ -848,6 +849,11 @@ fun NavegacionApp() {
             onExportarPDFGastos = { pantallaActual = "pdf_gastos" },
             onCustodyScheduler = { pantallaActual = "custody_scheduler" },
             onCategorias = { pantallaActual = "categorias_gasto" },
+            hijos = hijos,
+            onFichaHijo = { h ->
+                fichaHijoSeleccionado = h
+                pantallaActual = "ficha_hijo"
+            },
             onReiniciarFamilia = {
                 scope.launch {
                     try { syncManager.limpiarFamiliaEnFirestore() } catch (_: Exception) {}
@@ -870,6 +876,9 @@ fun NavegacionApp() {
         )
         "tutorial" -> PantallaOnboarding(onTerminar = { pantallaActual = "configuracion" })
         "categorias_gasto" -> PantallaCategoriasGasto(onAtras = { pantallaActual = "configuracion" })
+        "ficha_hijo" -> fichaHijoSeleccionado?.let { h ->
+            PantallaFichaHijo(hijo = h, onAtras = { pantallaActual = "configuracion" })
+        } ?: run { pantallaActual = "configuracion" }
         "estadisticas" -> PantallaEstadisticas(
             onAtras = { pantallaActual = "configuracion" }
         )

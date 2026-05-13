@@ -44,7 +44,9 @@ fun PantallaConfiguracion(
     onExportarPDFCustodia: () -> Unit = {},
     onExportarPDFGastos: () -> Unit = {},
     onCustodyScheduler: () -> Unit = {},
-    onCategorias: () -> Unit = {}
+    onCategorias: () -> Unit = {},
+    hijos: List<Hijo> = emptyList(),
+    onFichaHijo: (Hijo) -> Unit = {}
 ) {
     var mostrarDialogoReiniciar by remember { mutableStateOf(false) }
     var mostrarDialogoCambiarIdentidad by remember { mutableStateOf(false) }
@@ -160,6 +162,8 @@ fun PantallaConfiguracion(
             when (tabActiva) {
                 0 -> TabFamilia(
                     esConvivencia = esConvivencia,
+                    hijos = hijos,
+                    onFichaHijo = onFichaHijo,
                     onCustodyScheduler = onCustodyScheduler,
                     onCambiarIdentidad = { mostrarDialogoCambiarIdentidad = true },
                     onReiniciar = { mostrarDialogoReiniciar = true },
@@ -249,6 +253,8 @@ fun PantallaConfiguracion(
 @Composable
 private fun TabFamilia(
     esConvivencia: Boolean,
+    hijos: List<Hijo>,
+    onFichaHijo: (Hijo) -> Unit,
     onCustodyScheduler: () -> Unit,
     onCambiarIdentidad: () -> Unit,
     onReiniciar: () -> Unit,
@@ -256,6 +262,9 @@ private fun TabFamilia(
     onCambiarModo: (String) -> Unit
 ) {
     var dialogoModo by remember { mutableStateOf(false) }
+    val ctxLocal = LocalContext.current
+    val prefsLocal = remember { ctxLocal.getSharedPreferences("crianza_prefs", android.content.Context.MODE_PRIVATE) }
+    var aniversario by remember { mutableStateOf(prefsLocal.getString("fecha_aniversario", "") ?: "") }
 
     SeccionTitulo("Modo de la familia")
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -287,6 +296,44 @@ private fun TabFamilia(
             Text("Configurar plan de custodia")
         }
     }
+
+    if (hijos.isNotEmpty()) {
+        Spacer(Modifier.height(8.dp))
+        SeccionTitulo("Ficha de los hijos")
+        Text(
+            "Obra social, pediatra, alergias, vacunas, talles. Lo que sirve cuando vos no estás.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        hijos.forEach { hijo ->
+            OutlinedButton(
+                onClick = { onFichaHijo(hijo) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Ficha de ${hijo.nombre}")
+            }
+        }
+    }
+
+    Spacer(Modifier.height(8.dp))
+    SeccionTitulo("Aniversario")
+    Text(
+        if (esConvivencia)
+            "Te avisamos el día de su aniversario."
+        else
+            "Día especial entre vos y la otra persona (cumpleaños de pareja anterior, fecha que les importa).",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    CampoFecha(
+        value = aniversario,
+        label = "Fecha (opcional)",
+        onValueChange = {
+            aniversario = it
+            prefsLocal.edit().putString("fecha_aniversario", it).apply()
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 
     Spacer(Modifier.height(8.dp))
     SeccionTitulo("Identidad y vínculo")

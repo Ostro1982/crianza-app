@@ -26,9 +26,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Pendiente::class,
         RegistroEdicion::class,
         CustodySchedule::class,
-        CategoriaGasto::class
+        CategoriaGasto::class,
+        FichaHijo::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -49,6 +50,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun registroEdicionDao(): RegistroEdicionDao
     abstract fun custodyScheduleDao(): CustodyScheduleDao
     abstract fun categoriaGastoDao(): CategoriaGastoDao
+    abstract fun fichaHijoDao(): FichaHijoDao
 
     companion object {
         @Volatile
@@ -119,6 +121,28 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // Foto recibo gasto (Tier 2 #7)
                 db.execSQL("ALTER TABLE gastos ADD COLUMN reciboFotoUri TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // v22 → v23: ficha por hijo (obra social, pediatra, talles, alergias, etc).
+        private val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS ficha_hijo (
+                        idHijo TEXT NOT NULL PRIMARY KEY,
+                        obraSocial TEXT NOT NULL DEFAULT '',
+                        numAfiliado TEXT NOT NULL DEFAULT '',
+                        pediatra TEXT NOT NULL DEFAULT '',
+                        telefonoPediatra TEXT NOT NULL DEFAULT '',
+                        grupoSanguineo TEXT NOT NULL DEFAULT '',
+                        alergias TEXT NOT NULL DEFAULT '',
+                        medicacion TEXT NOT NULL DEFAULT '',
+                        talleRopa TEXT NOT NULL DEFAULT '',
+                        talleZapato TEXT NOT NULL DEFAULT '',
+                        proximaVacuna TEXT NOT NULL DEFAULT '',
+                        notas TEXT NOT NULL DEFAULT ''
+                    )
+                """.trimIndent())
             }
         }
 
@@ -203,7 +227,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
                         MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
-                        MIGRATION_20_21, MIGRATION_21_22
+                        MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23
                     )
                     // Solo destruye en downgrade (improbable). Upgrade requiere migration explícita.
                     .fallbackToDestructiveMigrationOnDowngrade()

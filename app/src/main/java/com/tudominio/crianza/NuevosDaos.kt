@@ -66,6 +66,18 @@ interface CategoriaCompraDao {
 }
 
 @Dao
+interface FichaHijoDao {
+    @Query("SELECT * FROM ficha_hijo WHERE idHijo = :idHijo LIMIT 1")
+    suspend fun obtenerPorHijo(idHijo: String): FichaHijo?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun guardar(ficha: FichaHijo)
+
+    @Query("DELETE FROM ficha_hijo WHERE idHijo = :idHijo")
+    suspend fun eliminar(idHijo: String)
+}
+
+@Dao
 interface CategoriaGastoDao {
     @Query("SELECT * FROM categorias_gasto ORDER BY orden ASC, nombre ASC")
     suspend fun obtenerTodas(): List<CategoriaGasto>

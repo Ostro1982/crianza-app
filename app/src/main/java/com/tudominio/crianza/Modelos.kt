@@ -188,6 +188,22 @@ data class CategoriaGasto(
     val orden: Int = 0
 )
 
+@Entity(tableName = "ficha_hijo")
+data class FichaHijo(
+    @PrimaryKey val idHijo: String,
+    val obraSocial: String = "",
+    val numAfiliado: String = "",
+    val pediatra: String = "",
+    val telefonoPediatra: String = "",
+    val grupoSanguineo: String = "",
+    val alergias: String = "",          // separadas por coma
+    val medicacion: String = "",        // separadas por coma
+    val talleRopa: String = "",
+    val talleZapato: String = "",
+    val proximaVacuna: String = "",     // YYYY-MM-DD
+    val notas: String = ""
+)
+
 @Entity(tableName = "documentos")
 data class Documento(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
