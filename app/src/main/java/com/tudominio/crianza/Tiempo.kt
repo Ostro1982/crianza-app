@@ -13,7 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
@@ -66,7 +66,7 @@ fun PantallaTiempo(
                 title = { Text("Registro de tiempo", color = Neutral10) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                     }
                 },
                 actions = {
@@ -322,7 +322,7 @@ fun PantallaHistorialTiempo(
                     title = { Text("Historial de tiempo", color = Neutral10) },
                     navigationIcon = {
                         IconButton(onClick = onAtras) {
-                            Icon(Icons.Default.ArrowBack, null, tint = NeutralVariant30)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = NeutralVariant30)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)

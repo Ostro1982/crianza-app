@@ -8,10 +8,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Tune
@@ -73,7 +73,7 @@ fun PantallaConfiguracion(
         "Notif" to Icons.Filled.Notifications,
         "Reportes" to Icons.Filled.Description,
         "Seguridad" to Icons.Filled.Security,
-        "Ayuda" to Icons.Filled.HelpOutline
+        "Ayuda" to Icons.AutoMirrored.Filled.HelpOutline
     )
 
     if (mostrarDialogoReiniciar) {
@@ -104,7 +104,7 @@ fun PantallaConfiguracion(
                     title = { Text("Configuración", color = Neutral10) },
                     navigationIcon = {
                         IconButton(onClick = onAtras) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás", tint = NeutralVariant30)
                         }
                     },
                     actions = {

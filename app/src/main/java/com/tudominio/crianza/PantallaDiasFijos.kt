@@ -13,7 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Warning
@@ -220,7 +220,7 @@ fun PantallaDiasFijos(
             topBar = {
                 TopAppBar(
                     title = { Text("Planificación semanal", color = Neutral10) },
-                    navigationIcon = { IconButton(onClick = onAtras) { Icon(Icons.Default.ArrowBack, null, tint = NeutralVariant30) } },
+                    navigationIcon = { IconButton(onClick = onAtras) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = NeutralVariant30) } },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
             }

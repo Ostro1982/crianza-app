@@ -38,7 +38,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -1477,7 +1477,7 @@ fun PantallaPrincipal(
                             DropdownMenuItem(
                                 text = { Text("Editar familia") },
                                 onClick = { showUserMenu = false; onEditarFamilia() },
-                                leadingIcon = { Icon(Icons.Default.MenuBook, null) }
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.MenuBook, null) }
                             )
                             if (FamilyIdManager.estaVinculado(context)) {
                                 DropdownMenuItem(

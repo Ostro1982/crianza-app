@@ -17,7 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.QrCode
@@ -391,7 +391,7 @@ fun PantallaCuentaVincular(
                 title = { Text("Mi cuenta", color = Neutral10, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onAtras) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Atras", tint = NeutralVariant30)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atras", tint = NeutralVariant30)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
