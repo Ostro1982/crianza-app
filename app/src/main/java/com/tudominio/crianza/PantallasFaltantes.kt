@@ -1377,7 +1377,19 @@ fun PantallaRecuerdos(
     ) { paddingValues ->
         if (recuerdos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text("No hay recuerdos aún. ¡Agrega el primero!", color = NeutralVariant30)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("📸", style = MaterialTheme.typography.displayLarge, color = NeutralVariant50)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Sin recuerdos todavía", color = NeutralVariant30, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Anécdotas, fotos, frases graciosas. Después tu hijo lo va a leer y se va a reír.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NeutralVariant50,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+                }
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp)) {

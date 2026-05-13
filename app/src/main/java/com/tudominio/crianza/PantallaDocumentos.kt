@@ -96,7 +96,19 @@ fun PantallaDocumentos(
 
             if (documentos.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No hay documentos. Agregá contraseñas, datos importantes, fotos, etc.", color = Neutral10)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("📄", style = MaterialTheme.typography.displayLarge, color = NeutralVariant50)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Sin documentos guardados", color = NeutralVariant30, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Acá guardás contraseñas wifi, datos OSDE, claves del médico, fotos del DNI. Todo encriptado.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NeutralVariant50,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        )
+                    }
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {

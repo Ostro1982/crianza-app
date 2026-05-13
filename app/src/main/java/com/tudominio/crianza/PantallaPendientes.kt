@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class
+)
 
 package com.tudominio.crianza
 
@@ -171,6 +174,7 @@ fun PantallaPendientes(
                         modifier = Modifier.animateContentSize()
                     ) {
                         items(noCompletados, key = { it.id }) { pendiente ->
+                            Box(Modifier.animateItemPlacement()) {
                             SwipeParaBorrar(onEliminar = { onEliminar(pendiente) }) {
                                 TarjetaPendiente(
                                     pendiente = pendiente,
@@ -184,6 +188,7 @@ fun PantallaPendientes(
                                     onEditar = { pendienteEditando = pendiente },
                                     onEliminar = { onEliminar(pendiente) }
                                 )
+                            }
                             }
                         }
 
@@ -203,6 +208,7 @@ fun PantallaPendientes(
 
                             if (mostrarCompletados) {
                                 items(completados, key = { it.id }) { pendiente ->
+                                    Box(Modifier.animateItemPlacement()) {
                                     SwipeParaBorrar(onEliminar = { onEliminar(pendiente) }) {
                                         TarjetaPendiente(
                                             pendiente = pendiente,
@@ -216,6 +222,7 @@ fun PantallaPendientes(
                                             onEditar = { pendienteEditando = pendiente },
                                             onEliminar = { onEliminar(pendiente) }
                                         )
+                                    }
                                     }
                                 }
                             }

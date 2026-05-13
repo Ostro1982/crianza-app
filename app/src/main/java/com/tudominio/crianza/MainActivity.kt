@@ -118,6 +118,17 @@ class MainActivity : FragmentActivity() {
         // Iniciar worker de recordatorios (eventos del día, pendientes vencidos)
         RecordatoriosWorker.iniciar(this)
 
+        // Crashlytics: contexto rico para reportes (familyId + modo + tema + versión)
+        try {
+            val crash = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+            val familyId = FamilyIdManager.obtenerFamilyId(this)
+            if (familyId.isNotBlank()) crash.setUserId(familyId)
+            crash.setCustomKey("modo_familia", ModoFamilia.actual(this))
+            crash.setCustomKey("tema", com.tudominio.crianza.ui.theme.TemaPref.actual(this))
+            crash.setCustomKey("version_code", BuildConfig.VERSION_CODE)
+            crash.log("App started v${BuildConfig.VERSION_NAME}")
+        } catch (_: Exception) { /* Crashlytics no debe romper onCreate */ }
+
         // Worker resumen semanal (domingo 20hs)
         ResumenSemanalWorker.iniciar(this)
 
